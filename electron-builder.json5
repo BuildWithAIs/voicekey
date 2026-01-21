@@ -1,0 +1,55 @@
+// @see - https://www.electron.build/configuration/configuration
+{
+  $schema: 'https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json',
+  appId: 'com.buildwithais.voice-key',
+  asar: true,
+  productName: 'Voice Key',
+  directories: {
+    output: 'release/${version}',
+    buildResources: 'build',
+  },
+  files: ['dist', 'dist-electron', 'package.json'],
+  asarUnpack: [
+    '**/*.node',
+    '**/node_modules/uiohook-napi/**',
+    '**/node_modules/@nut-tree-fork/**',
+    '**/node_modules/@ffmpeg-installer/ffmpeg/**',
+    '**/node_modules/fluent-ffmpeg/**',
+  ],
+  extraMetadata: {
+    main: 'dist-electron/main.mjs', // 更新入口
+  },
+  mac: {
+    target: ['dmg', 'zip'],
+    artifactName: '${productName}-Mac-${version}-Installer.${ext}',
+    extendInfo: {
+      NSMicrophoneUsageDescription: 'Voice Key 需要访问麦克风以进行语音转文字录制。',
+      NSAccessibilityUsageDescription: 'Voice Key 需要辅助功能权限以将转录后的文字自动输入到当前窗口。',
+    },
+    hardenedRuntime: true,
+    gatekeeperAssess: false,
+    icon: 'build/icons/mac/icon.icns',
+  },
+  win: {
+    target: [
+      {
+        target: 'nsis',
+        arch: ['x64'],
+      },
+    ],
+    artifactName: '${productName}-Windows-${version}-Setup.${ext}',
+    icon: 'build/icons/win/icon.ico',
+  },
+  nsis: {
+    oneClick: false,
+    perMachine: false,
+    allowToChangeInstallationDirectory: true,
+    deleteAppDataOnUninstall: false,
+  },
+  linux: {
+    target: ['AppImage'],
+    artifactName: '${productName}-Linux-${version}.${ext}',
+    icon: 'build/icons/png',
+  },
+  npmRebuild: true,
+}
