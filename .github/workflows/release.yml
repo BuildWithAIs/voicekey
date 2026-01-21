@@ -1,0 +1,118 @@
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-mac:
+    runs-on: macos-latest
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build macOS app (unsigned)
+        run: |
+          npm run build -- \
+            --mac \
+            -c.mac.identity=null \
+            -c.mac.hardenedRuntime=false \
+            --publish never
+
+      - name: Upload macOS artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mac-artifacts
+          path: |
+            release/**/*.dmg
+            release/**/*.zip
+          if-no-files-found: error
+
+  build-win:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Windows app (unsigned)
+        run: npm run build -- --win --publish never
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: win-artifacts
+          path: release/**/*.exe
+          if-no-files-found: error
+
+  release:
+    needs: [build-mac, build-win]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download macOS artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: mac-artifacts
+          path: artifacts
+
+      - name: Download Windows artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: win-artifacts
+          path: artifacts
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          prerelease: false
+          files: artifacts/**
+          body: |
+            ## 🎉 新版本发布！
+
+            **注意：本项目暂无商业签名证书，安装时可能会提示安全警告。**
+
+            ### 🍎 macOS 用户
+            初次安装可能出现 “应用已损坏，无法打开” 或 “来自身份不明的开发者”。
+
+            请打开「终端」执行：
+
+            ```bash
+            xattr -cr /Applications/Voice\ Key.app
+            ```
+
+            ### 🪟 Windows 用户
+            如果出现 SmartScreen 提示：
+
+            1. 点击 “更多信息”
+            2. 点击 “仍要运行”
+
+            ---
+
+            ### 更新日志
+            <!-- 在这里填写本次更新的内容 -->
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

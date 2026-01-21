@@ -94,5 +94,6 @@
     ]
   },
   "main": "dist-electron/main.mjs",
-  "packageManager": "npm@10.1.0"
+  "packageManager": "npm@10.1.0",
+  "license": "Elastic-2.0"
 }

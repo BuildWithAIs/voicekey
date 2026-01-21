@@ -85,3 +85,7 @@ Optional:
 
 - Language preference (default: auto-detect)
 - Custom ASR endpoint
+
+## License
+
+This project is licensed under the [Elastic License 2.0](LICENSE).

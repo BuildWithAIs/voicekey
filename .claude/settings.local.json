@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nchore: remove dist-electron from git tracking\n\nRemove build output files from version control as they are\nalready ignored in .gitignore. These files will be generated\nduring the build process and should not be tracked.\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(pnpm add:*)"
+    ]
+  }
+}

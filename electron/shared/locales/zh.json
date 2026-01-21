@@ -1,0 +1,203 @@
+{
+  "app": {
+    "name": "Voice Key",
+    "version": "版本 {{version}} {{stage}}"
+  },
+  "nav": {
+    "home": "首页",
+    "settings": "设置",
+    "history": "历史记录"
+  },
+  "common": {
+    "loading": "加载中...",
+    "loadingHistory": "加载历史记录",
+    "allTime": "全部",
+    "range": "范围",
+    "unknownError": "未知错误"
+  },
+  "home": {
+    "title": "自然说话，完美成文",
+    "subtitle": "按住 <kbd>{{hotkey}}</kbd> 说话，松开即可插入文本。",
+    "stats": {
+      "totalCharacters": "识别字符总数",
+      "totalAudio": "录音总时长",
+      "recentChange": "{{range}} +{{value}}"
+    },
+    "range": {
+      "option_one": "最近 1 天",
+      "option_other": "最近 {{count}} 天",
+      "label_one": "最近 1 天",
+      "label_other": "最近 {{count}} 天",
+      "title_one": "最近 1 天",
+      "title_other": "最近 {{count}} 天"
+    },
+    "chart": {
+      "title": "识别量趋势",
+      "description": "所选时间范围内的识别字符数",
+      "ariaLabel": "识别量趋势"
+    },
+    "summary": {
+      "avgPerDay": "日均",
+      "peakDay": "峰值日",
+      "peakDayValue": "{{date}} - {{value}}",
+      "noActivity": "暂无记录"
+    },
+    "change": {
+      "notEnough": "数据不足",
+      "noActivity": "暂无记录",
+      "newActivity": "新活动",
+      "vsPrior": "较上期 {{value}}"
+    }
+  },
+  "settings": {
+    "title": "设置",
+    "appPreferences": "应用偏好",
+    "appLanguage": "界面语言",
+    "systemLanguage": "跟随系统",
+    "autoLaunch": "开机自动启动",
+    "autoLaunchHelp": "系统登录时自动启动 Voice Key",
+    "asrConfig": "GLM ASR 配置",
+    "durationWarning": "注意：单次语音输入时长请勿超过 30 秒。",
+    "region": "服务区域",
+    "regionChina": "中国",
+    "regionIntl": "国际版",
+    "apiKey": "API Key",
+    "apiKeyPlaceholder": "输入你的 GLM API Key",
+    "apiKeyHelp": "从这里获取 API Key",
+    "apiEndpoint": "API Endpoint（可选）",
+    "apiEndpointPlaceholder": "https://open.bigmodel.cn/api/paas/v4/audio/transcriptions",
+    "asrLanguage": "识别语言",
+    "languagePlaceholder": "选择语言",
+    "languageChinese": "中文",
+    "languageEnglish": "英文",
+    "languageAuto": "自动检测",
+    "testConnection": "测试连接",
+    "testingConnection": "测试中...",
+    "saveConfig": "保存设置",
+    "savingConfig": "保存中...",
+    "result": {
+      "saveSuccess": "设置已保存",
+      "saveError": "保存失败：{{message}}",
+      "apiKeyRequired": "请先输入 API Key",
+      "connectionSuccess": "连接成功！",
+      "connectionFailed": "连接失败，请检查 API Key。",
+      "testFailed": "测试失败：{{message}}"
+    }
+  },
+  "hotkey": {
+    "title": "快捷键设置",
+    "description": "配置全局快捷键以控制录音和打开设置",
+    "pttLabel": "录音快捷键（Push-to-Talk）",
+    "preset": "预设",
+    "custom": "自定义",
+    "select": "选择快捷键",
+    "pttHint": "长按录音，松开停止并发送",
+    "settingsLabel": "打开设置窗口",
+    "settingsHint": "按下此快捷键打开或关闭设置窗口",
+    "reset": "重置默认",
+    "cancel": "取消",
+    "save": "保存更改",
+    "saving": "保存中...",
+    "loading": "加载配置中...",
+    "recording": "录制中...",
+    "record": "录制",
+    "notSet": "未设置",
+    "recordingHint": "按下快捷键...",
+    "validation": {
+      "missing": "请设置快捷键",
+      "conflict": "该快捷键被系统占用",
+      "multiple": "快捷键只能包含一个主键"
+    },
+    "toast": {
+      "loadFailed": "加载配置失败",
+      "invalid": "快捷键无效",
+      "conflict": "快捷键冲突",
+      "duplicate": "快捷键重复",
+      "duplicateDesc": "两个快捷键不能相同",
+      "fix": "请修正快捷键配置",
+      "updated": "快捷键已更新",
+      "updatedDesc": "新快捷键立即生效",
+      "saveFailed": "保存失败",
+      "reset": "已重置为默认值",
+      "resetDesc": "点击保存以应用更改"
+    },
+    "presets": {
+      "command": "⌘ Command（推荐）",
+      "control": "⌃ Control",
+      "option": "⌥ Option",
+      "shift": "⇧ Shift",
+      "commandSpace": "⌘ + Space",
+      "controlSpace": "Ctrl + Space",
+      "f13": "F13",
+      "f14": "F14"
+    }
+  },
+  "history": {
+    "title": "历史记录",
+    "loading": "加载中...",
+    "loadFailed": "加载历史记录失败",
+    "searchPlaceholder": "搜索历史记录...",
+    "sortPlaceholder": "排序",
+    "sortNewest": "最新在前",
+    "sortOldest": "最早在前",
+    "recordCount_one": "共 {{formattedCount}} 条转录记录",
+    "recordCount_other": "共 {{formattedCount}} 条转录记录",
+    "empty": "暂无转录记录",
+    "autoSaveLimit": "自动保存最近 {{formattedCount}} 条",
+    "emptyTitleNone": "暂无转录记录",
+    "emptyTitleNoMatch": "未找到匹配的记录",
+    "emptyDescNone": "当你使用语音输入时，内容会自动保存在这里。",
+    "emptyDescNoMatch": "尝试使用其他关键词搜索",
+    "copySuccess": "已复制到剪贴板",
+    "deleteSuccess": "已删除",
+    "deleteFailed": "删除失败",
+    "clearConfirm": "确定要清空所有历史记录吗？此操作不可撤销。",
+    "clearSuccess": "已清空所有记录",
+    "clearFailed": "清空失败",
+    "today": "今天",
+    "yesterday": "昨天",
+    "copyTitle": "复制文本",
+    "deleteTitle": "删除"
+  },
+  "hud": {
+    "finish": "完成",
+    "cancel": "取消",
+    "thinking": "处理中...",
+    "done": "完成",
+    "injected": "已注入",
+    "error": "错误",
+    "errorFallback": "发生错误"
+  },
+  "tray": {
+    "settings": "设置",
+    "quit": "退出",
+    "tooltip": "Voice Key"
+  },
+  "window": {
+    "settingsTitle": "Voice Key 设置"
+  },
+  "errors": {
+    "ffmpegInitFailed": "FFmpeg 初始化失败",
+    "internal": "内部错误",
+    "startFailed": "开始录音失败",
+    "stopFailed": "停止录音失败",
+    "generic": "错误"
+  },
+  "notification": {
+    "errorTitle": "错误",
+    "permissionTitle": "需要权限"
+  },
+  "time": {
+    "hours_one": "{{formattedCount}} 小时",
+    "hours_other": "{{formattedCount}} 小时",
+    "minutes_one": "{{formattedCount}} 分钟",
+    "minutes_other": "{{formattedCount}} 分钟",
+    "seconds_one": "{{formattedCount}} 秒",
+    "seconds_other": "{{formattedCount}} 秒",
+    "hoursMinutes": "{{hours}} {{minutes}}"
+  },
+  "units": {
+    "characters_one": "{{formattedCount}} 字",
+    "characters_other": "{{formattedCount}} 字"
+  }
+}

@@ -1,0 +1,8 @@
+# shellcheck disable=SC1091
+
+echo "Validating commit message format..."
+
+# 检查提交信息格式
+npx commitlint --edit "$1"
+
+echo "Commit message format is valid!"

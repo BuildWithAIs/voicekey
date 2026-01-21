@@ -1,0 +1,203 @@
+{
+  "app": {
+    "name": "Voice Key",
+    "version": "Version {{version}} {{stage}}"
+  },
+  "nav": {
+    "home": "Home",
+    "settings": "Settings",
+    "history": "History"
+  },
+  "common": {
+    "loading": "Loading...",
+    "loadingHistory": "Loading history",
+    "allTime": "All time",
+    "range": "Range",
+    "unknownError": "Unknown error"
+  },
+  "home": {
+    "title": "Speak naturally, write perfectly",
+    "subtitle": "Hold down <kbd>{{hotkey}}</kbd>, speak, and let go to insert spoken text.",
+    "stats": {
+      "totalCharacters": "Total characters recognized",
+      "totalAudio": "Total audio duration",
+      "recentChange": "+{{value}} in {{range}}"
+    },
+    "range": {
+      "option_one": "Last day",
+      "option_other": "Last {{count}} days",
+      "label_one": "the last day",
+      "label_other": "the last {{count}} days",
+      "title_one": "Last day",
+      "title_other": "Last {{count}} days"
+    },
+    "chart": {
+      "title": "Recognition volume",
+      "description": "Characters recognized in the selected range",
+      "ariaLabel": "Recognition volume trend"
+    },
+    "summary": {
+      "avgPerDay": "Avg per day",
+      "peakDay": "Peak day",
+      "peakDayValue": "{{date}} - {{value}}",
+      "noActivity": "No activity yet"
+    },
+    "change": {
+      "notEnough": "Not enough data",
+      "noActivity": "No activity yet",
+      "newActivity": "New activity",
+      "vsPrior": "{{value}} vs prior"
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "appPreferences": "App Preferences",
+    "appLanguage": "Interface language",
+    "systemLanguage": "System default",
+    "autoLaunch": "Launch on startup",
+    "autoLaunchHelp": "Automatically start Voice Key when you log in",
+    "asrConfig": "GLM ASR Configuration",
+    "durationWarning": "Note: Maximum duration for single voice input is 30 seconds.",
+    "region": "Service Region",
+    "regionChina": "China",
+    "regionIntl": "International",
+    "apiKey": "API Key",
+    "apiKeyPlaceholder": "Enter your GLM API Key",
+    "apiKeyHelp": "Get your API Key from",
+    "apiEndpoint": "API Endpoint (Optional)",
+    "apiEndpointPlaceholder": "https://open.bigmodel.cn/api/paas/v4/audio/transcriptions",
+    "asrLanguage": "Recognition language",
+    "languagePlaceholder": "Select language",
+    "languageChinese": "Chinese (中文)",
+    "languageEnglish": "English",
+    "languageAuto": "Auto Detect",
+    "testConnection": "Test Connection",
+    "testingConnection": "Testing...",
+    "saveConfig": "Save Settings",
+    "savingConfig": "Saving...",
+    "result": {
+      "saveSuccess": "Settings saved successfully!",
+      "saveError": "Failed to save: {{message}}",
+      "apiKeyRequired": "Please enter API Key first",
+      "connectionSuccess": "Connection successful!",
+      "connectionFailed": "Connection failed. Please check your API Key.",
+      "testFailed": "Test failed: {{message}}"
+    }
+  },
+  "hotkey": {
+    "title": "Hotkey Settings",
+    "description": "Configure global hotkeys to control recording and open settings",
+    "pttLabel": "Recording hotkey (Push-to-Talk)",
+    "preset": "Preset",
+    "custom": "Custom",
+    "select": "Select a hotkey",
+    "pttHint": "Hold to record, release to stop and send",
+    "settingsLabel": "Open settings window",
+    "settingsHint": "Press this hotkey to open or close the settings window",
+    "reset": "Reset to default",
+    "cancel": "Cancel",
+    "save": "Save changes",
+    "saving": "Saving...",
+    "loading": "Loading settings...",
+    "recording": "Recording...",
+    "record": "Record",
+    "notSet": "Not set",
+    "recordingHint": "Press a hotkey...",
+    "validation": {
+      "missing": "Please set a hotkey",
+      "conflict": "This hotkey is reserved by the system",
+      "multiple": "Hotkey can only include one primary key"
+    },
+    "toast": {
+      "loadFailed": "Failed to load settings",
+      "invalid": "Invalid hotkey",
+      "conflict": "Hotkey conflict",
+      "duplicate": "Hotkey duplicated",
+      "duplicateDesc": "The two hotkeys cannot be the same",
+      "fix": "Please fix the hotkey configuration",
+      "updated": "Hotkeys updated",
+      "updatedDesc": "New hotkeys take effect immediately",
+      "saveFailed": "Save failed",
+      "reset": "Reset to default",
+      "resetDesc": "Click save to apply changes"
+    },
+    "presets": {
+      "command": "⌘ Command (recommended)",
+      "control": "⌃ Control",
+      "option": "⌥ Option",
+      "shift": "⇧ Shift",
+      "commandSpace": "⌘ + Space",
+      "controlSpace": "Ctrl + Space",
+      "f13": "F13",
+      "f14": "F14"
+    }
+  },
+  "history": {
+    "title": "History",
+    "loading": "Loading...",
+    "loadFailed": "Failed to load history",
+    "searchPlaceholder": "Search history...",
+    "sortPlaceholder": "Sort",
+    "sortNewest": "Newest first",
+    "sortOldest": "Oldest first",
+    "recordCount_one": "{{formattedCount}} transcription",
+    "recordCount_other": "{{formattedCount}} transcriptions",
+    "empty": "No transcriptions yet",
+    "autoSaveLimit": "Auto saves the latest {{formattedCount}} records",
+    "emptyTitleNone": "No transcriptions yet",
+    "emptyTitleNoMatch": "No matching records",
+    "emptyDescNone": "When you use voice input, the content is saved here automatically.",
+    "emptyDescNoMatch": "Try searching with other keywords",
+    "copySuccess": "Copied to clipboard",
+    "deleteSuccess": "Deleted",
+    "deleteFailed": "Delete failed",
+    "clearConfirm": "Are you sure you want to clear all history? This action cannot be undone.",
+    "clearSuccess": "Cleared all records",
+    "clearFailed": "Clear failed",
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "copyTitle": "Copy text",
+    "deleteTitle": "Delete"
+  },
+  "hud": {
+    "finish": "Finish",
+    "cancel": "Cancel",
+    "thinking": "Thinking...",
+    "done": "Done",
+    "injected": "Injected",
+    "error": "Error",
+    "errorFallback": "Something went wrong"
+  },
+  "tray": {
+    "settings": "Settings",
+    "quit": "Quit",
+    "tooltip": "Voice Key"
+  },
+  "window": {
+    "settingsTitle": "Voice Key Settings"
+  },
+  "errors": {
+    "ffmpegInitFailed": "FFmpeg initialization failed",
+    "internal": "Internal error",
+    "startFailed": "Failed to start recording",
+    "stopFailed": "Failed to stop recording",
+    "generic": "Error"
+  },
+  "notification": {
+    "errorTitle": "Error",
+    "permissionTitle": "Permission required"
+  },
+  "time": {
+    "hours_one": "{{formattedCount}} hr",
+    "hours_other": "{{formattedCount}} hrs",
+    "minutes_one": "{{formattedCount}} min",
+    "minutes_other": "{{formattedCount}} mins",
+    "seconds_one": "{{formattedCount}} sec",
+    "seconds_other": "{{formattedCount}} secs",
+    "hoursMinutes": "{{hours}} {{minutes}}"
+  },
+  "units": {
+    "characters_one": "{{formattedCount}} char",
+    "characters_other": "{{formattedCount}} chars"
+  }
+}

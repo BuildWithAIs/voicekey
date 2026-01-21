@@ -1,0 +1,8 @@
+# shellcheck disable=SC1091
+
+echo "Running pre-commit hooks..."
+
+echo "Running lint-staged to check and fix code..."
+npx lint-staged
+
+echo "Pre-commit hooks completed successfully!"
