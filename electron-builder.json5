@@ -20,7 +20,7 @@
     main: 'dist-electron/main.mjs', // 更新入口
   },
   mac: {
-    target: ['dmg', 'zip'],
+    target: ['dmg'],
     artifactName: '${productName}-Mac-${version}-Installer.${ext}',
     extendInfo: {
       NSMicrophoneUsageDescription: 'Voice Key 需要访问麦克风以进行语音转文字录制。',
