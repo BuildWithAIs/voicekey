@@ -21,34 +21,29 @@ jobs:
         with:
           fetch-depth: 0 # Fetch all history for commit message validation
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9.14.2
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'pnpm'
+          cache: 'npm'
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: npm ci
 
       - name: Run TypeScript type check
-        run: pnpm type-check
+        run: npm run type-check
 
       - name: Run ESLint
-        run: pnpm lint
+        run: npm run lint
 
       - name: Run Prettier format check
-        run: pnpm format:check
+        run: npm run format:check
 
       - name: Validate commit messages (PR only)
         if: github.event_name == 'pull_request'
         run: |
           echo "Validating commit messages in PR..."
-          pnpm exec commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }} --verbose
+          npx commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }} --verbose
 
   build:
     name: Build Check
@@ -59,22 +54,17 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9.14.2
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'pnpm'
+          cache: 'npm'
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: npm ci
 
       - name: Build application
-        run: pnpm build
+        run: npm run build
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
