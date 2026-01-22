@@ -1,21 +1,95 @@
 name: Build & Release
 
 on:
-  push:
-    tags:
-      - 'v*'
+  workflow_dispatch:
+    inputs:
+      release_type:
+        description: 'Release type'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
 
 permissions:
   contents: write
 
 jobs:
+  # 1. 准备发布：生成版本号、Changelog、打 Tag
+  prepare-release:
+    runs-on: ubuntu-latest
+    # 只有手动触发时才运行此步骤
+    if: github.event_name == 'workflow_dispatch'
+    outputs:
+      new_tag: ${{ steps.get_tag.outputs.tag }}
+      changelog: ${{ steps.extract_changelog.outputs.notes }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Bump version and push
+        run: |
+          npm ci
+          # 运行 standard-version 更新版本和 Changelog
+          npx standard-version --release-as ${{ inputs.release_type }}
+          
+          # 推送 commits 和 tags 到 main
+          git push --follow-tags origin HEAD:main
+
+      - name: Get new tag
+        id: get_tag
+        run: |
+          # 获取最新的 tag
+          TAG=$(git describe --tags --abbrev=0)
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "Generated new tag: $TAG"
+
+      - name: Extract Changelog
+        id: extract_changelog
+        run: |
+          # 提取最新版本的 Changelog 内容
+          CHANGELOG_CONTENT=$(node .github/scripts/extract-changelog.js)
+          
+          # 处理多行文本输出到 GITHUB_OUTPUT
+          echo "notes<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGELOG_CONTENT" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+  # 2. 构建 macOS
   build-mac:
-    runs-on: macos-latest
+    needs: [prepare-release]
+    strategy:
+      matrix:
+        include:
+          - os: macos-13
+            arch: x64
+            args: --x64
+          - os: macos-14
+            arch: arm64
+            args: --arm64
+    runs-on: ${{ matrix.os }}
     env:
       CSC_IDENTITY_AUTO_DISCOVERY: 'false'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare-release.outputs.new_tag }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -29,7 +103,7 @@ jobs:
       - name: Build macOS app (unsigned)
         run: |
           npm run build -- \
-            --mac \
+            --mac ${{ matrix.args }} \
             -c.mac.identity=null \
             -c.mac.hardenedRuntime=false \
             --publish never
@@ -37,15 +111,19 @@ jobs:
       - name: Upload macOS artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: mac-artifacts
+          name: mac-artifacts-${{ matrix.arch }}
           path: release/**/*.dmg
           if-no-files-found: error
 
+  # 3. 构建 Windows
   build-win:
+    needs: [prepare-release]
     runs-on: windows-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare-release.outputs.new_tag }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -66,14 +144,16 @@ jobs:
           path: release/**/*.exe
           if-no-files-found: error
 
+  # 4. 发布 Release
   release:
-    needs: [build-mac, build-win]
+    needs: [prepare-release, build-mac, build-win]
     runs-on: ubuntu-latest
     steps:
       - name: Download macOS artifacts
         uses: actions/download-artifact@v4
         with:
-          name: mac-artifacts
+          pattern: mac-artifacts-*
+          merge-multiple: true
           path: artifacts
 
       - name: Download Windows artifacts
@@ -85,6 +165,7 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ needs.prepare-release.outputs.new_tag }}
           draft: true
           prerelease: false
           files: artifacts/**
@@ -111,6 +192,6 @@ jobs:
             ---
 
             ### 更新日志
-            <!-- 在这里填写本次更新的内容 -->
+            ${{ needs.prepare-release.outputs.changelog }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

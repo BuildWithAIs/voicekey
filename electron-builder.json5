@@ -21,7 +21,7 @@
   },
   mac: {
     target: ['dmg'],
-    artifactName: '${productName}-Mac-${version}-Installer.${ext}',
+    artifactName: '${productName}-Mac-${version}-${arch}.${ext}',
     extendInfo: {
       NSMicrophoneUsageDescription: 'Voice Key 需要访问麦克风以进行语音转文字录制。',
       NSAccessibilityUsageDescription: 'Voice Key 需要辅助功能权限以将转录后的文字自动输入到当前窗口。',
