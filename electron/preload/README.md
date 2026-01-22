@@ -43,6 +43,9 @@ IPC 通信桥接脚本，运行在渲染进程上下文但可访问部分 Node.j
 **系统信息**
 
 - `platform` - 当前操作系统平台（darwin/win32/linux）
+- `checkForUpdates()` - 请求 GitHub Releases 最新版本信息
+- `getUpdateStatus()` - 获取启动时自动检查的缓存结果（如果有）
+- `openExternal(url)` - 打开外部链接（用于发布页）
 
 #### 安全机制
 

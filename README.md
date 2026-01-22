@@ -1,91 +1,38 @@
+[English](./README_EN.md)
+
 # Voice Key
 
-Desktop voice-to-text transcription app with global hotkey support and automatic text injection.
+Voice Key 是一款开源的的桌面端语音输入产品。
 
-## Features
+## 主要功能
 
-- **Push-to-Talk**: Hold Space (or custom key) to record voice
-- **Voice Transcription**: GLM ASR integration for speech-to-text
-- **Auto Injection**: Simulates keyboard input to inject text into any application
-- **Global Hotkeys**: Works system-wide using low-level keyboard hooks
-- **Settings UI**: Configure API keys, language, and recording options
+- **语音转写**: 集成 GLM ASR (智谱AI) 实现高精度的语音转文字。
 
-## Tech Stack
+## 配置要求
 
-**Core**
+本应用依赖 **智谱 AI (GLM)** 的语音转写服务。使用前请务必配置 API Key。
 
-- Electron 30 + Vite + React 18 + TypeScript
-- shadcn/ui (Radix primitives) + Tailwind CSS
+1. **获取 API Key**: 访问智谱 AI 开放平台[中国版](https://bigmodel.cn/usercenter/proj-mgmt/apikeys) 或者 [国际版](https://z.ai/manage-apikey/apikey-list) 注册并获取 Key。
+2. **配置**: 打开 Voice Key 设置页面，填入你的 API Key。
 
-**Audio & Input**
+## macOS 安装指南
 
-- `uiohook-napi`: Global keyboard hooks for PTT
-- `@nut-tree-fork/nut-js`: Cross-platform text injection
-- `fluent-ffmpeg`: Audio format conversion (WAV → MP3)
+由于应用未签名（我们还没有注册 Apple 开发者账户），安装后需执行以下步骤：
 
-**Data & Config**
+1. **解除安全限制**  
+   若打开应用提示“文件已损坏”，请在终端运行以下命令：
 
-- `electron-store`: Persistent configuration
-- `zustand`: Client-side state management
+   ```bash
+   xattr -cr /Applications/Voice\ Key.app
+   ```
 
-## Development
+   ![安全提示](imgs/macos-damaged-warning.png)
 
-```bash
-npm run dev           # Start dev server with hot reload
-npm run build         # Build production app
-npm run quality       # Run all checks (lint + format + type-check)
-```
+2. **授予辅助功能权限**  
+   应用需要监听按键与模拟输入。请前往 **系统设置 > 隐私与安全性 > 辅助功能** 开启 **Voice Key**。
+   ![权限请求](imgs/macos-accessibility-prompt.png)
+   ![权限设置](imgs/macos-accessibility-settings.png)
 
-## Release Workflow
+## 开源协议
 
-Tagging a version (e.g. `v0.1.0`) triggers GitHub Actions to build unsigned macOS and Windows
-installers and draft a release with the artifacts attached. The workflow lives in
-`.github/workflows/release.yml`.
-
-## Project Structure
-
-```
-.
-├── electron/
-│   ├── main/           # Main process (Node.js)
-│   │   ├── main.ts              # App lifecycle & IPC handlers
-│   │   ├── hotkey-manager.ts    # Global hotkey registration
-│   │   ├── iohook-manager.ts    # Low-level keyboard hooks (PTT)
-│   │   ├── asr-provider.ts      # ASR service integration
-│   │   ├── text-injector.ts     # Keyboard simulation
-│   │   └── config-manager.ts    # Settings persistence
-│   ├── preload/        # IPC bridge
-│   └── shared/         # Types & constants
-└── src/
-    ├── components/     # React components
-    ├── pages/          # Routes (Home, Settings, History)
-    └── layouts/        # App shell
-```
-
-## Implementation Status
-
-| Module         | Status | Notes                             |
-| -------------- | ------ | --------------------------------- |
-| Hotkey Manager | ✅     | Global hooks via `uiohook-napi`   |
-| Audio Recorder | ✅     | Web Audio API + FFmpeg conversion |
-| ASR Provider   | 🟡     | GLM only (multi-provider planned) |
-| Text Injector  | ✅     | Cross-platform via `nut-js`       |
-| Settings UI    | ✅     | React + electron-store            |
-| HUD Overlay    | ❌     | Uses system notifications         |
-
-## Configuration
-
-Settings are stored in `~/.config/voice-key/config.json` (or OS-specific path).
-
-Required:
-
-- GLM API Key ([get one here](https://open.bigmodel.cn/))
-
-Optional:
-
-- Language preference (default: auto-detect)
-- Custom ASR endpoint
-
-## License
-
-This project is licensed under the [Elastic License 2.0](LICENSE).
+本项目采用 [Elastic License 2.0](LICENSE) 开源协议。
