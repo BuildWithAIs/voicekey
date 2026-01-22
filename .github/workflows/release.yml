@@ -112,7 +112,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: mac-artifacts-${{ matrix.arch }}
-          path: release/*.dmg
+          path: release/**/Voice*-Mac-*.dmg
           if-no-files-found: error
 
   # 3. 构建 Windows
@@ -141,7 +141,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: win-artifacts
-          path: release/*Setup.exe
+          path: release/**/Voice*-Windows-*-Setup.exe
           if-no-files-found: error
 
   # 4. 发布 Release
@@ -169,8 +169,8 @@ jobs:
           draft: false
           prerelease: false
           files: |
-            artifacts/*.dmg
-            artifacts/*Setup.exe
+            artifacts/Voice*-Mac-*.dmg
+            artifacts/Voice*-Windows-*-Setup.exe
           body: |
             ## 🎉 新版本发布！
 
