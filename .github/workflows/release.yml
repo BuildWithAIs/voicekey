@@ -169,8 +169,8 @@ jobs:
           draft: false
           prerelease: false
           files: |
-            artifacts/Voice*-Mac-*.dmg
-            artifacts/Voice*-Windows-*-Setup.exe
+            artifacts/**/Voice*-Mac-*.dmg
+            artifacts/**/Voice*-Windows-*-Setup.exe
           body: |
             ## 🎉 新版本发布！
 
