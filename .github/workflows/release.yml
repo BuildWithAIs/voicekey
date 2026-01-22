@@ -47,7 +47,7 @@ jobs:
           npm ci
           # 运行 standard-version 更新版本和 Changelog
           npx standard-version --release-as ${{ inputs.release_type }}
-          
+
           # 推送 commits 和 tags 到 main
           git push --follow-tags origin HEAD:main
 
@@ -64,7 +64,7 @@ jobs:
         run: |
           # 提取最新版本的 Changelog 内容
           CHANGELOG_CONTENT=$(node .github/scripts/extract-changelog.js)
-          
+
           # 处理多行文本输出到 GITHUB_OUTPUT
           echo "notes<<EOF" >> $GITHUB_OUTPUT
           echo "$CHANGELOG_CONTENT" >> $GITHUB_OUTPUT
