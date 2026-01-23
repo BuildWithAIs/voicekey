@@ -32,6 +32,11 @@ export interface HotkeyConfig {
   toggleSettings: string
 }
 
+export interface AIConfig {
+  enabled: boolean
+  model: string
+}
+
 export interface AppPreferences {
   language: LanguageSetting
   autoLaunch?: boolean
@@ -41,6 +46,7 @@ export interface AppConfig {
   app: AppPreferences
   asr: ASRConfig
   hotkey: HotkeyConfig
+  ai: AIConfig
 }
 
 export interface HistoryItem {
@@ -97,7 +103,7 @@ export const IPC_CHANNELS = {
   OPEN_EXTERNAL: 'app:open-external',
 } as const
 
-export type OverlayStatus = 'recording' | 'processing' | 'success' | 'error'
+export type OverlayStatus = 'recording' | 'processing' | 'thinking' | 'success' | 'error'
 
 export interface OverlayState {
   status: OverlayStatus

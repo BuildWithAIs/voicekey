@@ -1,12 +1,13 @@
 import Store from 'electron-store'
-import { AppConfig, AppPreferences, ASRConfig, HotkeyConfig } from '../shared/types'
-import { DEFAULT_HOTKEYS } from '../shared/constants'
+import { AIConfig, AppConfig, AppPreferences, ASRConfig, HotkeyConfig } from '../shared/types'
+import { DEFAULT_HOTKEYS, GLM_LLM } from '../shared/constants'
 
 // 配置Schema
 interface ConfigSchema {
   app: AppPreferences
   asr: ASRConfig
   hotkey: HotkeyConfig
+  ai: AIConfig
 }
 
 // 默认配置
@@ -29,6 +30,10 @@ const defaultConfig: AppConfig = {
   hotkey: {
     pttKey: DEFAULT_HOTKEYS.PTT,
     toggleSettings: DEFAULT_HOTKEYS.SETTINGS,
+  },
+  ai: {
+    enabled: false,
+    model: GLM_LLM.MODEL,
   },
 }
 
@@ -65,6 +70,7 @@ export class ConfigManager {
       app: this.getAppConfig(),
       asr: this.getASRConfig(),
       hotkey: this.getHotkeyConfig(),
+      ai: this.getAIConfig(),
     }
   }
 
@@ -108,6 +114,17 @@ export class ConfigManager {
   setHotkeyConfig(config: Partial<HotkeyConfig>): void {
     const current = this.getHotkeyConfig()
     this.store.set('hotkey', { ...current, ...config })
+  }
+
+  // 获取 AI 配置
+  getAIConfig(): AIConfig {
+    return this.store.get('ai', defaultConfig.ai)
+  }
+
+  // 设置 AI 配置
+  setAIConfig(config: Partial<AIConfig>): void {
+    const current = this.getAIConfig()
+    this.store.set('ai', { ...current, ...config })
   }
 
   // 重置为默认配置

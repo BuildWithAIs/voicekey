@@ -9,6 +9,9 @@ export function HUD() {
   const [message, setMessage] = useState<string>('')
   const [audioLevel, setAudioLevel] = useState(0)
   const [isVisible, setIsVisible] = useState(false)
+  const isProcessing = status === 'processing'
+  const isThinking = status === 'thinking'
+  const isBusy = isProcessing || isThinking
 
   // 模拟波形数据 (结合真实的 audioLevel)
   const [waveform, setWaveform] = useState<number[]>([])
@@ -90,7 +93,7 @@ export function HUD() {
           className={`
             w-8 h-8 rounded-full flex items-center justify-center shrink-0 shadow-lg relative overflow-hidden transition-all duration-500
             ${status === 'recording' ? 'bg-gradient-to-br from-red-500 to-orange-600 text-white shadow-red-500/20' : ''}
-            ${status === 'processing' ? 'bg-neutral-800 border border-neutral-700' : ''}
+            ${isBusy ? 'bg-neutral-800 border border-neutral-700' : ''}
             ${status === 'success' ? 'bg-emerald-500 text-white shadow-emerald-500/20' : ''}
             ${status === 'error' ? 'bg-red-900/50 text-red-500 border border-red-500/30' : ''}
         `}
@@ -101,7 +104,7 @@ export function HUD() {
               <Mic className="w-3.5 h-3.5 relative z-10" />
             </>
           )}
-          {status === 'processing' && (
+          {isBusy && (
             <div className="relative w-full h-full flex items-center justify-center">
               <div className="absolute inset-0 border-2 border-t-indigo-500 border-r-transparent border-b-indigo-900 border-l-transparent rounded-full animate-spin"></div>
               <Zap className="w-3.5 h-3.5 text-indigo-400" fill="currentColor" />
@@ -150,11 +153,11 @@ export function HUD() {
             </div>
           )}
 
-          {/* 2. Processing State */}
-          {status === 'processing' && (
+          {/* 2. Processing / Thinking State */}
+          {isBusy && (
             <div className="flex flex-col px-1">
               <span className="text-sm font-medium text-white animate-pulse">
-                {t('hud.thinking')}
+                {isThinking ? t('hud.thinking') : t('hud.processing')}
               </span>
             </div>
           )}

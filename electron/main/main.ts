@@ -19,6 +19,7 @@ import { historyManager } from './history-manager'
 import { hotkeyManager } from './hotkey-manager'
 import { initMainI18n, setMainLanguage, t } from './i18n'
 import { ioHookManager } from './iohook-manager'
+import { LLMProvider } from './llm-provider'
 import { textInjector } from './text-injector'
 import { UpdaterManager } from './updater-manager'
 import { IPC_CHANNELS, OverlayState, VoiceSession } from '../shared/types'
@@ -74,6 +75,7 @@ let overlayWindow: BrowserWindow | null = null
 let tray: Tray | null = null
 // const audioRecorder = new AudioRecorder()
 let asrProvider: ASRProvider | null = null
+let llmProvider: LLMProvider | null = null
 let currentSession: VoiceSession | null = null
 
 // 创建主窗口（隐藏的后台窗口）
@@ -292,6 +294,13 @@ function createTray() {
 function initializeASRProvider() {
   const config = configManager.getASRConfig()
   asrProvider = new ASRProvider(config)
+}
+
+// 初始化 LLM Provider
+function initializeLLMProvider() {
+  const asrConfig = configManager.getASRConfig()
+  const aiConfig = configManager.getAIConfig()
+  llmProvider = new LLMProvider(asrConfig, aiConfig)
 }
 
 /**
@@ -646,22 +655,73 @@ async function handleAudioData(buffer: Buffer) {
     )
     console.log('[Main] Transcription text:', transcription.text)
 
-    currentSession.transcription = transcription.text
+    const rawText = transcription.text
+    let finalText = rawText
+    let llmDuration = 0
+    let overlayResult: OverlayState = { status: 'success' }
+
+    const aiConfig = configManager.getAIConfig()
+    if (aiConfig.enabled) {
+      updateOverlay({ status: 'thinking' })
+
+      if (!llmProvider) {
+        const initStartTime = Date.now()
+        console.log(`[Main] [${new Date().toISOString()}] Initializing LLM provider...`)
+        initializeLLMProvider()
+        if (!llmProvider) throw new Error('LLM Provider initialization failed')
+        const initDuration = Date.now() - initStartTime
+        console.log(`[Main] ⏱️  LLM initialization took ${initDuration}ms`)
+      }
+
+      const llmStartTime = Date.now()
+      let receivedFirstToken = false
+      let streamedText = ''
+      console.log(`[Main] [${new Date().toISOString()}] Sending text to LLM service...`)
+      try {
+        const activeLLMProvider = llmProvider
+        if (!activeLLMProvider) {
+          throw new Error('LLM Provider not available')
+        }
+        const llmText = await activeLLMProvider.processText(rawText, {
+          onToken: (token: string) => {
+            if (!receivedFirstToken) {
+              receivedFirstToken = true
+            }
+            streamedText += token
+          },
+        })
+        llmDuration = Date.now() - llmStartTime
+        console.log(`[Main] ⏱️  LLM processing took ${llmDuration}ms`)
+        finalText = llmText
+      } catch (error) {
+        llmDuration = Date.now() - llmStartTime
+        console.error(`[Main] LLM processing failed after ${llmDuration}ms:`, error)
+        if (!receivedFirstToken) {
+          overlayResult = { status: 'error', message: t('hud.aiUnavailable') }
+          finalText = rawText
+        } else {
+          overlayResult = { status: 'error', message: t('hud.aiInterrupted') }
+          finalText = streamedText
+        }
+      }
+    }
+
+    currentSession.transcription = finalText
     currentSession.status = 'completed'
 
     historyManager.add({
-      text: transcription.text,
+      text: finalText,
       duration: currentSession.duration,
     })
 
     const injectStartTime = Date.now()
     console.log(`[Main] [${new Date().toISOString()}] Injecting text...`)
-    await textInjector.injectText(transcription.text)
+    await textInjector.injectText(finalText)
     const injectDuration = Date.now() - injectStartTime
     console.log(`[Main] ⏱️  Text injection took ${injectDuration}ms`)
 
-    updateOverlay({ status: 'success' })
-    setTimeout(() => hideOverlay(), 800)
+    updateOverlay(overlayResult)
+    setTimeout(() => hideOverlay(), overlayResult.status === 'success' ? 800 : 2000)
 
     const cleanupStartTime = Date.now()
     if (fs.existsSync(tempWebmPath)) fs.unlinkSync(tempWebmPath)
@@ -683,6 +743,11 @@ async function handleAudioData(buffer: Buffer) {
     console.log(
       `[Main] ⏱️    - ASR transcription: ${asrDuration}ms (${((asrDuration / overallDuration) * 100).toFixed(1)}%)`,
     )
+    if (aiConfig.enabled) {
+      console.log(
+        `[Main] ⏱️    - LLM processing: ${llmDuration}ms (${((llmDuration / overallDuration) * 100).toFixed(1)}%)`,
+      )
+    }
     console.log(
       `[Main] ⏱️    - Text injection: ${injectDuration}ms (${((injectDuration / overallDuration) * 100).toFixed(1)}%)`,
     )
@@ -730,6 +795,7 @@ function setupIPCHandlers() {
   })
 
   ipcMain.handle(IPC_CHANNELS.CONFIG_SET, async (_event, config) => {
+    let refreshLLMProvider = false
     if (config.app) {
       configManager.setAppConfig(config.app)
       if (typeof config.app.autoLaunch === 'boolean') {
@@ -741,6 +807,11 @@ function setupIPCHandlers() {
     if (config.asr) {
       configManager.setASRConfig(config.asr)
       initializeASRProvider()
+      refreshLLMProvider = true
+    }
+    if (config.ai) {
+      configManager.setAIConfig(config.ai)
+      refreshLLMProvider = true
     }
     if (config.hotkey) {
       configManager.setHotkeyConfig(config.hotkey)
@@ -750,6 +821,15 @@ function setupIPCHandlers() {
       ioHookManager.removeAllListeners('keyup')
       registerGlobalHotkeys()
       console.log('[Main] Hotkeys re-registered with new config:', config.hotkey)
+    }
+
+    if (refreshLLMProvider) {
+      const aiConfig = configManager.getAIConfig()
+      if (llmProvider) {
+        llmProvider.updateConfig(configManager.getASRConfig(), aiConfig)
+      } else if (aiConfig.enabled) {
+        initializeLLMProvider()
+      }
     }
   })
 

@@ -1,10 +1,11 @@
 ﻿import { useEffect, useRef, useState } from 'react'
-import { CheckCircle2, XCircle, AlertTriangle } from 'lucide-react'
+import { CheckCircle2, XCircle, AlertTriangle, Lightbulb, Timer, Info } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { resolveLanguage, type LanguageSetting } from '@electron/shared/i18n'
+import { GLM_LLM } from '@electron/shared/constants'
 import type { AppConfig, UpdateInfo } from '@electron/shared/types'
 import { HotkeySettings } from '@/components/HotkeySettings'
-import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -37,6 +38,10 @@ export default function SettingsPage() {
     hotkey: {
       pttKey: '',
       toggleSettings: '',
+    },
+    ai: {
+      enabled: false,
+      model: GLM_LLM.MODEL,
     },
   })
 
@@ -96,6 +101,7 @@ export default function SettingsPage() {
         ...latestConfig,
         app: config.app,
         asr: config.asr,
+        ai: config.ai,
       })
 
       setTestResult({ type: 'success', message: t('settings.result.saveSuccess') })
@@ -353,28 +359,93 @@ export default function SettingsPage() {
                 {currentRegion === 'intl' ? 'z.ai' : 'bigmodel.cn'}
               </a>
             </p>
+
+            <Alert>
+              <Info className="h-4 w-4" />
+              <AlertTitle>{t('settings.pricingNoticeTitle')}</AlertTitle>
+              <AlertDescription>
+                <div className="space-y-2">
+                  <p>{t('settings.pricingNoticeBody')}</p>
+                  <Button asChild variant="outline" size="sm" className="no-drag cursor-pointer">
+                    <a
+                      href={
+                        currentRegion === 'intl'
+                          ? 'https://docs.z.ai/guides/overview/pricing'
+                          : 'https://bigmodel.cn/pricing'
+                      }
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      {t('settings.pricingLink')}
+                    </a>
+                  </Button>
+                </div>
+              </AlertDescription>
+            </Alert>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="endpoint">{t('settings.apiEndpoint')}</Label>
-            <Input
-              id="endpoint"
-              type="text"
-              value={
-                config.asr.endpoint ||
-                (currentRegion === 'intl'
-                  ? 'https://api.z.ai/api/paas/v4/audio/transcriptions'
-                  : 'https://open.bigmodel.cn/api/paas/v4/audio/transcriptions')
-              }
-              readOnly
-              disabled
-              className="no-drag bg-muted text-muted-foreground"
-            />
-            <div className="flex items-center space-x-2 mt-2">
-              <AlertTriangle className="h-4 w-4 text-yellow-500" />
-              <p className="text-sm text-muted-foreground">{t('settings.durationWarning')}</p>
-            </div>
+          <div className="flex items-center space-x-2">
+            <AlertTriangle className="h-4 w-4 text-yellow-500" />
+            <p className="text-sm text-muted-foreground">{t('settings.durationWarning')}</p>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>{t('settings.aiAssistant')}</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between space-x-2">
+            <div className="space-y-0.5">
+              <Label htmlFor="aiEnabled">{t('settings.aiAssistantToggle')}</Label>
+              <p className="text-sm text-muted-foreground">{t('settings.aiAssistantHelp')}</p>
+            </div>
+            <Switch
+              id="aiEnabled"
+              checked={config.ai.enabled}
+              onCheckedChange={(checked) =>
+                setConfig({
+                  ...config,
+                  ai: { ...config.ai, enabled: checked },
+                })
+              }
+              className="no-drag cursor-pointer"
+            />
+          </div>
+
+          <Alert>
+            <Lightbulb className="h-4 w-4" />
+            <AlertTitle>{t('settings.aiAssistantTipTitle')}</AlertTitle>
+            <AlertDescription className="space-y-2">
+              <div className="space-y-2 text-sm">
+                <p>
+                  <span className="font-semibold text-foreground">
+                    {t('settings.aiAssistantRule1Title')}
+                  </span>{' '}
+                  {t('settings.aiAssistantRule1Body')}
+                </p>
+                <p>
+                  <span className="font-semibold text-foreground">
+                    {t('settings.aiAssistantRule2Title')}
+                  </span>{' '}
+                  {t('settings.aiAssistantRule2Body')}
+                </p>
+                <p className="text-muted-foreground">
+                  <span className="font-semibold text-foreground">
+                    {t('settings.aiAssistantRule3Title')}
+                  </span>{' '}
+                  {t('settings.aiAssistantRule3Body')}
+                </p>
+              </div>
+            </AlertDescription>
+          </Alert>
+
+          <Alert>
+            <Timer className="h-4 w-4" />
+            <AlertTitle>{t('settings.aiAssistantPerfTitle')}</AlertTitle>
+            <AlertDescription>{t('settings.aiAssistantPerfBody')}</AlertDescription>
+          </Alert>
         </CardContent>
       </Card>
 
