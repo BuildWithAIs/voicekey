@@ -44,16 +44,8 @@ export function HUD() {
   }, [audioLevel])
 
   const handleCancel = () => {
-    if (status === 'recording') {
-      window.electronAPI.stopSession()
-    }
+    window.electronAPI.cancelSession()
   }
-
-  // const handleConfirm = () => {
-  //   if (status === 'recording') {
-  //     window.electronAPI.stopSession()
-  //   }
-  // }
 
   return (
     <div className="fixed inset-0 flex items-center justify-center pointer-events-none">

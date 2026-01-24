@@ -722,6 +722,24 @@ function showNotification(title: string, body: string) {
   }
 }
 
+async function handleCancelSession() {
+  // 1. 立即隐藏窗口
+  hideOverlay()
+
+  // 2. 标记当前会话为已取消
+  if (currentSession) {
+    currentSession = null // 或保留引用但标记失效
+  }
+
+  // 3. 通知后台窗口停止录音 (如果正在录音)
+  if (backgroundWindow) {
+    backgroundWindow.webContents.send(IPC_CHANNELS.SESSION_STOP)
+  }
+
+  // 4. (关键) 在 handleAudioData 中添加检查
+  // 如果收到音频数据时 currentSession 为 null 或 status 为 aborted，则直接丢弃，不执行 ASR 和 注入。
+}
+
 // IPC处理器
 function setupIPCHandlers() {
   // 配置相关
@@ -823,6 +841,8 @@ function setupIPCHandlers() {
   ipcMain.handle(IPC_CHANNELS.OPEN_EXTERNAL, (_event, url) => {
     UpdaterManager.openReleasePage(url)
   })
+
+  ipcMain.handle(IPC_CHANNELS.CANCEL_SESSION, handleCancelSession)
 }
 
 // 应用程序生命周期
