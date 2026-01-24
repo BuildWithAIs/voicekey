@@ -45,7 +45,7 @@
     "change": {
       "notEnough": "数据不足",
       "noActivity": "暂无记录",
-      "newActivity": "新活动",
+      "newActivity": "新增活动",
       "vsPrior": "较上期 {{value}}"
     }
   },
@@ -68,7 +68,7 @@
     "durationWarning": "注意：单次语音输入时长请勿超过 30 秒。",
     "region": "服务区域",
     "regionChina": "中国",
-    "regionIntl": "国际版",
+    "regionIntl": "国际",
     "apiKey": "API Key",
     "apiKeyPlaceholder": "输入你的 GLM API Key",
     "apiKeyHelp": "从这里获取 API Key",
@@ -84,13 +84,15 @@
     "saveConfig": "保存设置",
     "savingConfig": "保存中...",
     "result": {
-      "saveSuccess": "设置已保存",
+      "saveSuccess": "设置已保存！",
       "saveError": "保存失败：{{message}}",
       "apiKeyRequired": "请先输入 API Key",
       "connectionSuccess": "连接成功！",
       "connectionFailed": "连接失败，请检查 API Key。",
-      "testFailed": "测试失败：{{message}}"
-    }
+      "testFailed": "测试失败：{{message}}",
+      "hotkeyInvalid": "请先修复快捷键设置后再保存。"
+    },
+    "saveNotice": "修改后需要点击“保存设置”才会生效（语言切换会立即生效）。"
   },
   "hotkey": {
     "title": "快捷键设置",
@@ -99,14 +101,14 @@
     "preset": "预设",
     "custom": "自定义",
     "select": "选择快捷键",
-    "pttHint": "长按录音，松开停止并发送",
+    "pttHint": "按住录音，松开停止并发送",
     "settingsLabel": "打开设置窗口",
     "settingsHint": "按下此快捷键打开或关闭设置窗口",
-    "reset": "重置默认",
+    "reset": "重置为默认",
     "cancel": "取消",
-    "save": "保存更改",
+    "save": "保存修改",
     "saving": "保存中...",
-    "loading": "加载配置中...",
+    "loading": "加载设置中...",
     "recording": "录制中...",
     "record": "录制",
     "notSet": "未设置",
@@ -117,16 +119,16 @@
       "multiple": "快捷键只能包含一个主键"
     },
     "toast": {
-      "loadFailed": "加载配置失败",
+      "loadFailed": "加载设置失败",
       "invalid": "快捷键无效",
       "conflict": "快捷键冲突",
       "duplicate": "快捷键重复",
       "duplicateDesc": "两个快捷键不能相同",
       "fix": "请修正快捷键配置",
       "updated": "快捷键已更新",
-      "updatedDesc": "新快捷键立即生效",
+      "updatedDesc": "新快捷键将立即生效",
       "saveFailed": "保存失败",
-      "reset": "已重置为默认值",
+      "reset": "已重置为默认",
       "resetDesc": "点击保存以应用更改"
     },
     "presets": {
@@ -153,7 +155,7 @@
     "empty": "暂无转录记录",
     "autoSaveLimit": "自动保存最近 {{formattedCount}} 条",
     "emptyTitleNone": "暂无转录记录",
-    "emptyTitleNoMatch": "未找到匹配的记录",
+    "emptyTitleNoMatch": "未找到匹配记录",
     "emptyDescNone": "当你使用语音输入时，内容会自动保存在这里。",
     "emptyDescNoMatch": "尝试使用其他关键词搜索",
     "copySuccess": "已复制到剪贴板",

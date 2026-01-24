@@ -1,8 +1,7 @@
-﻿import { useEffect, useState } from 'react'
-import { Keyboard, RotateCcw, Save } from 'lucide-react'
+import { useState } from 'react'
+import { Keyboard, RotateCcw } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { HotkeyRecorder } from './HotkeyRecorder'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -19,10 +18,18 @@ import {
   type HotkeyValidationMessage,
   validateHotkey,
 } from '@/lib/hotkey-utils'
+import { HotkeyRecorder } from './HotkeyRecorder'
 
 interface HotkeyConfig {
   pttKey: string
   toggleSettings: string
+}
+
+interface HotkeySettingsProps {
+  value: HotkeyConfig
+  originalValue: HotkeyConfig | null
+  isLoading?: boolean
+  onChange: (value: HotkeyConfig) => void
 }
 
 // 渲染进程默认值，与 electron/shared/constants.ts 保持一致  后面配置到 constants.ts
@@ -34,44 +41,26 @@ const getDefaultHotkeys = (): HotkeyConfig => {
   }
 }
 
-export function HotkeySettings() {
+export function HotkeySettings({
+  value: config,
+  originalValue,
+  isLoading = false,
+  onChange,
+}: HotkeySettingsProps) {
   const { t } = useTranslation()
-  const [config, setConfig] = useState<HotkeyConfig>({
-    pttKey: '',
-    toggleSettings: '',
-  })
-  const [originalConfig, setOriginalConfig] = useState<HotkeyConfig | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [isSaving, setIsSaving] = useState(false)
   const [pttInputMode, setPttInputMode] = useState<'preset' | 'record'>('preset')
   const [errors, setErrors] = useState<Record<string, string>>({})
 
-  useEffect(() => {
-    const loadConfig = async () => {
-      try {
-        const cfg = await window.electronAPI.getConfig()
-        setConfig(cfg.hotkey)
-        setOriginalConfig(cfg.hotkey)
-      } catch (error) {
-        console.error('Failed to load config:', error)
-        toast.error(t('hotkey.toast.loadFailed'))
-      } finally {
-        setIsLoading(false)
-      }
-    }
-    loadConfig()
-  }, [t])
-
   const isDirty =
-    originalConfig &&
-    (config.pttKey !== originalConfig.pttKey ||
-      config.toggleSettings !== originalConfig.toggleSettings)
+    !!originalValue &&
+    (config.pttKey !== originalValue.pttKey ||
+      config.toggleSettings !== originalValue.toggleSettings)
 
   const getValidationMessage = (messageKey?: HotkeyValidationMessage) =>
     messageKey ? t(`hotkey.validation.${messageKey}`) : t('hotkey.validation.missing')
 
-  const handleHotkeyChange = (key: 'pttKey' | 'toggleSettings', value: string) => {
-    const validation = validateHotkey(value)
+  const handleHotkeyChange = (key: 'pttKey' | 'toggleSettings', nextValue: string) => {
+    const validation = validateHotkey(nextValue)
 
     if (!validation.valid) {
       const message = getValidationMessage(validation.messageKey)
@@ -85,7 +74,7 @@ export function HotkeySettings() {
     }
 
     const otherKey = key === 'pttKey' ? 'toggleSettings' : 'pttKey'
-    if (value === config[otherKey]) {
+    if (nextValue === config[otherKey]) {
       const message = t('hotkey.toast.duplicateDesc')
       setErrors((prev) => ({ ...prev, [key]: message }))
       toast.error(t('hotkey.toast.duplicate'), { description: message })
@@ -93,36 +82,11 @@ export function HotkeySettings() {
     }
 
     setErrors((prev) => ({ ...prev, [key]: '' }))
-    setConfig((prev) => ({ ...prev, [key]: value }))
-  }
-
-  const handleSave = async () => {
-    const pttValidation = validateHotkey(config.pttKey)
-    const settingsValidation = validateHotkey(config.toggleSettings)
-
-    if (!pttValidation.valid || !settingsValidation.valid) {
-      toast.error(t('hotkey.toast.fix'))
-      return
-    }
-
-    setIsSaving(true)
-    try {
-      await window.electronAPI.setConfig({ hotkey: config })
-      setOriginalConfig(config)
-      toast.success(t('hotkey.toast.updated'), {
-        description: t('hotkey.toast.updatedDesc'),
-      })
-    } catch (error) {
-      toast.error(t('hotkey.toast.saveFailed'), {
-        description: error instanceof Error ? error.message : t('common.unknownError'),
-      })
-    } finally {
-      setIsSaving(false)
-    }
+    onChange({ ...config, [key]: nextValue })
   }
 
   const handleReset = () => {
-    setConfig(getDefaultHotkeys())
+    onChange(getDefaultHotkeys())
     setErrors({})
     toast.info(t('hotkey.toast.reset'), {
       description: t('hotkey.toast.resetDesc'),
@@ -130,8 +94,8 @@ export function HotkeySettings() {
   }
 
   const handleCancel = () => {
-    if (originalConfig) {
-      setConfig(originalConfig)
+    if (originalValue) {
+      onChange(originalValue)
       setErrors({})
     }
   }
@@ -168,7 +132,7 @@ export function HotkeySettings() {
             <label className="text-sm font-medium">{t('hotkey.pttLabel')}</label>
             <Tabs
               value={pttInputMode}
-              onValueChange={(v) => setPttInputMode(v as 'preset' | 'record')}
+              onValueChange={(value) => setPttInputMode(value as 'preset' | 'record')}
               className="w-auto"
             >
               <TabsList className="h-7">
@@ -234,17 +198,11 @@ export function HotkeySettings() {
             {t('hotkey.reset')}
           </Button>
 
-          <div className="flex gap-2">
-            {isDirty && (
-              <Button variant="ghost" size="sm" onClick={handleCancel}>
-                {t('hotkey.cancel')}
-              </Button>
-            )}
-            <Button onClick={handleSave} disabled={!isDirty || isSaving} size="sm">
-              <Save className="w-4 h-4 mr-2" />
-              {isSaving ? t('hotkey.saving') : t('hotkey.save')}
+          {isDirty && (
+            <Button variant="ghost" size="sm" onClick={handleCancel}>
+              {t('hotkey.cancel')}
             </Button>
-          </div>
+          )}
         </div>
       </CardContent>
     </Card>

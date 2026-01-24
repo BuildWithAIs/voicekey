@@ -89,8 +89,10 @@
       "apiKeyRequired": "Please enter API Key first",
       "connectionSuccess": "Connection successful!",
       "connectionFailed": "Connection failed. Please check your API Key.",
-      "testFailed": "Test failed: {{message}}"
-    }
+      "testFailed": "Test failed: {{message}}",
+      "hotkeyInvalid": "Please fix the hotkey settings before saving."
+    },
+    "saveNotice": "Changes take effect after you click Save Settings (language changes apply immediately)."
   },
   "hotkey": {
     "title": "Hotkey Settings",
