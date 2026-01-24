@@ -1,7 +1,8 @@
 ﻿import { useEffect, useRef, useState } from 'react'
-import { Check, CheckCheck, Mic, Sparkles, X, Zap } from 'lucide-react'
+import { Check, Mic, Sparkles, X, Zap } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { OverlayState, OverlayStatus } from '../../electron/shared/types'
+import { Waveform } from './Waveform' // ...
 
 export function HUD() {
   const { t } = useTranslation()
@@ -11,7 +12,7 @@ export function HUD() {
   const [isVisible, setIsVisible] = useState(false)
 
   // 模拟波形数据 (结合真实的 audioLevel)
-  const [waveform, setWaveform] = useState<number[]>([])
+  // const [waveform, setWaveform] = useState<number[]>([])
   const audioLevelRef = useRef(0)
 
   useEffect(() => {
@@ -42,32 +43,17 @@ export function HUD() {
     audioLevelRef.current = audioLevel
   }, [audioLevel])
 
-  useEffect(() => {
-    if (status === 'recording') {
-      const interval = setInterval(() => {
-        setWaveform(() => {
-          const currentLevel = audioLevelRef.current
-          const newData = Array.from({ length: 7 }, () =>
-            Math.max(0.2, (currentLevel * 1.5 + Math.random() * 0.5) * Math.random()),
-          )
-          return newData
-        })
-      }, 80)
-      return () => clearInterval(interval)
-    }
-  }, [status])
-
   const handleCancel = () => {
     if (status === 'recording') {
       window.electronAPI.stopSession()
     }
   }
 
-  const handleConfirm = () => {
-    if (status === 'recording') {
-      window.electronAPI.stopSession()
-    }
-  }
+  // const handleConfirm = () => {
+  //   if (status === 'recording') {
+  //     window.electronAPI.stopSession()
+  //   }
+  // }
 
   return (
     <div className="fixed inset-0 flex items-center justify-center pointer-events-none">
@@ -88,8 +74,8 @@ export function HUD() {
         {/* Status Orb / Icon - 左侧状态球 */}
         <div
           className={`
-            w-8 h-8 rounded-full flex items-center justify-center shrink-0 shadow-lg relative overflow-hidden transition-all duration-500
-            ${status === 'recording' ? 'bg-gradient-to-br from-red-500 to-orange-600 text-white shadow-red-500/20' : ''}
+            w-8 h-8 rounded-full  flex items-center justify-center shrink-0 shadow-lg relative overflow-hidden transition-all duration-500
+            ${status === 'recording' ? 'bg-linear-to-br from-red-500 to-orange-600 text-white shadow-red-500/20' : ''}
             ${status === 'processing' ? 'bg-neutral-800 border border-neutral-700' : ''}
             ${status === 'success' ? 'bg-emerald-500 text-white shadow-emerald-500/20' : ''}
             ${status === 'error' ? 'bg-red-900/50 text-red-500 border border-red-500/30' : ''}
@@ -114,66 +100,33 @@ export function HUD() {
         {/* Content Container - 右侧内容区 */}
         <div className="flex-1 flex flex-col justify-center min-h-[32px] overflow-hidden pr-2">
           {/* 1. Recording State */}
-          {status === 'recording' && (
-            <div className="flex items-center gap-3">
-              {/* Dynamic Waveform Visualizer */}
-              <div className="flex items-center gap-[2px] h-4">
-                {waveform.map((h, i) => (
-                  <div
-                    key={i}
-                    className="w-0.5 bg-white/80 rounded-full transition-all duration-100 ease-in-out"
-                    style={{
-                      height: `${Math.max(20, h * 100)}%`,
-                    }}
-                  />
-                ))}
-                {waveform.length === 0 && <div className="text-[10px] text-neutral-500">...</div>}
-              </div>
 
-              {/* Action Buttons */}
-              <div className="flex items-center gap-0.5 border-l border-white/10 pl-2">
-                <button
-                  onClick={handleConfirm}
-                  className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-white/10 text-neutral-400 hover:text-white transition-colors"
-                  title={t('hud.finish')}
-                >
-                  <CheckCheck className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  onClick={handleCancel}
-                  className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-white/10 text-neutral-400 hover:text-red-400 transition-colors"
-                  title={t('hud.cancel')}
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </div>
+          {status === 'recording' && (
+            <div className="w-full flex items-center gap-3">
+              {/* Dynamic Waveform Visualizer */}
+              <Waveform audioLevel={audioLevel} />
             </div>
           )}
-
           {/* 2. Processing State */}
           {status === 'processing' && (
-            <div className="flex flex-col px-1">
-              <span className="text-sm font-medium text-white animate-pulse">
+            <div className="flex w-full justify-center px-1">
+              <span className="text-sm w-full font-medium text-white animate-pulse">
                 {t('hud.thinking')}
               </span>
             </div>
           )}
-
           {/* 3. Success State */}
           {status === 'success' && (
-            <div className="flex flex-col px-1">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-white line-clamp-1 max-w-[180px]">
-                  {message || t('hud.done')}
-                </span>
-                <div className="flex items-center text-[10px] text-emerald-400 font-medium bg-emerald-400/10 px-1.5 py-0.5 rounded">
-                  <Sparkles className="w-3 h-3 mr-1" />
-                  <span>{t('hud.injected')}</span>
-                </div>
+            <div className="w-full flex justify-center items-center">
+              {/* <span className="text-sm font-medium text-white line-clamp-1 max-w-[180px]">
+                {message || t('hud.done')}
+              </span> */}
+              <div className="flex items-center text-[10px] text-emerald-400 font-medium bg-emerald-400/10 px-1.5 py-0.5 rounded">
+                <Sparkles className="w-3 h-3 mr-1" />
+                <span>{t('hud.injected')}</span>
               </div>
             </div>
           )}
-
           {/* 4. Error State */}
           {status === 'error' && (
             <div className="flex flex-col px-1">
@@ -185,6 +138,16 @@ export function HUD() {
               </span>
             </div>
           )}
+        </div>
+        {/* 右侧关闭按钮 */}
+        <div className="cursor-pointer w-8 h-8 shrink-0 rounded-full flex items-center justify-center shadow-lg relative overflow-hidden transition-all duration-500">
+          <button
+            onClick={handleCancel}
+            className="cursor-pointer w-6 h-6 flex items-center justify-center rounded-full hover:bg-white/10 text-neutral-400 hover:text-red-400 transition-colors"
+            title={t('hud.cancel')}
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
         </div>
       </div>
     </div>
