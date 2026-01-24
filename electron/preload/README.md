@@ -28,6 +28,7 @@ IPC 通信桥接脚本，运行在渲染进程上下文但可访问部分 Node.j
 - `onStopRecording(callback)` - 监听录音停止信号（主进程 → 渲染）
 - `sendAudioData(buffer)` - 发送录制的音频数据（渲染 → 主进程）
 - `sendError(error)` - 发送错误信息
+- `cancelSession()` - 取消当前会话并停止录音
 
 **快捷键**
 

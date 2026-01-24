@@ -54,6 +54,9 @@ export interface ElectronAPI {
   getUpdateStatus: () => Promise<UpdateInfo | null>
   getAppVersion: () => Promise<string>
   openExternal: (url: string) => Promise<void>
+
+  // 取消会话
+  cancelSession: () => Promise<void>
 }
 
 // 暴露安全的API到渲染进程
@@ -147,4 +150,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getUpdateStatus: () => ipcRenderer.invoke(IPC_CHANNELS.GET_UPDATE_STATUS),
   getAppVersion: () => ipcRenderer.invoke(IPC_CHANNELS.GET_APP_VERSION),
   openExternal: (url: string) => ipcRenderer.invoke(IPC_CHANNELS.OPEN_EXTERNAL, url),
+
+  // 取消会话
+  cancelSession: () => ipcRenderer.invoke(IPC_CHANNELS.CANCEL_SESSION),
 } as ElectronAPI)

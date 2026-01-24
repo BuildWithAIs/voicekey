@@ -95,6 +95,9 @@ export const IPC_CHANNELS = {
   GET_UPDATE_STATUS: 'update:get-status',
   GET_APP_VERSION: 'app:version',
   OPEN_EXTERNAL: 'app:open-external',
+
+  // 取消回话
+  CANCEL_SESSION: 'session:cancel',
 } as const
 
 export type OverlayStatus = 'recording' | 'processing' | 'success' | 'error'
