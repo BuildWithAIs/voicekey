@@ -25,6 +25,7 @@
   </p>
 </div>
 
+<p align="center">
   <img src="imgs/screenshot.png" alt="Voice Key Screenshot" width="100%">
 </p>
 
@@ -36,6 +37,13 @@
       <a href="#about-the-project">Features</a>
       <ul>
         <li><a href="#built-with">Built With</a></li>
+      </ul>
+    </li>
+    <li>
+      <a href="#getting-started">Getting Started</a>
+      <ul>
+        <li><a href="#env-prerequisites">Prerequisites</a></li>
+        <li><a href="#dev-installation">Installation</a></li>
       </ul>
     </li>
     <li><a href="#prerequisites">Configuration Requirements</a></li>
@@ -60,6 +68,38 @@ This section lists the major frameworks and libraries used to bootstrap this pro
 - [![TailwindCSS][TailwindCSS]][TailwindCSS-url]
 - [![shadcn/ui][shadcn/ui]][shadcn-url]
 - [![Zustand][Zustand]][Zustand-url]
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+## Getting Started <a id="getting-started"></a>
+
+Follow these simple steps to get a local copy up and running.
+
+### Prerequisites <a id="env-prerequisites"></a>
+
+Ensure you have Node.js and npm installed.
+
+- npm
+  ```sh
+  npm install npm@latest -g
+  ```
+
+### Installation <a id="dev-installation"></a>
+
+1. Get a free API Key (See [Configuration Requirements](#prerequisites))
+2. Clone the repo
+   ```sh
+   git clone https://github.com/BuildWithAIs/voicekey.git
+   ```
+3. Install NPM packages
+   ```sh
+   npm install
+   ```
+4. Run locally
+   ```sh
+   npm run dev
+   ```
+5. Enter your API Key in the Settings
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 

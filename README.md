@@ -27,6 +27,7 @@
   </p>
 </div>
 
+<p align="center">
   <img src="imgs/screenshot.png" alt="Voice Key Screenshot" width="100%">
 </p>
 
@@ -38,6 +39,13 @@
       <a href="#about-the-project">主要功能</a>
       <ul>
         <li><a href="#built-with">技术栈</a></li>
+      </ul>
+    </li>
+    <li>
+      <a href="#getting-started">上手指南</a>
+      <ul>
+        <li><a href="#env-prerequisites">环境要求</a></li>
+        <li><a href="#dev-installation">安装步骤</a></li>
       </ul>
     </li>
     <li><a href="#prerequisites">配置要求</a></li>
@@ -62,6 +70,38 @@
 - [![TailwindCSS][TailwindCSS]][TailwindCSS-url]
 - [![shadcn/ui][shadcn/ui]][shadcn-url]
 - [![Zustand][Zustand]][Zustand-url]
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+## 上手指南 <a id="getting-started"></a>
+
+按照以下步骤在本地搭建并运行项目。
+
+### 环境要求 <a id="env-prerequisites"></a>
+
+开发前请确保已安装 Node.js 和 npm。
+
+- npm
+  ```sh
+  npm install npm@latest -g
+  ```
+
+### 安装步骤 <a id="dev-installation"></a>
+
+1. 获取免费 API Key (详见 [配置要求](#prerequisites))
+2. 克隆仓库
+   ```sh
+   git clone https://github.com/BuildWithAIs/voicekey.git
+   ```
+3. 安装依赖包
+   ```sh
+   npm install
+   ```
+4. 运行开发环境
+   ```sh
+   npm run dev
+   ```
+5. 在应用设置中填入你的 API Key
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
