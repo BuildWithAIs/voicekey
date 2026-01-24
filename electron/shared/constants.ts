@@ -10,9 +10,10 @@ export const GLM_ASR = {
 } as const
 
 // 默认快捷键配置
+const isMac = typeof process !== 'undefined' && process.platform === 'darwin'
 export const DEFAULT_HOTKEYS = {
-  PTT: process.platform === 'darwin' ? 'Alt' : 'Control+Shift+Space',
-  SETTINGS: process.platform === 'darwin' ? 'Command+Shift+,' : 'Control+Shift+,',
+  PTT: isMac ? 'Alt' : 'Control+Shift+Space',
+  SETTINGS: isMac ? 'Command+Shift+,' : 'Control+Shift+,',
 } as const
 
 // 录音配置
@@ -24,3 +25,13 @@ export const AUDIO_CONFIG = {
 } as const
 
 export const HISTORY_RETENTION_DAYS = 90
+
+// 日志保留与限制
+export const LOG_RETENTION_DAYS = 14
+export const LOG_FILE_MAX_SIZE_MB = 5
+export const LOG_FILE_MAX_SIZE_BYTES = LOG_FILE_MAX_SIZE_MB * 1024 * 1024
+export const LOG_TAIL_MAX_BYTES = 200 * 1024
+export const LOG_MESSAGE_MAX_LENGTH = 10000
+export const LOG_DATA_MAX_LENGTH = 5000
+export const LOG_STACK_HEAD_LINES = 8
+export const LOG_STACK_TAIL_LINES = 5

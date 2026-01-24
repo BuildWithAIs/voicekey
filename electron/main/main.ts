@@ -6,6 +6,7 @@
   Tray,
   Menu,
   nativeImage,
+  shell,
   screen,
 } from 'electron'
 import fs from 'fs'
@@ -19,9 +20,17 @@ import { historyManager } from './history-manager'
 import { hotkeyManager } from './hotkey-manager'
 import { initMainI18n, setMainLanguage, t } from './i18n'
 import { ioHookManager } from './iohook-manager'
+import { getLogDirectory, initializeLogger, readLogTail, writeLog } from './logger'
 import { textInjector } from './text-injector'
 import { UpdaterManager } from './updater-manager'
-import { IPC_CHANNELS, OverlayState, VoiceSession } from '../shared/types'
+import { LOG_TAIL_MAX_BYTES } from '../shared/constants'
+import {
+  IPC_CHANNELS,
+  type LogEntryPayload,
+  type LogTailOptions,
+  type OverlayState,
+  type VoiceSession,
+} from '../shared/types'
 // ES Module compatibility - 延迟导入 fluent-ffmpeg 避免启动时的 __dirname 错误
 let ffmpeg: any
 let ffmpegInitialized = false
@@ -658,11 +667,7 @@ async function handleAudioData(buffer: Buffer) {
     const asrDuration = Date.now() - asrStartTime
     console.log(`[Main] [${new Date().toISOString()}] Transcription received`)
     console.log(`[Main] ⏱️  ASR transcription took ${asrDuration}ms`)
-    console.log(
-      '[Main] Transcription received (bytes):',
-      Buffer.from(transcription.text).toString('hex'),
-    )
-    console.log('[Main] Transcription text:', transcription.text)
+    console.log('[Main] Transcription received (length):', transcription.text.length)
 
     currentSession.transcription = transcription.text
     currentSession.status = 'completed'
@@ -827,6 +832,27 @@ function setupIPCHandlers() {
   ipcMain.handle(IPC_CHANNELS.HISTORY_CLEAR, () => historyManager.clear())
   ipcMain.handle(IPC_CHANNELS.HISTORY_DELETE, (_event, id) => historyManager.delete(id))
 
+  // 日志相关
+  ipcMain.handle(IPC_CHANNELS.LOG_GET_TAIL, (_event, options?: LogTailOptions) => {
+    const maxBytes = Math.max(
+      1024,
+      Math.min(options?.maxBytes ?? LOG_TAIL_MAX_BYTES, LOG_TAIL_MAX_BYTES * 5),
+    )
+    return readLogTail(maxBytes)
+  })
+
+  ipcMain.handle(IPC_CHANNELS.LOG_OPEN_FOLDER, () => {
+    return shell.openPath(getLogDirectory())
+  })
+
+  ipcMain.on(IPC_CHANNELS.LOG_WRITE, (_event, payload: LogEntryPayload) => {
+    if (!payload || !payload.message || !payload.level) return
+    writeLog({
+      ...payload,
+      scope: payload.scope ?? 'renderer',
+    })
+  })
+
   // 接收音频数据
   ipcMain.on(IPC_CHANNELS.AUDIO_DATA, (_event, buffer) => {
     handleAudioData(Buffer.from(buffer))
@@ -874,6 +900,7 @@ function setupIPCHandlers() {
 
 // 应用程序生命周期
 app.whenReady().then(async () => {
+  initializeLogger()
   if (process.platform !== 'darwin') {
     Menu.setApplicationMenu(null)
   }

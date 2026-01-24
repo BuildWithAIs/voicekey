@@ -58,6 +58,19 @@ export interface UpdateInfo {
   error?: string
 }
 
+export type LogLevel = 'debug' | 'info' | 'warn' | 'error'
+
+export interface LogEntryPayload {
+  level: LogLevel
+  message: string
+  scope?: string
+  data?: unknown
+}
+
+export interface LogTailOptions {
+  maxBytes?: number
+}
+
 // IPC 通道定义
 export const IPC_CHANNELS = {
   // 配置相关
@@ -96,8 +109,13 @@ export const IPC_CHANNELS = {
   GET_APP_VERSION: 'app:version',
   OPEN_EXTERNAL: 'app:open-external',
 
-  // 取消回话
+  // 取消会话 (来自 main 分支的新功能)
   CANCEL_SESSION: 'session:cancel',
+
+  // 日志相关 (来自我们分支的新功能)
+  LOG_GET_TAIL: 'log:get-tail',
+  LOG_OPEN_FOLDER: 'log:open-folder',
+  LOG_WRITE: 'log:write',
 } as const
 
 export type OverlayStatus = 'recording' | 'processing' | 'success' | 'error'

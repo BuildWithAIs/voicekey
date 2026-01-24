@@ -48,6 +48,12 @@ IPC 通信桥接脚本，运行在渲染进程上下文但可访问部分 Node.j
 - `getUpdateStatus()` - 获取启动时自动检查的缓存结果（如果有）
 - `openExternal(url)` - 打开外部链接（用于发布页）
 
+**日志**
+
+- `getLogTail(options)` - 获取日志尾部文本（可限制读取字节数）
+- `openLogFolder()` - 打开日志目录
+- `log(entry)` - 渲染进程发送日志到主进程（带 level/message）
+
 #### 安全机制
 
 - 使用 `contextBridge` 避免直接暴露 Node.js 能力

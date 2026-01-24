@@ -1,9 +1,12 @@
 ﻿import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { Toaster } from '@/components/ui/sonner'
+import { initRendererLogger } from '@/lib/logger'
 import App from './App.tsx'
 import { initI18n } from './i18n'
 import './index.css'
+
+initRendererLogger()
 
 const root = ReactDOM.createRoot(document.getElementById('root')!)
 

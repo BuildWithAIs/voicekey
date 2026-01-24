@@ -1,5 +1,6 @@
 import { clipboard, type NativeImage } from 'electron'
 import { keyboard, Key } from '@nut-tree-fork/nut-js'
+import { createHash } from 'node:crypto'
 
 type ClipboardSnapshot = {
   text?: string
@@ -21,9 +22,9 @@ export class TextInjector {
     }
 
     try {
-      console.log('[TextInjector] Text to inject:', text)
-      console.log('[TextInjector] Text bytes:', Buffer.from(text).toString('hex'))
+      const textHash = createHash('sha256').update(text, 'utf8').digest('hex')
       console.log('[TextInjector] Text length:', text.length)
+      console.log('[TextInjector] Text hash (sha256):', textHash)
 
       const delayStartTime = Date.now()
       await this.delay(100)

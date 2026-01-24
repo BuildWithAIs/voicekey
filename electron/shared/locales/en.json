@@ -92,7 +92,21 @@
       "testFailed": "Test failed: {{message}}",
       "hotkeyInvalid": "Please fix the hotkey settings before saving."
     },
-    "saveNotice": "Changes take effect after you click Save Settings (language changes apply immediately)."
+    "saveNotice": "Changes take effect after you click Save Settings (language changes apply immediately).",
+    "troubleshooting": "Troubleshooting",
+    "logsDescription": "Logs are stored locally for {{days}} days. Each log file is limited to {{size}} MB.",
+    "viewLogs": "View Logs",
+    "logDialogTitle": "Application Logs",
+    "logDialogDescription": "Showing the last {{size}} KB of logs.",
+    "logRefresh": "Refresh",
+    "logCopy": "Copy",
+    "logOpenFolder": "Open Folder",
+    "logsRetentionNote": "Stored for {{days}} days, max {{size}} MB per file.",
+    "logEmpty": "No logs available yet",
+    "logCopied": "Logs copied to clipboard",
+    "logCopyFailed": "Failed to copy logs",
+    "logLoadFailed": "Failed to load logs",
+    "logOpenFailed": "Failed to open log folder"
   },
   "hotkey": {
     "title": "Hotkey Settings",

@@ -92,7 +92,21 @@
       "testFailed": "测试失败：{{message}}",
       "hotkeyInvalid": "请先修复快捷键设置后再保存。"
     },
-    "saveNotice": "修改后需要点击“保存设置”才会生效（语言切换会立即生效）。"
+    "saveNotice": "修改后需要点击“保存设置”才会生效（语言切换会立即生效）。",
+    "troubleshooting": "故障排查",
+    "logsDescription": "日志仅保存在本地，默认保留 {{days}} 天，单个文件最大 {{size}} MB。",
+    "viewLogs": "查看日志",
+    "logDialogTitle": "应用日志",
+    "logDialogDescription": "展示最近 {{size}} KB 的日志内容。",
+    "logRefresh": "刷新",
+    "logCopy": "复制",
+    "logOpenFolder": "打开日志目录",
+    "logsRetentionNote": "保留 {{days}} 天，每个文件最大 {{size}} MB。",
+    "logEmpty": "暂无日志",
+    "logCopied": "日志已复制到剪贴板",
+    "logCopyFailed": "复制失败",
+    "logLoadFailed": "读取日志失败",
+    "logOpenFailed": "打开日志目录失败"
   },
   "hotkey": {
     "title": "快捷键设置",

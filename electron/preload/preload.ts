@@ -1,11 +1,13 @@
 import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron'
 import {
   IPC_CHANNELS,
-  OverlayState,
-  HistoryItem,
-  AppConfig,
-  ASRConfig,
-  UpdateInfo,
+  type OverlayState,
+  type HistoryItem,
+  type AppConfig,
+  type ASRConfig,
+  type UpdateInfo,
+  type LogEntryPayload,
+  type LogTailOptions,
 } from '../shared/types'
 
 // 定义暴露给渲染进程的API接口
@@ -55,8 +57,13 @@ export interface ElectronAPI {
   getAppVersion: () => Promise<string>
   openExternal: (url: string) => Promise<void>
 
-  // 取消会话
+  // 取消会话 (来自 main 分支的新功能)
   cancelSession: () => Promise<void>
+
+  // 日志相关 (来自我们分支的新功能)
+  getLogTail: (options?: LogTailOptions) => Promise<string>
+  openLogFolder: () => Promise<void>
+  log: (entry: LogEntryPayload) => void
 }
 
 // 暴露安全的API到渲染进程
@@ -151,6 +158,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getAppVersion: () => ipcRenderer.invoke(IPC_CHANNELS.GET_APP_VERSION),
   openExternal: (url: string) => ipcRenderer.invoke(IPC_CHANNELS.OPEN_EXTERNAL, url),
 
-  // 取消会话
+  // 取消会话 (来自 main 分支的新功能)
   cancelSession: () => ipcRenderer.invoke(IPC_CHANNELS.CANCEL_SESSION),
+
+  // 日志相关 (来自我们分支的新功能)
+  getLogTail: (options?: LogTailOptions) => ipcRenderer.invoke(IPC_CHANNELS.LOG_GET_TAIL, options),
+  openLogFolder: () => ipcRenderer.invoke(IPC_CHANNELS.LOG_OPEN_FOLDER),
+  log: (entry: LogEntryPayload) => ipcRenderer.send(IPC_CHANNELS.LOG_WRITE, entry),
 } as ElectronAPI)

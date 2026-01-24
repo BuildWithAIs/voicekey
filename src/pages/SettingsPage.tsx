@@ -2,7 +2,9 @@
 import { CheckCircle2, XCircle, AlertTriangle } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { resolveLanguage, type LanguageSetting } from '@electron/shared/i18n'
+import { LOG_FILE_MAX_SIZE_MB, LOG_RETENTION_DAYS } from '@electron/shared/constants'
 import type { AppConfig, UpdateInfo } from '@electron/shared/types'
+import { LogViewerDialog } from '@/components/LogViewerDialog'
 import { HotkeySettings } from '@/components/HotkeySettings'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -49,6 +51,7 @@ export default function SettingsPage() {
     message: string
   } | null>(null)
   const [saving, setSaving] = useState(false)
+  const [logDialogOpen, setLogDialogOpen] = useState(false)
   const hasLoadedConfig = useRef(false)
   const hasLoadedUpdateStatus = useRef(false)
 
@@ -431,6 +434,30 @@ export default function SettingsPage() {
           onChange={(hotkey) => setConfig((prev) => ({ ...prev, hotkey }))}
         />
       </div>
+
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>{t('settings.troubleshooting')}</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            {t('settings.logsDescription', {
+              days: LOG_RETENTION_DAYS,
+              size: LOG_FILE_MAX_SIZE_MB,
+            })}
+          </p>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setLogDialogOpen(true)}
+            className="no-drag cursor-pointer"
+          >
+            {t('settings.viewLogs')}
+          </Button>
+        </CardContent>
+      </Card>
+
+      <LogViewerDialog open={logDialogOpen} onOpenChange={setLogDialogOpen} />
 
       {isDirty && (
         <Alert className="mb-6">

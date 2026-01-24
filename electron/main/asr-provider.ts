@@ -1,6 +1,7 @@
 import axios from 'axios'
 import FormData from 'form-data'
 import fs from 'fs'
+import { createHash } from 'node:crypto'
 import { GLM_ASR } from '../shared/constants'
 import { ASRConfig } from '../shared/types'
 
@@ -88,9 +89,9 @@ export class ASRProvider {
       }
 
       const receivedText = response.data.text
-      console.log('[ASR] Raw response text:', receivedText)
+      const textHash = createHash('sha256').update(receivedText, 'utf8').digest('hex')
       console.log('[ASR] Text length:', receivedText.length)
-      console.log('[ASR] Text bytes:', Buffer.from(receivedText, 'utf8').toString('hex'))
+      console.log('[ASR] Text hash (sha256):', textHash)
 
       const totalDuration = Date.now() - transcribeStartTime
       console.log(`[ASR] ⏱️  Total transcribe() call took ${totalDuration}ms`)
