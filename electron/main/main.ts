@@ -621,6 +621,15 @@ async function handleAudioData(buffer: Buffer) {
 
     const conversionStartTime = Date.now()
     await convertToMP3(tempWebmPath, tempMp3Path)
+
+    // Check cancellation after conversion
+    if (!currentSession) {
+      console.log('[Main] Session cancelled during conversion, aborting.')
+      if (fs.existsSync(tempWebmPath)) fs.unlinkSync(tempWebmPath)
+      if (fs.existsSync(tempMp3Path)) fs.unlinkSync(tempMp3Path)
+      return
+    }
+
     const conversionDuration = Date.now() - conversionStartTime
     console.log(`[Main] [${new Date().toISOString()}] Audio converted to MP3: ${tempMp3Path}`)
     console.log(`[Main] ⏱️  Total conversion process took ${conversionDuration}ms`)
@@ -637,6 +646,15 @@ async function handleAudioData(buffer: Buffer) {
     const asrStartTime = Date.now()
     console.log(`[Main] [${new Date().toISOString()}] Sending audio to ASR service...`)
     const transcription = await asrProvider.transcribe(tempMp3Path)
+
+    // Check cancellation after transcription
+    if (!currentSession) {
+      console.log('[Main] Session cancelled during transcription, aborting.')
+      if (fs.existsSync(tempWebmPath)) fs.unlinkSync(tempWebmPath)
+      if (fs.existsSync(tempMp3Path)) fs.unlinkSync(tempMp3Path)
+      return
+    }
+
     const asrDuration = Date.now() - asrStartTime
     console.log(`[Main] [${new Date().toISOString()}] Transcription received`)
     console.log(`[Main] ⏱️  ASR transcription took ${asrDuration}ms`)
@@ -655,6 +673,15 @@ async function handleAudioData(buffer: Buffer) {
     })
 
     const injectStartTime = Date.now()
+
+    // Check cancellation before injection
+    if (!currentSession) {
+      console.log('[Main] Session cancelled before injection, aborting.')
+      if (fs.existsSync(tempWebmPath)) fs.unlinkSync(tempWebmPath)
+      if (fs.existsSync(tempMp3Path)) fs.unlinkSync(tempMp3Path)
+      return
+    }
+
     console.log(`[Main] [${new Date().toISOString()}] Injecting text...`)
     await textInjector.injectText(transcription.text)
     const injectDuration = Date.now() - injectStartTime
