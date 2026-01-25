@@ -12,6 +12,13 @@ voice-key/
 │   ├── main/                   # Core business logic
 │   │   ├── README.md          # Main process documentation
 │   │   ├── main.ts            # App entry, window mgmt, IPC, PTT orchestration
+│   │   ├── audio/             # Audio pipeline (session, converter, processor)
+│   │   ├── hotkey/            # Hotkey parsing + PTT bindings
+│   │   ├── ipc/               # IPC handlers (config/session/history/log/updater/overlay)
+│   │   ├── notification/      # System notification helpers
+│   │   ├── tray/              # Tray menu + localization refresh
+│   │   ├── window/            # Background/settings/overlay windows
+│   │   ├── env.ts             # Runtime env + path resolution
 │   │   ├── hotkey-manager.ts  # Global shortcuts (globalShortcut API)
 │   │   ├── iohook-manager.ts  # Low-level keyboard hooks (uiohook-napi)
 │   │   ├── asr-provider.ts    # GLM ASR API integration
@@ -82,7 +89,7 @@ voice-key/
 
 **Key Directories:**
 
-- `electron/main/` - Core PTT flow: keyboard hooks → recording → ASR → text injection
+- `electron/main/` - Core PTT flow: keyboard hooks → recording → ASR → text injection (split into `audio/`, `hotkey/`, `ipc/`, `window/`)
 - `electron/preload/` - Secure IPC bridge between main and renderer processes
 - `src/components/ui/` - shadcn/ui library (18 components)
 - `src/pages/` - Three main routes: Home, Settings, History

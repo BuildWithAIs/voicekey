@@ -19,12 +19,21 @@
 主进程核心模块：
 
 - `main.ts` - 应用入口、窗口管理、IPC 处理、PTT 流程编排
+- `audio/` - 音频处理流水线（录音会话、转换、ASR、注入）
+- `hotkey/` - 快捷键解析与 PTT 行为绑定
+- `ipc/` - IPC 处理器（配置、会话、历史、日志、更新、浮窗）
+- `tray/` - 托盘菜单与本地化刷新
+- `window/` - 后台/设置/浮窗窗口管理
+- `notification/` - 系统通知封装
+- `i18n.ts` - 主进程 i18next 初始化与语言切换
+- `config-manager.ts` - 配置持久化（基于 `electron-store`）
+- `history-manager.ts` - 转录历史存储（基于 `electron-store`）
 - `hotkey-manager.ts` - 全局快捷键管理（基于 `globalShortcut`）
 - `iohook-manager.ts` - 低级键盘钩子（基于 `uiohook-napi`）
 - `asr-provider.ts` - GLM ASR 服务封装
 - `text-injector.ts` - 文本注入模拟（基于 `nut-js`）
-- `config-manager.ts` - 配置持久化（基于 `electron-store`）
-- `history-manager.ts` - 转录历史存储（基于 `electron-store`）
+- `logger.ts` - 主进程日志与保留策略
+- `updater-manager.ts` - 版本检查与更新跳转
 
 ### `preload/`
 

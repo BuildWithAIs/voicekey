@@ -13,7 +13,7 @@
 ## 入口与全局
 
 - `App.tsx` - Hash 路由入口；根据窗口类型渲染 AudioRecorder、HUD 或主界面。
-- `main.tsx` - React 启动与渲染入口，初始化 i18n 并挂载 Toaster。
+- `main.tsx` - React 启动与渲染入口，初始化 i18n、订阅语言广播并挂载 Toaster。
 - `i18n.ts` - 渲染进程 i18next 初始化，拉取主进程语言快照并加载共享语言资源。
 - `index.css` - Tailwind 基础样式与主题变量。
 - `global.d.ts` - `window.electronAPI` 类型声明。
