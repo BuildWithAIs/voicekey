@@ -1,72 +1,39 @@
-﻿import { app, BrowserWindow, Notification, Tray, Menu, nativeImage } from 'electron'
-import fs from 'fs'
-import { createRequire } from 'node:module'
+﻿import { app, BrowserWindow, Notification, Menu, nativeImage } from 'electron'
 import path from 'node:path'
 import { UiohookKey } from 'uiohook-napi'
 import { ASRProvider } from './asr-provider'
 import { configManager } from './config-manager'
-import { historyManager } from './history-manager'
 import { hotkeyManager } from './hotkey-manager'
 import { initMainI18n, t } from './i18n'
 import { ioHookManager } from './iohook-manager'
 import { initializeLogger } from './logger'
 import { textInjector } from './text-injector'
 import { UpdaterManager } from './updater-manager'
-import { IPC_CHANNELS, type VoiceSession } from '../shared/types'
+import { createTray, refreshLocalizedUi } from './tray'
 
 import {
   createBackgroundWindow,
-  getBackgroundWindow,
-  // Overlay 模块
-  showOverlay,
-  hideOverlay,
-  updateOverlay,
-  showErrorAndHide,
   // Settings 模块
   createSettingsWindow,
   getSettingsWindow,
-  updateSettingsWindowTitle,
   focusSettingsWindow,
 } from './window/index'
 import { initIPCHandlers, registerAllIPCHandlers } from './ipc'
+import {
+  // Session Manager
+  handleStartRecording,
+  handleStopRecording,
+  handleAudioData,
+  handleCancelSession,
+  getCurrentSession,
+  setSessionError,
+  // Processor
+  initProcessor,
+} from './audio'
 
-import { initEnv, VITE_DEV_SERVER_URL, getVitePublic } from './env'
-// ES Module compatibility - 延迟导入 fluent-ffmpeg 避免启动时的 __dirname 错误
-let ffmpeg: any
-let ffmpegInitialized = false
-
-function initializeFfmpeg() {
-  if (ffmpegInitialized) return
-
-  try {
-    const require = createRequire(import.meta.url)
-    const ffmpegModule = require('fluent-ffmpeg')
-    const ffmpegInstaller = require('@ffmpeg-installer/ffmpeg')
-
-    let ffmpegPath = ffmpegInstaller.path
-
-    // 生产环境中，FFmpeg 二进制被解压到 app.asar.unpacked 目录
-    if (app.isPackaged) {
-      ffmpegPath = ffmpegPath.replace('app.asar', 'app.asar.unpacked')
-    }
-
-    ffmpeg = ffmpegModule
-    ffmpeg.setFfmpegPath(ffmpegPath)
-    ffmpegInitialized = true
-    console.log('[Main] FFmpeg initialized with path:', ffmpegPath)
-  } catch (error) {
-    console.error('[Main] Failed to initialize FFmpeg:', error)
-    // 显示错误状态并在2秒后隐藏 HUD
-    updateOverlay({ status: 'error', message: t('errors.ffmpegInitFailed') })
-    setTimeout(() => hideOverlay(), 2000)
-    throw error // 重新抛出以便调用方知道初始化失败
-  }
-}
-
+import { initEnv, VITE_DEV_SERVER_URL } from './env'
 // 全局变量
-let tray: Tray | null = null
 let asrProvider: ASRProvider | null = null
-let currentSession: VoiceSession | null = null
 
 // 设置开机自启
 function updateAutoLaunchState(enable: boolean) {
@@ -76,44 +43,6 @@ function updateAutoLaunchState(enable: boolean) {
   app.setLoginItemSettings({
     openAtLogin: enable,
     openAsHidden: true,
-  })
-}
-
-// 创建托盘图标
-const buildTrayMenu = () =>
-  Menu.buildFromTemplate([
-    {
-      label: t('tray.settings'),
-      click: () => createSettingsWindow(),
-    },
-    { type: 'separator' },
-    {
-      label: t('tray.quit'),
-      click: () => {
-        app.quit()
-      },
-    },
-  ])
-
-const refreshLocalizedUi = () => {
-  if (tray) {
-    tray.setToolTip(t('tray.tooltip'))
-    tray.setContextMenu(buildTrayMenu())
-  }
-  updateSettingsWindowTitle()
-}
-
-function createTray() {
-  // 创建一个简单的托盘图标（后续可以替换为实际图标）
-  const icon = nativeImage.createFromPath(path.join(getVitePublic(), 'tray-icon.png'))
-  // macOS 会自动查找 tray-icon@2x.png 用于 Retina 屏幕
-  icon.setTemplateImage(true)
-  tray = new Tray(icon)
-  refreshLocalizedUi()
-
-  // 双击托盘图标打开设置
-  tray.on('double-click', () => {
-    createSettingsWindow()
   })
 }
 
@@ -292,13 +221,10 @@ function registerGlobalHotkeys() {
     const checkPTT = () => {
       // 判断是否按住设置的快捷键（精确匹配）
       const isPressed = ioHookManager.isPressed(pttConfig.modifiers, pttConfig.key)
+      const session = getCurrentSession()
 
       // Start Recording（带防抖）
-      if (
-        isPressed &&
-        (!currentSession || currentSession.status !== 'recording') &&
-        !debounceTimer
-      ) {
+      if (isPressed && (!session || session.status !== 'recording') && !debounceTimer) {
         // 设置防抖计时器，50ms 后再次确认
         debounceTimer = setTimeout(() => {
           // 再次检查是否仍然精确匹配
@@ -316,7 +242,7 @@ function registerGlobalHotkeys() {
       }
 
       // Stop Recording
-      if (!isPressed && currentSession && currentSession.status === 'recording') {
+      if (!isPressed && session && session.status === 'recording') {
         handleStopRecording()
       }
     }
@@ -331,240 +257,6 @@ function registerGlobalHotkeys() {
   })
 }
 
-// 处理开始录音
-async function handleStartRecording() {
-  const startTimestamp = Date.now()
-  console.log(`[Main] [${new Date().toISOString()}] handleStartRecording triggered`)
-  if (currentSession && currentSession.status === 'recording') {
-    return
-  }
-
-  try {
-    showOverlay({ status: 'recording' })
-    currentSession = {
-      id: `session-${Date.now()}`,
-      startTime: new Date(),
-      status: 'recording',
-    }
-
-    const bgWindow = getBackgroundWindow()
-    if (bgWindow) {
-      console.log(`[Main] [${new Date().toISOString()}] Sending SESSION_START to backgroundWindow`)
-      bgWindow.webContents.send(IPC_CHANNELS.SESSION_START)
-      const duration = Date.now() - startTimestamp
-      console.log(`[Main] ⏱️  Recording start completed in ${duration}ms`)
-    } else {
-      console.error('[Main] backgroundWindow is not available')
-      showErrorAndHide(t('errors.internal'))
-      currentSession = null
-    }
-  } catch (error) {
-    console.error('[Main] Failed to start recording:', error)
-    showErrorAndHide(t('errors.startFailed'))
-    currentSession = null
-  }
-}
-
-// 处理停止录音
-async function handleStopRecording() {
-  if (!currentSession || currentSession.status !== 'recording') {
-    console.log(
-      '[Main] handleStopRecording called but no active session or not recording. Status:',
-      currentSession?.status,
-    )
-    return
-  }
-
-  try {
-    const recordingDuration = Date.now() - currentSession.startTime.getTime()
-    console.log(`[Main] [${new Date().toISOString()}] handleStopRecording triggered`)
-    console.log(`[Main] ⏱️  Recording duration: ${recordingDuration}ms`)
-    currentSession.duration = recordingDuration
-    currentSession.status = 'processing'
-    updateOverlay({ status: 'processing' })
-
-    const bgWindow = getBackgroundWindow()
-    if (bgWindow) {
-      console.log(`[Main] [${new Date().toISOString()}] Sending SESSION_STOP to backgroundWindow`)
-      bgWindow.webContents.send(IPC_CHANNELS.SESSION_STOP)
-    } else {
-      console.error('[Main] Cannot send SESSION_STOP: backgroundWindow not available')
-      showErrorAndHide(t('errors.stopFailed'))
-    }
-  } catch (error) {
-    console.error('[Main] Failed to stop recording:', error)
-    showErrorAndHide(t('errors.stopFailed'))
-  }
-}
-
-// 转换音频格式为 MP3
-function convertToMP3(inputPath: string, outputPath: string): Promise<void> {
-  const conversionStartTime = Date.now()
-  return new Promise((resolve, reject) => {
-    // 确保 ffmpeg 已初始化
-    initializeFfmpeg()
-
-    console.log(`[Main] [${new Date().toISOString()}] Converting audio to MP3...`)
-    ffmpeg(inputPath)
-      .toFormat('mp3')
-      .audioCodec('libmp3lame')
-      .audioBitrate('128k')
-      .on('end', () => {
-        const conversionDuration = Date.now() - conversionStartTime
-        console.log(`[Main] [${new Date().toISOString()}] Audio conversion completed`)
-        console.log(`[Main] ⏱️  FFmpeg conversion took ${conversionDuration}ms`)
-        resolve()
-      })
-      .on('error', (err: Error) => {
-        const conversionDuration = Date.now() - conversionStartTime
-        console.error(`[Main] Audio conversion failed after ${conversionDuration}ms:`, err)
-        reject(err)
-      })
-      .save(outputPath)
-  })
-}
-
-// 处理音频数据（来自渲染进程）
-async function handleAudioData(buffer: Buffer) {
-  if (!currentSession) {
-    console.log('[Main] Received audio data but no active session')
-    return
-  }
-
-  const overallStartTime = Date.now()
-  const timestamp = Date.now()
-  const tempWebmPath = path.join(app.getPath('temp'), `voice-key-${timestamp}.webm`)
-  const tempMp3Path = path.join(app.getPath('temp'), `voice-key-${timestamp}.mp3`)
-
-  try {
-    console.log(
-      `[Main] [${new Date().toISOString()}] Received audio data size: ${buffer.length} bytes`,
-    )
-
-    const saveStartTime = Date.now()
-    console.log(
-      `[Main] [${new Date().toISOString()}] Saving webm audio to temp file: ${tempWebmPath}`,
-    )
-    fs.writeFileSync(tempWebmPath, buffer)
-    const saveDuration = Date.now() - saveStartTime
-    console.log(`[Main] ⏱️  File save took ${saveDuration}ms`)
-
-    const conversionStartTime = Date.now()
-    await convertToMP3(tempWebmPath, tempMp3Path)
-
-    // Check cancellation after conversion
-    if (!currentSession) {
-      console.log('[Main] Session cancelled during conversion, aborting.')
-      if (fs.existsSync(tempWebmPath)) fs.unlinkSync(tempWebmPath)
-      if (fs.existsSync(tempMp3Path)) fs.unlinkSync(tempMp3Path)
-      return
-    }
-
-    const conversionDuration = Date.now() - conversionStartTime
-    console.log(`[Main] [${new Date().toISOString()}] Audio converted to MP3: ${tempMp3Path}`)
-    console.log(`[Main] ⏱️  Total conversion process took ${conversionDuration}ms`)
-
-    if (!asrProvider) {
-      const initStartTime = Date.now()
-      console.log(`[Main] [${new Date().toISOString()}] Initializing ASR provider...`)
-      initializeASRProvider()
-      if (!asrProvider) throw new Error('ASR Provider initialization failed')
-      const initDuration = Date.now() - initStartTime
-      console.log(`[Main] ⏱️  ASR initialization took ${initDuration}ms`)
-    }
-
-    const asrStartTime = Date.now()
-    console.log(`[Main] [${new Date().toISOString()}] Sending audio to ASR service...`)
-    const transcription = await asrProvider.transcribe(tempMp3Path)
-
-    // Check cancellation after transcription
-    if (!currentSession) {
-      console.log('[Main] Session cancelled during transcription, aborting.')
-      if (fs.existsSync(tempWebmPath)) fs.unlinkSync(tempWebmPath)
-      if (fs.existsSync(tempMp3Path)) fs.unlinkSync(tempMp3Path)
-      return
-    }
-
-    const asrDuration = Date.now() - asrStartTime
-    console.log(`[Main] [${new Date().toISOString()}] Transcription received`)
-    console.log(`[Main] ⏱️  ASR transcription took ${asrDuration}ms`)
-    console.log('[Main] Transcription received (length):', transcription.text.length)
-
-    currentSession.transcription = transcription.text
-    currentSession.status = 'completed'
-
-    historyManager.add({
-      text: transcription.text,
-      duration: currentSession.duration,
-    })
-
-    const injectStartTime = Date.now()
-
-    // Check cancellation before injection
-    if (!currentSession) {
-      console.log('[Main] Session cancelled before injection, aborting.')
-      if (fs.existsSync(tempWebmPath)) fs.unlinkSync(tempWebmPath)
-      if (fs.existsSync(tempMp3Path)) fs.unlinkSync(tempMp3Path)
-      return
-    }
-
-    console.log(`[Main] [${new Date().toISOString()}] Injecting text...`)
-    await textInjector.injectText(transcription.text)
-    const injectDuration = Date.now() - injectStartTime
-    console.log(`[Main] ⏱️  Text injection took ${injectDuration}ms`)
-
-    updateOverlay({ status: 'success' })
-    setTimeout(() => hideOverlay(), 800)
-
-    const cleanupStartTime = Date.now()
-    if (fs.existsSync(tempWebmPath)) fs.unlinkSync(tempWebmPath)
-    if (fs.existsSync(tempMp3Path)) fs.unlinkSync(tempMp3Path)
-    const cleanupDuration = Date.now() - cleanupStartTime
-    console.log(`[Main] [${new Date().toISOString()}] Temp files cleaned up`)
-    console.log(`[Main] ⏱️  Cleanup took ${cleanupDuration}ms`)
-
-    const overallDuration = Date.now() - overallStartTime
-    console.log(`[Main] ⏱️  ========================================`)
-    console.log(`[Main] ⏱️  TOTAL PROCESSING TIME: ${overallDuration}ms`)
-    console.log(`[Main] ⏱️  Breakdown:`)
-    console.log(
-      `[Main] ⏱️    - File save: ${saveDuration}ms (${((saveDuration / overallDuration) * 100).toFixed(1)}%)`,
-    )
-    console.log(
-      `[Main] ⏱️    - Audio conversion: ${conversionDuration}ms (${((conversionDuration / overallDuration) * 100).toFixed(1)}%)`,
-    )
-    console.log(
-      `[Main] ⏱️    - ASR transcription: ${asrDuration}ms (${((asrDuration / overallDuration) * 100).toFixed(1)}%)`,
-    )
-    console.log(
-      `[Main] ⏱️    - Text injection: ${injectDuration}ms (${((injectDuration / overallDuration) * 100).toFixed(1)}%)`,
-    )
-    console.log(
-      `[Main] ⏱️    - Cleanup: ${cleanupDuration}ms (${((cleanupDuration / overallDuration) * 100).toFixed(1)}%)`,
-    )
-    console.log(`[Main] ⏱️  ========================================`)
-
-    currentSession = null
-  } catch (error) {
-    const errorDuration = Date.now() - overallStartTime
-    console.error(`[Main] Failed to process audio after ${errorDuration}ms:`, error)
-    updateOverlay({
-      status: 'error',
-      message: error instanceof Error ? error.message : t('errors.generic'),
-    })
-    setTimeout(() => hideOverlay(), 2000)
-    if (currentSession) {
-      currentSession.status = 'error'
-    }
-    try {
-      if (fs.existsSync(tempWebmPath)) fs.unlinkSync(tempWebmPath)
-      if (fs.existsSync(tempMp3Path)) fs.unlinkSync(tempMp3Path)
-    } catch (cleanupError) {
-      console.error('[Main] Failed to cleanup temp files:', cleanupError)
-    }
-  }
-}
-
 // 显示系统通知
 function showNotification(title: string, body: string) {
   if (Notification.isSupported()) {
@@ -573,25 +265,6 @@ function showNotification(title: string, body: string) {
       body,
     }).show()
   }
-}
-
-async function handleCancelSession() {
-  // 1. 立即隐藏窗口
-  hideOverlay()
-
-  // 2. 标记当前会话为已取消
-  if (currentSession) {
-    currentSession = null // 或保留引用但标记失效
-  }
-
-  // 3. 通知后台窗口停止录音 (如果正在录音)
-  const bgWindow = getBackgroundWindow()
-  if (bgWindow) {
-    bgWindow.webContents.send(IPC_CHANNELS.SESSION_STOP)
-  }
-
-  // 4. (关键) 在 handleAudioData 中添加检查
-  // 如果收到音频数据时 currentSession 为 null 或 status 为 aborted，则直接丢弃，不执行 ASR 和 注入。
 }
 
 // 应用程序生命周期
@@ -609,6 +282,11 @@ app.whenReady().then(async () => {
   initializeASRProvider()
   createBackgroundWindow()
   createTray()
+  // 初始化音频处理器（需要 ASR Provider 依赖）
+  initProcessor({
+    getAsrProvider: () => asrProvider,
+    initializeASRProvider,
+  })
   // 初始化 IPC 处理器依赖
   initIPCHandlers({
     // config-handlers 依赖
@@ -622,23 +300,21 @@ app.whenReady().then(async () => {
 
     // session-handlers 依赖
     session: {
+      // 这些现在直接从 audio/ 模块导入
       handleStartRecording,
       handleStopRecording,
       handleAudioData,
       handleCancelSession,
-      getCurrentSession: () => currentSession,
+      getCurrentSession,
     },
 
     // overlay-handlers 依赖
     overlay: {
       showNotification,
-      getCurrentSession: () => currentSession,
-      setSessionError: () => {
-        if (currentSession) currentSession.status = 'error'
-      },
+      getCurrentSession, // 同样从 audio/ 导入
+      setSessionError, // 同样从 audio/ 导入
     },
   })
-  // setupIPCHandlers()
   registerAllIPCHandlers()
   void UpdaterManager.checkForUpdates()
   registerGlobalHotkeys()
