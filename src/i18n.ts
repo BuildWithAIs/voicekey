@@ -1,6 +1,6 @@
 import i18n from 'i18next'
 import { initReactI18next } from 'react-i18next'
-import { DEFAULT_LANGUAGE, resources } from '@electron/shared/i18n'
+import { DEFAULT_LANGUAGE, resolveLanguage, resources } from '@electron/shared/i18n'
 import type { LanguageSnapshot } from '@electron/shared/types'
 
 export const initI18n = async (): Promise<void> => {
@@ -12,7 +12,9 @@ export const initI18n = async (): Promise<void> => {
     console.warn('[i18n] Failed to load language snapshot, using default.', error)
   }
 
-  const resolvedLanguage = snapshot?.resolved ?? DEFAULT_LANGUAGE
+  const systemLanguage = typeof navigator !== 'undefined' ? navigator.language : DEFAULT_LANGUAGE
+  const resolvedLanguage =
+    snapshot?.resolved ?? resolveLanguage('system', systemLanguage) ?? DEFAULT_LANGUAGE
 
   await i18n.use(initReactI18next).init({
     resources,
