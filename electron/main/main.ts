@@ -1,25 +1,18 @@
-﻿import { app, BrowserWindow, ipcMain, Notification, Tray, Menu, nativeImage, shell } from 'electron'
+﻿import { app, BrowserWindow, Notification, Tray, Menu, nativeImage } from 'electron'
 import fs from 'fs'
 import { createRequire } from 'node:module'
 import path from 'node:path'
-// import { fileURLToPath } from 'node:url'
 import { UiohookKey } from 'uiohook-napi'
 import { ASRProvider } from './asr-provider'
 import { configManager } from './config-manager'
 import { historyManager } from './history-manager'
 import { hotkeyManager } from './hotkey-manager'
-import { initMainI18n, setMainLanguage, t } from './i18n'
+import { initMainI18n, t } from './i18n'
 import { ioHookManager } from './iohook-manager'
-import { getLogDirectory, initializeLogger, readLogTail, writeLog } from './logger'
+import { initializeLogger } from './logger'
 import { textInjector } from './text-injector'
 import { UpdaterManager } from './updater-manager'
-import { LOG_TAIL_MAX_BYTES } from '../shared/constants'
-import {
-  IPC_CHANNELS,
-  type LogEntryPayload,
-  type LogTailOptions,
-  type VoiceSession,
-} from '../shared/types'
+import { IPC_CHANNELS, type VoiceSession } from '../shared/types'
 
 import {
   createBackgroundWindow,
@@ -29,14 +22,13 @@ import {
   hideOverlay,
   updateOverlay,
   showErrorAndHide,
-  sendAudioLevel,
-  setOverlayIgnoreMouseEvents,
   // Settings 模块
   createSettingsWindow,
   getSettingsWindow,
   updateSettingsWindowTitle,
   focusSettingsWindow,
 } from './window/index'
+import { initIPCHandlers, registerAllIPCHandlers } from './ipc'
 
 import { initEnv, VITE_DEV_SERVER_URL, getVitePublic } from './env'
 // ES Module compatibility - 延迟导入 fluent-ffmpeg 避免启动时的 __dirname 错误
@@ -602,139 +594,6 @@ async function handleCancelSession() {
   // 如果收到音频数据时 currentSession 为 null 或 status 为 aborted，则直接丢弃，不执行 ASR 和 注入。
 }
 
-// IPC处理器
-function setupIPCHandlers() {
-  // 配置相关
-  ipcMain.handle(IPC_CHANNELS.CONFIG_GET, () => {
-    return configManager.getConfig()
-  })
-
-  ipcMain.handle(IPC_CHANNELS.CONFIG_SET, async (_event, config) => {
-    if (config.app) {
-      configManager.setAppConfig(config.app)
-      if (typeof config.app.autoLaunch === 'boolean') {
-        updateAutoLaunchState(config.app.autoLaunch)
-      }
-      await setMainLanguage(config.app.language)
-      refreshLocalizedUi()
-    }
-    if (config.asr) {
-      configManager.setASRConfig(config.asr)
-      initializeASRProvider()
-    }
-    if (config.hotkey) {
-      configManager.setHotkeyConfig(config.hotkey)
-      // 重新注册快捷键：先清除所有监听器
-      hotkeyManager.unregisterAll()
-      ioHookManager.removeAllListeners('keydown')
-      ioHookManager.removeAllListeners('keyup')
-      registerGlobalHotkeys()
-      console.log('[Main] Hotkeys re-registered with new config:', config.hotkey)
-    }
-  })
-
-  ipcMain.handle(IPC_CHANNELS.CONFIG_TEST, async (_event, config?: any) => {
-    if (config) {
-      const tempProvider = new ASRProvider(config)
-      return await tempProvider.testConnection()
-    }
-    if (!asrProvider) {
-      return false
-    }
-    return await asrProvider.testConnection()
-  })
-
-  // 会话相关
-  ipcMain.handle(IPC_CHANNELS.SESSION_START, async () => {
-    await handleStartRecording()
-  })
-
-  ipcMain.handle(IPC_CHANNELS.SESSION_STOP, async () => {
-    await handleStopRecording()
-  })
-
-  ipcMain.handle(IPC_CHANNELS.SESSION_STATUS, () => {
-    return currentSession?.status || 'idle'
-  })
-
-  // 历史记录相关
-  ipcMain.handle(IPC_CHANNELS.HISTORY_GET, () => historyManager.getAll())
-  ipcMain.handle(IPC_CHANNELS.HISTORY_CLEAR, () => historyManager.clear())
-  ipcMain.handle(IPC_CHANNELS.HISTORY_DELETE, (_event, id) => historyManager.delete(id))
-
-  // 日志相关
-  ipcMain.handle(IPC_CHANNELS.LOG_GET_TAIL, (_event, options?: LogTailOptions) => {
-    const maxBytes = Math.max(
-      1024,
-      Math.min(options?.maxBytes ?? LOG_TAIL_MAX_BYTES, LOG_TAIL_MAX_BYTES * 5),
-    )
-    return readLogTail(maxBytes)
-  })
-
-  ipcMain.handle(IPC_CHANNELS.LOG_OPEN_FOLDER, () => {
-    return shell.openPath(getLogDirectory())
-  })
-
-  ipcMain.on(IPC_CHANNELS.LOG_WRITE, (_event, payload: LogEntryPayload) => {
-    if (!payload || !payload.message || !payload.level) return
-    writeLog({
-      ...payload,
-      scope: payload.scope ?? 'renderer',
-    })
-  })
-
-  // 接收音频数据
-  ipcMain.on(IPC_CHANNELS.AUDIO_DATA, (_event, buffer) => {
-    handleAudioData(Buffer.from(buffer))
-  })
-
-  ipcMain.on(IPC_CHANNELS.OVERLAY_AUDIO_LEVEL, (_event, level: number) => {
-    // if (overlayWindow && !overlayWindow.isDestroyed()) {
-    //   overlayWindow.webContents.send(IPC_CHANNELS.OVERLAY_AUDIO_LEVEL, level)
-    // }
-    sendAudioLevel(level)
-  })
-
-  // ipcMain.on('set-ignore-mouse-events', (_event, ignore: boolean, options?: any) => {
-  //   if (overlayWindow && !overlayWindow.isDestroyed()) {
-  //     overlayWindow.setIgnoreMouseEvents(ignore, options)
-  //   }
-  // })
-  ipcMain.on(
-    'set-ignore-mouse-events',
-    (_event, ignore: boolean, options?: { forward?: boolean }) => {
-      setOverlayIgnoreMouseEvents(ignore, options)
-    },
-  )
-
-  ipcMain.on('error', (_event, error) => {
-    console.error('[Main] 🔴 Renderer Error received:', error)
-    console.error('[Main] 🔴 Error type:', typeof error)
-    console.error('[Main] 🔴 Current session status:', currentSession?.status)
-    showNotification(t('notification.errorTitle'), error)
-    if (currentSession) currentSession.status = 'error'
-  })
-
-  // 更新相关
-  ipcMain.handle(IPC_CHANNELS.CHECK_FOR_UPDATES, async () => {
-    return await UpdaterManager.checkForUpdates()
-  })
-
-  ipcMain.handle(IPC_CHANNELS.GET_UPDATE_STATUS, () => {
-    return UpdaterManager.getLastUpdateInfo()
-  })
-
-  ipcMain.handle(IPC_CHANNELS.GET_APP_VERSION, () => {
-    return app.getVersion()
-  })
-
-  ipcMain.handle(IPC_CHANNELS.OPEN_EXTERNAL, (_event, url) => {
-    UpdaterManager.openReleasePage(url)
-  })
-
-  ipcMain.handle(IPC_CHANNELS.CANCEL_SESSION, handleCancelSession)
-}
-
 // 应用程序生命周期
 app.whenReady().then(async () => {
   initEnv() // 必须第一个调用
@@ -750,7 +609,37 @@ app.whenReady().then(async () => {
   initializeASRProvider()
   createBackgroundWindow()
   createTray()
-  setupIPCHandlers()
+  // 初始化 IPC 处理器依赖
+  initIPCHandlers({
+    // config-handlers 依赖
+    config: {
+      updateAutoLaunchState,
+      refreshLocalizedUi,
+      initializeASRProvider,
+      registerGlobalHotkeys,
+      getAsrProvider: () => asrProvider,
+    },
+
+    // session-handlers 依赖
+    session: {
+      handleStartRecording,
+      handleStopRecording,
+      handleAudioData,
+      handleCancelSession,
+      getCurrentSession: () => currentSession,
+    },
+
+    // overlay-handlers 依赖
+    overlay: {
+      showNotification,
+      getCurrentSession: () => currentSession,
+      setSessionError: () => {
+        if (currentSession) currentSession.status = 'error'
+      },
+    },
+  })
+  // setupIPCHandlers()
+  registerAllIPCHandlers()
   void UpdaterManager.checkForUpdates()
   registerGlobalHotkeys()
   ioHookManager.start()
