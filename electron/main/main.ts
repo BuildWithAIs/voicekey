@@ -31,6 +31,10 @@ import {
   type OverlayState,
   type VoiceSession,
 } from '../shared/types'
+
+import { createBackgroundWindow, getBackgroundWindow } from '@electron/main/window/index'
+
+import { initEnv, VITE_DEV_SERVER_URL, getRendererDist, getVitePublic } from './env'
 // ES Module compatibility - 延迟导入 fluent-ffmpeg 避免启动时的 __dirname 错误
 let ffmpeg: any
 let ffmpegInitialized = false
@@ -66,59 +70,12 @@ function initializeFfmpeg() {
 // const require = createRequire(import.meta.url)
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
-// 目录结构
-process.env.APP_ROOT = path.join(__dirname, '..')
-export const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL']
-export const MAIN_DIST = path.join(process.env.APP_ROOT, 'dist-electron')
-export const RENDERER_DIST = path.join(process.env.APP_ROOT, 'dist')
-process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL
-  ? path.join(process.env.APP_ROOT, 'public')
-  : RENDERER_DIST
-
 // 全局变量
-// 更清晰的命名
-let backgroundWindow: BrowserWindow | null = null
 let settingsWindow: BrowserWindow | null = null
 let overlayWindow: BrowserWindow | null = null
 let tray: Tray | null = null
-// const audioRecorder = new AudioRecorder()
 let asrProvider: ASRProvider | null = null
 let currentSession: VoiceSession | null = null
-
-// 创建主窗口（隐藏的后台窗口）
-function createMainWindow() {
-  backgroundWindow = new BrowserWindow({
-    show: false, // MVP版本不显示主窗口
-    webPreferences: {
-      preload: path.join(__dirname, 'preload.cjs'),
-      nodeIntegration: false,
-      contextIsolation: true,
-    },
-  })
-
-  // backgroundWindow 只渲染 AudioRecorder，不需要 DevTools
-  // 如需调试录音逻辑，可在 settingsWindow 的 DevTools Console 中查看日志
-  // 打开开发者工具以查看 renderer 进程日志（开发模式）
-  if (VITE_DEV_SERVER_URL) {
-    backgroundWindow.webContents.openDevTools({ mode: 'detach' })
-  }
-
-  if (VITE_DEV_SERVER_URL) {
-    backgroundWindow.loadURL(VITE_DEV_SERVER_URL)
-  } else {
-    backgroundWindow.loadFile(path.join(RENDERER_DIST, 'index.html'))
-  }
-
-  // 监听页面加载完成
-  backgroundWindow.webContents.on('did-finish-load', () => {
-    console.log('[Main] backgroundWindow finished loading')
-  })
-
-  // 监听页面加载失败
-  backgroundWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription) => {
-    console.error('[Main] backgroundWindow failed to load:', errorCode, errorDescription)
-  })
-}
 
 // 创建设置窗口
 function createSettingsWindow() {
@@ -149,7 +106,7 @@ function createSettingsWindow() {
     // 开发模式下打开 DevTools
     settingsWindow.webContents.openDevTools({ mode: 'detach' })
   } else {
-    settingsWindow.loadFile(path.join(RENDERER_DIST, 'index.html'), {
+    settingsWindow.loadFile(path.join(getRendererDist(), 'index.html'), {
       hash: '/settings',
     })
   }
@@ -200,7 +157,7 @@ function createOverlayWindow() {
   if (VITE_DEV_SERVER_URL) {
     overlayWindow.loadURL(`${VITE_DEV_SERVER_URL}#/overlay`)
   } else {
-    overlayWindow.loadFile(path.join(RENDERER_DIST, 'index.html'), {
+    overlayWindow.loadFile(path.join(getRendererDist(), 'index.html'), {
       hash: '/overlay',
     })
   }
@@ -285,7 +242,7 @@ const refreshLocalizedUi = () => {
 
 function createTray() {
   // 创建一个简单的托盘图标（后续可以替换为实际图标）
-  const icon = nativeImage.createFromPath(path.join(process.env.VITE_PUBLIC, 'tray-icon.png'))
+  const icon = nativeImage.createFromPath(path.join(getVitePublic(), 'tray-icon.png'))
   // macOS 会自动查找 tray-icon@2x.png 用于 Retina 屏幕
   icon.setTemplateImage(true)
   tray = new Tray(icon)
@@ -512,7 +469,6 @@ function registerGlobalHotkeys() {
 }
 
 // 处理开始录音
-// 处理开始录音
 async function handleStartRecording() {
   const startTimestamp = Date.now()
   console.log(`[Main] [${new Date().toISOString()}] handleStartRecording triggered`)
@@ -528,9 +484,10 @@ async function handleStartRecording() {
       status: 'recording',
     }
 
-    if (backgroundWindow && !backgroundWindow.isDestroyed()) {
+    const bgWindow = getBackgroundWindow()
+    if (bgWindow) {
       console.log(`[Main] [${new Date().toISOString()}] Sending SESSION_START to backgroundWindow`)
-      backgroundWindow.webContents.send(IPC_CHANNELS.SESSION_START)
+      bgWindow.webContents.send(IPC_CHANNELS.SESSION_START)
       const duration = Date.now() - startTimestamp
       console.log(`[Main] ⏱️  Recording start completed in ${duration}ms`)
     } else {
@@ -563,9 +520,10 @@ async function handleStopRecording() {
     currentSession.status = 'processing'
     updateOverlay({ status: 'processing' })
 
-    if (backgroundWindow && !backgroundWindow.isDestroyed()) {
+    const bgWindow = getBackgroundWindow()
+    if (bgWindow) {
       console.log(`[Main] [${new Date().toISOString()}] Sending SESSION_STOP to backgroundWindow`)
-      backgroundWindow.webContents.send(IPC_CHANNELS.SESSION_STOP)
+      bgWindow.webContents.send(IPC_CHANNELS.SESSION_STOP)
     } else {
       console.error('[Main] Cannot send SESSION_STOP: backgroundWindow not available')
       showErrorAndHide(t('errors.stopFailed'))
@@ -764,8 +722,9 @@ async function handleCancelSession() {
   }
 
   // 3. 通知后台窗口停止录音 (如果正在录音)
-  if (backgroundWindow) {
-    backgroundWindow.webContents.send(IPC_CHANNELS.SESSION_STOP)
+  const bgWindow = getBackgroundWindow()
+  if (bgWindow) {
+    bgWindow.webContents.send(IPC_CHANNELS.SESSION_STOP)
   }
 
   // 4. (关键) 在 handleAudioData 中添加检查
@@ -900,6 +859,7 @@ function setupIPCHandlers() {
 
 // 应用程序生命周期
 app.whenReady().then(async () => {
+  initEnv() // 必须第一个调用
   initializeLogger()
   if (process.platform !== 'darwin') {
     Menu.setApplicationMenu(null)
@@ -910,7 +870,8 @@ app.whenReady().then(async () => {
   await initMainI18n(appConfig.language)
   updateAutoLaunchState(appConfig.autoLaunch ?? false)
   initializeASRProvider()
-  createMainWindow()
+  // createMainWindow()
+  createBackgroundWindow()
   createTray()
   setupIPCHandlers()
   void UpdaterManager.checkForUpdates()
