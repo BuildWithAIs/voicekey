@@ -15,11 +15,54 @@ const {
   title,
   description = 'Voice Key - Voice to text, one key to input. Press hotkey to speak, release to type anywhere.',
   lang = 'en',
-  ogImage = '/og-image.png',
+  ogImage = '/og.png',
 } = Astro.props
 
 const siteName = 'Voice Key'
 const siteUrl = 'https://buildwithaIs.github.io/voicekey'
+// 生成 canonical URL（优先使用 Astro 提供的运行时变量）
+const canonicalURL = (() => {
+  try {
+    return new URL(Astro.url.pathname, Astro.site).toString()
+  } catch (e) {
+    return siteUrl
+  }
+})()
+// 多语言 Hreflang 链接生成（构建在子路径 base 下时保持健壮）
+const hreflangUrls = (() => {
+  try {
+    const baseEnv = import.meta.env.BASE_URL ?? '/'
+    const normBase = baseEnv.endsWith('/') ? baseEnv.slice(0, -1) : baseEnv
+
+    let cleanPath = Astro.url.pathname ?? '/'
+    // 去除 base 前缀（如果存在）
+    if (normBase !== '/' && cleanPath.startsWith(normBase)) {
+      cleanPath = cleanPath.slice(normBase.length) || '/'
+    }
+    if (!cleanPath.startsWith('/')) cleanPath = '/' + cleanPath
+
+    // 移除语言前缀（这里只处理 /zh/ 前缀，en 为默认不带 /en/）
+    const pathWithoutLang = cleanPath === '/zh' ? '/' : (cleanPath.startsWith('/zh/') ? cleanPath.slice(3) : cleanPath)
+
+    const enPath = `${normBase}${pathWithoutLang === '/' ? '' : pathWithoutLang}`
+    const zhPath = `${normBase}/zh${pathWithoutLang === '/' ? '' : pathWithoutLang}`
+
+    const enUrl = new URL(enPath, Astro.site).toString()
+    const zhUrl = new URL(zhPath, Astro.site).toString()
+
+    return { enUrl, zhUrl }
+  } catch (e) {
+    return { enUrl: siteUrl, zhUrl: siteUrl }
+  }
+})()
+// 生成用于 OG/Twitter 的绝对图片 URL（使用 siteUrl + ogImage，避免双斜杠）
+const ogImageUrl = (() => {
+  try {
+    return new URL(ogImage, siteUrl).toString()
+  } catch (e) {
+    return `${siteUrl}${ogImage}`
+  }
+})()
 ---
 
 <!doctype html>
@@ -35,14 +78,21 @@ const siteUrl = 'https://buildwithaIs.github.io/voicekey'
     <meta property="og:site_name" content={siteName} />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
-    <meta property="og:image" content={`${siteUrl}${ogImage}`} />
+    <meta property="og:image" content={ogImageUrl} />
     <meta property="og:url" content={siteUrl} />
 
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={description} />
-    <meta name="twitter:image" content={`${siteUrl}${ogImage}`} />
+    <meta name="twitter:image" content={ogImageUrl} />
+
+    <!-- Canonical -->
+    <link rel="canonical" href={canonicalURL} />
+    <!-- Hreflang / 多语言替代 -->
+    <link rel="alternate" hreflang="en" href={hreflangUrls.enUrl} />
+    <link rel="alternate" hreflang="zh-Hans" href={hreflangUrls.zhUrl} />
+    <link rel="alternate" hreflang="x-default" href={hreflangUrls.enUrl} />
 
     <!-- Favicon -->
     <!-- Favicon -->
