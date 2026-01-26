@@ -17,6 +17,7 @@ import {
   Command,
 } from 'lucide-react'
 import LanguageSwitch from '@components/LanguageSwitch.astro'
+import ThemeToggle from '@components/ThemeToggle.astro'
 
 const title = 'Voice Key - 语音转文字，一键输入'
 const description = '按住热键说话，松手即输入到任意应用。Voice Key 是一款跨平台应用（支持 macOS 与 Windows），专注于快速语音转文字转换。'
@@ -61,7 +62,11 @@ const features = [
   <section
     class="relative min-h-screen flex items-center justify-center overflow-hidden pt-20 pb-32"
   >
-    <LanguageSwitch lang="zh" />
+    <!-- Top Right Controls -->
+    <div class="absolute top-4 right-4 md:top-8 md:right-8 z-50 flex items-center gap-2">
+      <ThemeToggle />
+      <LanguageSwitch lang="zh" />
+    </div>
 
     <!-- Ambient Glow -->
     <div
@@ -95,7 +100,7 @@ const features = [
         </div>
         
         <div
-          class="relative w-36 h-36 rounded-[22px] flex items-center justify-center bg-background/50 backdrop-blur-sm ring-1 ring-white/10 shadow-2xl overflow-hidden"
+          class="relative cursor-pointer w-32 h-32 rounded-[22px] flex items-center justify-center bg-background/50 backdrop-blur-sm ring-1 ring-white/10 shadow-2xl overflow-hidden"
         >
           <Image
             src={logoImage}

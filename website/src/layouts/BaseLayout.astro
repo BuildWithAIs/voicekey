@@ -57,8 +57,27 @@ const siteUrl = 'https://buildwithaIs.github.io/voicekey'
     />
 
     <title>{title}</title>
+    
+    <!-- Theme Initialization (防止 FOUC) -->
+    <script is:inline>
+      (function() {
+        const getTheme = () => {
+          if (typeof localStorage !== 'undefined' && localStorage.getItem('theme')) {
+            return localStorage.getItem('theme');
+          }
+          if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            return 'dark';
+          }
+          return 'dark'; // 默认暗色
+        };
+        
+        const theme = getTheme();
+        document.documentElement.classList.toggle('dark', theme === 'dark');
+        window.localStorage.setItem('theme', theme);
+      })();
+    </script>
   </head>
-  <body class="min-h-screen bg-background text-foreground antialiased dark relative selection:bg-primary/30 selection:text-primary">
+  <body class="min-h-screen bg-background text-foreground antialiased relative selection:bg-primary/30 selection:text-primary">
     <!-- Grid Pattern Background -->
     <div class="fixed inset-0 z-0 h-full w-full bg-background bg-[linear-gradient(to_right,rgba(128,128,128,0.05)_1px,transparent_1px),linear-gradient(to_bottom,rgba(128,128,128,0.05)_1px,transparent_1px)] bg-[size:40px_40px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] pointer-events-none"></div>
     
