@@ -6,11 +6,8 @@
  */
 import { BrowserWindow, screen } from 'electron'
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
-import { VITE_DEV_SERVER_URL, getRendererDist } from '../env'
+import { VITE_DEV_SERVER_URL, getMainDist, getRendererDist } from '../env'
 import { IPC_CHANNELS, type OverlayState } from '../../shared/types'
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 let overlayWindow: BrowserWindow | null = null
 
@@ -56,7 +53,7 @@ export function createOverlayWindow(): BrowserWindow {
     hasShadow: false,
     show: false,
     webPreferences: {
-      preload: path.join(__dirname, 'preload.cjs'),
+      preload: path.join(getMainDist(), 'preload.cjs'),
       nodeIntegration: false,
       contextIsolation: true,
     },

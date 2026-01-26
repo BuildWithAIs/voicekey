@@ -6,11 +6,8 @@
  */
 import { BrowserWindow, screen } from 'electron'
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
-import { VITE_DEV_SERVER_URL, getRendererDist } from '../env'
+import { VITE_DEV_SERVER_URL, getMainDist, getRendererDist } from '../env'
 import { t } from '../i18n'
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 let settingsWindow: BrowserWindow | null = null
 
@@ -47,7 +44,7 @@ export function createSettingsWindow(): BrowserWindow | void {
     vibrancy: 'sidebar', // macOS 毛玻璃效果
     backgroundColor: '#00000000', // 透明背景
     webPreferences: {
-      preload: path.join(__dirname, 'preload.cjs'),
+      preload: path.join(getMainDist(), 'preload.cjs'),
       nodeIntegration: false,
       contextIsolation: true,
     },

@@ -6,10 +6,7 @@
  */
 import { BrowserWindow } from 'electron'
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
-import { VITE_DEV_SERVER_URL, getRendererDist } from '../env'
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
+import { VITE_DEV_SERVER_URL, getMainDist, getRendererDist } from '../env'
 
 let backgroundWindow: BrowserWindow | null = null
 
@@ -29,7 +26,7 @@ export function createBackgroundWindow(): BrowserWindow {
   backgroundWindow = new BrowserWindow({
     show: false, // MVP版本不显示主窗口
     webPreferences: {
-      preload: path.join(__dirname, 'preload.cjs'),
+      preload: path.join(getMainDist(), 'preload.cjs'),
       nodeIntegration: false,
       contextIsolation: true,
     },
