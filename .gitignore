@@ -24,5 +24,10 @@ dist-ssr
 *.sw?
 dist-electron
 release/*
-temp-dcos/
+
+
 temp-docs/
+
+# Website (官网子项目)
+website/node_modules/
+website/dist/

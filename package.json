@@ -19,7 +19,11 @@
     "release": "standard-version",
     "release:patch": "standard-version --release-as patch",
     "release:minor": "standard-version --release-as minor",
-    "release:major": "standard-version --release-as major"
+    "release:major": "standard-version --release-as major",
+    "website:install": "cd website && npm install",
+    "website:dev": "cd website && npm run dev",
+    "website:build": "cd website && npm run build",
+    "website:preview": "cd website && npm run preview"
   },
   "dependencies": {
     "@ffmpeg-installer/ffmpeg": "^1.1.0",

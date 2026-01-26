@@ -164,6 +164,10 @@ export default tseslint.config(
       // 依赖
       'node_modules/',
 
+      // 独立子项目（有自己的配置）
+      'website/',
+      'temp-docs/',
+
       // 缓存和临时文件
       '*.tsbuildinfo',
       '.vscode/',

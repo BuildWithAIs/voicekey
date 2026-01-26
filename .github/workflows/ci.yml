@@ -5,10 +5,18 @@ on:
     branches:
       - main
       - develop
+    paths-ignore:
+      - 'website/**'
+      - '*.md'
+      - 'imgs/**'
   pull_request:
     branches:
       - main
       - develop
+    paths-ignore:
+      - 'website/**'
+      - '*.md'
+      - 'imgs/**'
 
 jobs:
   quality-checks:

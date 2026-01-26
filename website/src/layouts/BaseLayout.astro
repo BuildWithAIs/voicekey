@@ -1,0 +1,101 @@
+---
+/**
+ * BaseLayout - 基础页面布局
+ * 所有页面共用的 HTML 骨架
+ */
+
+interface Props {
+  title: string
+  description?: string
+  lang?: 'en' | 'zh'
+  ogImage?: string
+}
+
+const {
+  title,
+  description = 'Voice Key - Voice to text, one key to input. Press hotkey to speak, release to type anywhere.',
+  lang = 'en',
+  ogImage = '/og-image.png',
+} = Astro.props
+
+const siteName = 'Voice Key'
+const siteUrl = 'https://buildwithaIs.github.io/voicekey'
+---
+
+<!doctype html>
+<html lang={lang}>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content={description} />
+    <meta name="author" content="BuildWithAIs" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content={siteName} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:image" content={`${siteUrl}${ogImage}`} />
+    <meta property="og:url" content={siteUrl} />
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={`${siteUrl}${ogImage}`} />
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+
+    <title>{title}</title>
+    
+    <!-- Theme Initialization (防止 FOUC) -->
+    <script is:inline>
+      (function() {
+        const getTheme = () => {
+          try {
+            if (typeof localStorage !== 'undefined' && localStorage.getItem('theme')) {
+              return localStorage.getItem('theme');
+            }
+          } catch (e) {
+            // localStorage 可能被禁用，忽略错误
+          }
+          if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            return 'dark';
+          }
+          return 'dark'; // 默认暗色
+        };
+        
+        const theme = getTheme();
+        document.documentElement.classList.toggle('dark', theme === 'dark');
+        
+        try {
+          if (typeof localStorage !== 'undefined') {
+            localStorage.setItem('theme', theme);
+          }
+        } catch (e) {
+          // 忽略写入错误
+        }
+      })();
+    </script>
+  </head>
+  <body class="min-h-screen bg-background text-foreground antialiased relative selection:bg-primary/30 selection:text-primary">
+    <!-- Grid Pattern Background -->
+    <div class="fixed inset-0 z-0 h-full w-full bg-background bg-[linear-gradient(to_right,rgba(128,128,128,0.05)_1px,transparent_1px),linear-gradient(to_bottom,rgba(128,128,128,0.05)_1px,transparent_1px)] bg-[size:40px_40px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] pointer-events-none"></div>
+    
+    <slot />
+  </body>
+</html>
+
+<style is:global>
+  @import '../styles/global.css';
+</style>
