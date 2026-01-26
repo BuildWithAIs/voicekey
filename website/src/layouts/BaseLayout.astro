@@ -62,8 +62,12 @@ const siteUrl = 'https://buildwithaIs.github.io/voicekey'
     <script is:inline>
       (function() {
         const getTheme = () => {
-          if (typeof localStorage !== 'undefined' && localStorage.getItem('theme')) {
-            return localStorage.getItem('theme');
+          try {
+            if (typeof localStorage !== 'undefined' && localStorage.getItem('theme')) {
+              return localStorage.getItem('theme');
+            }
+          } catch (e) {
+            // localStorage 可能被禁用，忽略错误
           }
           if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
             return 'dark';
@@ -73,7 +77,14 @@ const siteUrl = 'https://buildwithaIs.github.io/voicekey'
         
         const theme = getTheme();
         document.documentElement.classList.toggle('dark', theme === 'dark');
-        window.localStorage.setItem('theme', theme);
+        
+        try {
+          if (typeof localStorage !== 'undefined') {
+            localStorage.setItem('theme', theme);
+          }
+        } catch (e) {
+          // 忽略写入错误
+        }
       })();
     </script>
   </head>

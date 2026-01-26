@@ -32,10 +32,10 @@ import { Sun, Moon } from 'lucide-react'
     
     if (isDark) {
       document.documentElement.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
+      try { localStorage.setItem('theme', 'light'); } catch (e) {}
     } else {
       document.documentElement.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
+      try { localStorage.setItem('theme', 'dark'); } catch (e) {}
     }
   });
 </script>
