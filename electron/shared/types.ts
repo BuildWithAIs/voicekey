@@ -13,12 +13,13 @@ export interface VoiceSession {
 }
 
 export interface ASRConfig {
-  provider: 'glm'
+  provider: 'glm' | 'groq'
   region: 'cn' | 'intl'
   apiKeys: {
     cn: string
     intl: string
   }
+  groqApiKey?: string
 
   // Deprecated: for backward compatibility during migration
   apiKey?: string

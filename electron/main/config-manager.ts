@@ -22,6 +22,7 @@ const defaultConfig: AppConfig = {
       cn: '',
       intl: '',
     },
+    groqApiKey: '',
     // apiKey: '',  // Deprecated, removed from default
     endpoint: '',
     language: 'auto',
@@ -82,6 +83,9 @@ export class ConfigManager {
   // 获取ASR配置
   getASRConfig(): ASRConfig {
     const config = this.store.get('asr', defaultConfig.asr)
+    if (config.provider !== 'glm' && config.provider !== 'groq') {
+      config.provider = 'glm'
+    }
     // 确保 apiKeys 存在 (防止旧的部分配置覆盖)
     if (!config.apiKeys) {
       config.apiKeys = { cn: '', intl: '' }
@@ -89,6 +93,9 @@ export class ConfigManager {
     // 确保 region 存在
     if (!config.region) {
       config.region = 'cn'
+    }
+    if (typeof config.groqApiKey !== 'string') {
+      config.groqApiKey = ''
     }
     return config
   }
@@ -118,6 +125,9 @@ export class ConfigManager {
   // 检查配置是否有效
   isValid(): boolean {
     const asr = this.getASRConfig()
+    if (asr.provider === 'groq') {
+      return !!asr.groqApiKey && asr.groqApiKey.length > 0
+    }
     const region = asr.region || 'cn'
     const key = asr.apiKeys?.[region]
     return !!key && key.length > 0

@@ -30,7 +30,7 @@
 - `history-manager.ts` - 转录历史存储（基于 `electron-store`）
 - `hotkey-manager.ts` - 全局快捷键管理（基于 `globalShortcut`）
 - `iohook-manager.ts` - 低级键盘钩子（基于 `uiohook-napi`）
-- `asr-provider.ts` - GLM ASR 服务封装
+- `asr-provider.ts` - GLM / Groq ASR 服务封装
 - `text-injector.ts` - 文本注入模拟（基于 `nut-js`）
 - `logger.ts` - 主进程日志与保留策略
 - `updater-manager.ts` - 版本检查与更新跳转
@@ -46,7 +46,7 @@ IPC 桥接层：
 跨进程共享代码：
 
 - `types.ts` - TypeScript 类型定义、IPC 通道常量
-- `constants.ts` - 应用级常量（GLM API 配置、默认快捷键、音频参数）
+- `constants.ts` - 应用级常量（GLM / Groq API 配置、默认快捷键、音频参数）
 
 ## 根文件
 
@@ -63,7 +63,7 @@ Electron 环境类型声明
 3. **音频采集** - 渲染进程通过 Web Audio API 录制音频
 4. **数据传输** - 渲染进程将音频数据发送回主进程
 5. **格式转换** - `fluent-ffmpeg` 转换 WebM → MP3
-6. **语音识别** - `asr-provider` 调用 GLM API 转录
+6. **语音识别** - `asr-provider` 调用配置的 GLM / Groq API 转录
 7. **文本注入** - `text-injector` 模拟键盘输入到活动窗口
 
 ### 配置管理

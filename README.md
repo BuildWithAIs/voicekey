@@ -57,7 +57,7 @@
 
 ## 主要功能 <a id="about-the-project"></a>
 
-- **语音转写**: 集成 GLM ASR (智谱AI) 实现高精度的语音转文字。
+- **语音转写**: 支持 GLM / Groq ASR（二选一）实现高精度的语音转文字。
 
 ### 技术栈 <a id="built-with"></a>
 

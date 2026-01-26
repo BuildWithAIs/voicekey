@@ -9,6 +9,12 @@ export const GLM_ASR = {
   MAX_FILE_SIZE: 25 * 1024 * 1024, // 最大文件大小（25MB）
 } as const
 
+// Groq ASR API 配置
+export const GROQ_ASR = {
+  ENDPOINT: 'https://api.groq.com/openai/v1/audio/transcriptions',
+  MODEL: 'whisper-large-v3-turbo',
+} as const
+
 // 默认快捷键配置
 const isMac = typeof process !== 'undefined' && process.platform === 'darwin'
 export const DEFAULT_HOTKEYS = {
