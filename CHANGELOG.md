@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.7](https://github.com/BuildWithAIs/voicekey/compare/v0.1.6...v0.1.7) (2026-01-26)
+
+### Features
+
+- add official website project structure ([6aa2678](https://github.com/BuildWithAIs/voicekey/commit/6aa26781f06db42e57381044faf2f70fb515ca62))
+- **i18n:** auto-sync system locale when language setting is 'system' ([4618ead](https://github.com/BuildWithAIs/voicekey/commit/4618eadad3f247cc4db8890bf507b03da009714e))
+- **i18n:** implement real-time language sync across all windows ([91a2b5b](https://github.com/BuildWithAIs/voicekey/commit/91a2b5b3fa4dd4b98bead22103bac0d626cbb1ff))
+- **website:** add bilingual support and deploy workflow ([f4daca9](https://github.com/BuildWithAIs/voicekey/commit/f4daca91f82bded24ef0a4e12ce40c2543c4d5e2))
+- **website:** add canonical URLs, hreflang, and 404 page ([d5f4773](https://github.com/BuildWithAIs/voicekey/commit/d5f47735c0b7bb3dc6ec6900ebb0b1be62746c73))
+- **website:** add light/dark theme toggle ([3481d18](https://github.com/BuildWithAIs/voicekey/commit/3481d18978085fe413be91c7f1a6738775b7c28e))
+- **website:** add sitemap generation and improve favicon setup ([bc0401b](https://github.com/BuildWithAIs/voicekey/commit/bc0401b32b9b94423cf377132038c8f3a79a5384))
+- **website:** redesign with geek-style aesthetic ([1a4fe84](https://github.com/BuildWithAIs/voicekey/commit/1a4fe8409a3ce8052ebe8c8648acd36df06966ba))
+
+### Bug Fixes
+
+- **i18n:** improve fallback language resolution in renderer ([0ee7adc](https://github.com/BuildWithAIs/voicekey/commit/0ee7adc1f0deab9703a053b1ecd8bb66292233ae))
+- **website:** add localStorage error handling for private browsing ([4f3d72a](https://github.com/BuildWithAIs/voicekey/commit/4f3d72a32252cdb0034f256ce403cd704bb9d60c))
+- **website:** correct site URL and improve deployment workflow ([795ed1a](https://github.com/BuildWithAIs/voicekey/commit/795ed1a5143b61cc2d1be45e271a36b3a2aae7ee))
+
 ### [0.1.6](https://github.com/BuildWithAIs/voicekey/compare/v0.1.5...v0.1.6) (2026-01-25)
 
 ### Features
