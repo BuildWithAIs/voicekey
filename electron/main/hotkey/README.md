@@ -7,3 +7,4 @@
 - `index.ts` - 快捷键模块统一导出。
 - `parser.ts` - 解析 Electron Accelerator 为 uiohook 按键与修饰键。
 - `ptt-handler.ts` - 注册 PTT 与设置快捷键，绑定录音开始/停止。
+- `__tests__/` - 快捷键解析测试（modifier alias 覆盖）。
