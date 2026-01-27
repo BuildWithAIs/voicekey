@@ -8,3 +8,4 @@
 - `session-manager.ts` - 会话生命周期管理（开始/停止/取消）与 HUD 状态更新。
 - `processor.ts` - 音频处理流水线（保存、转码、ASR、写历史、注入、清理）。
 - `converter.ts` - FFmpeg 初始化与 WebM → MP3 转换。
+- `__tests__/` - 音频会话与处理流水线测试。
