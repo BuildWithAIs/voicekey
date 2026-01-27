@@ -9,3 +9,4 @@
 - `history-manager.test.ts` - 历史记录增删清理与保留天数裁剪测试。
 - `updater-manager.test.ts` - 更新检查、版本比较与 release URL 清洗测试。
 - `hotkey-manager.test.ts` - 全局快捷键注册/注销与重复注册防护测试。
+- `logger.test.ts` - 日志初始化、写入分流与尾部读取测试。

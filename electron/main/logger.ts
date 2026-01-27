@@ -167,7 +167,8 @@ export const initializeLogger = () => {
 export const writeLog = ({ level, message, scope, data }: LogEntryPayload) => {
   const target = log.scope(scope ?? 'main')
   const extra = data === undefined ? '' : clampText(safeStringify(data), MAX_DATA_LENGTH)
-  const text = extra ? `${message} ${extra}` : message
+  const clampedMessage = clampText(message, MAX_MESSAGE_LENGTH)
+  const text = extra ? `${clampedMessage} ${extra}` : clampedMessage
 
   switch (level) {
     case 'debug':
