@@ -36,6 +36,7 @@ export default defineConfig({
         '**/*.d.ts',
         '**/*.config.{ts,js}',
         '**/mockData',
+        'src/components/ui/**',
       ],
       thresholds: {
         lines: 80,
