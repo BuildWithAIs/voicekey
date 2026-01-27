@@ -12,3 +12,4 @@
 - `logger.test.ts` - 日志初始化、写入分流与尾部读取测试。
 - `main.test.ts` - 应用启动流程、事件监听与退出清理测试。
 - `env.test.ts` - 环境变量初始化与路径 getter 测试。
+- `i18n.test.ts` - 主进程 i18n 初始化、同步与广播测试。
