@@ -13,6 +13,7 @@ Electron 主进程目录，负责窗口管理、IPC、录音流程、ASR 调用�
 - `hotkey-manager.ts` - 基于 `globalShortcut` 的全局快捷键注册/注销。
 - `iohook-manager.ts` - 基于 `uiohook-napi` 的键盘钩子，检测 PTT 组合键按住状态。
 - `asr-provider.ts` - 调用 GLM / Groq ASR API（axios + FormData）上传音频并返回转录结果，复用请求/响应校验与日志流程。
+- `llm-provider.ts` - 调用 GLM / Groq Chat API 对转写文本进行轻/中度润色（去口水词、补标点、修正常见同音错别字）。
 - `text-injector.ts` - 基于 `@nut-tree-fork/nut-js` 注入文本；Windows 使用剪贴板粘贴，macOS 校验辅助功能权限。
 - `updater-manager.ts` - 调用 GitHub Releases API 检查新版本，缓存结果并打开发布页下载链接。
 - `audio/` - 录音会话、音频转换与转写处理流水线。

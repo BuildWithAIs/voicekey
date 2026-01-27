@@ -36,6 +36,7 @@ export interface HotkeyConfig {
 export interface AppPreferences {
   language: LanguageSetting
   autoLaunch?: boolean
+  aiPostProcessEnabled?: boolean
 }
 
 export interface LanguageSnapshot {

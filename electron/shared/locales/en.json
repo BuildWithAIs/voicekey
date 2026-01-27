@@ -64,6 +64,10 @@
     "systemLanguage": "System default",
     "autoLaunch": "Launch on startup",
     "autoLaunchHelp": "Automatically start Voice Key when you log in",
+    "aiPostProcess": "AI polish (optional)",
+    "aiPostProcessHelp": "Remove fillers, add punctuation, fix common homophone mistakes",
+    "aiPostProcessPros": "Pros: more natural, easier-to-read text",
+    "aiPostProcessCons": "Cons: slower responses and additional model cost",
     "asrConfig": "ASR Configuration",
     "asrProvider": "ASR Provider",
     "providerGlm": "GLM",
@@ -96,8 +100,9 @@
     "saveConfig": "Save Settings",
     "savingConfig": "Saving...",
     "result": {
-      "saveSuccess": "Settings saved successfully!",
+      "saveSuccess": "Settings saved",
       "saveError": "Failed to save: {{message}}",
+      "loadError": "Failed to load settings",
       "apiKeyRequired": "Please enter API Key first",
       "groqApiKeyRequired": "Groq API Key is required",
       "glmApiKeyRequired": "GLM API Key is required",
@@ -106,7 +111,6 @@
       "testFailed": "Test failed: {{message}}",
       "hotkeyInvalid": "Please fix the hotkey settings before saving."
     },
-    "saveNotice": "Changes take effect after you click Save Settings (language changes apply immediately).",
     "troubleshooting": "Troubleshooting",
     "logsDescription": "Logs are stored locally for {{days}} days. Each log file is limited to {{size}} MB.",
     "viewLogs": "View Logs",
@@ -223,7 +227,9 @@
   },
   "notification": {
     "errorTitle": "Error",
-    "permissionTitle": "Permission required"
+    "permissionTitle": "Permission required",
+    "aiFallbackTitle": "Notice",
+    "aiFallbackBody": "AI polish failed. Using the original transcription."
   },
   "time": {
     "hours_one": "{{formattedCount}} hr",

@@ -15,6 +15,19 @@ export const GROQ_ASR = {
   MODEL: 'whisper-large-v3-turbo',
 } as const
 
+// GLM Chat API 配置
+export const GLM_CHAT = {
+  ENDPOINT: 'https://open.bigmodel.cn/api/paas/v4/chat/completions',
+  ENDPOINT_INTL: 'https://api.z.ai/api/paas/v4/chat/completions',
+  MODEL: 'glm-4.7-flashx',
+} as const
+
+// Groq Chat API 配置
+export const GROQ_CHAT = {
+  ENDPOINT: 'https://api.groq.com/openai/v1/chat/completions',
+  MODEL: 'moonshotai/kimi-k2-instruct-0905',
+} as const
+
 // 默认快捷键配置
 const isMac = typeof process !== 'undefined' && process.platform === 'darwin'
 export const DEFAULT_HOTKEYS = {

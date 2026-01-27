@@ -33,6 +33,8 @@ export type ConfigHandlersDeps = {
   refreshLocalizedUi: () => void
   /** 重新初始化 ASR Provider */
   initializeASRProvider: () => void
+  /** 重新初始化 LLM Provider */
+  initializeLLMProvider: () => void
   /** 重新注册全局快捷键 */
   registerGlobalHotkeys: () => void
   /** 获取当前 ASR Provider 实例 */
@@ -88,6 +90,7 @@ export function registerConfigHandlers(): void {
       if (config.asr) {
         configManager.setASRConfig(config.asr)
         deps.initializeASRProvider()
+        deps.initializeLLMProvider()
       }
       if (config.hotkey) {
         configManager.setHotkeyConfig(config.hotkey)

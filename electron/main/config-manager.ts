@@ -14,6 +14,7 @@ const defaultConfig: AppConfig = {
   app: {
     language: 'system',
     autoLaunch: false,
+    aiPostProcessEnabled: false,
   },
   asr: {
     provider: 'glm',
@@ -71,7 +72,11 @@ export class ConfigManager {
 
   // 获取 App 配置
   getAppConfig(): AppPreferences {
-    return this.store.get('app', defaultConfig.app)
+    const config = this.store.get('app', defaultConfig.app)
+    if (typeof config.aiPostProcessEnabled !== 'boolean') {
+      config.aiPostProcessEnabled = false
+    }
+    return config
   }
 
   // 设置 App 配置

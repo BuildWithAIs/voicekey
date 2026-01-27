@@ -64,6 +64,10 @@
     "systemLanguage": "跟随系统",
     "autoLaunch": "开机自动启动",
     "autoLaunchHelp": "系统登录时自动启动 Voice Key",
+    "aiPostProcess": "AI 润色（可选）",
+    "aiPostProcessHelp": "去口水词、自动断句、修正常见同音错别字",
+    "aiPostProcessPros": "优点：文本更自然、可读性更好",
+    "aiPostProcessCons": "缺点：响应时间更长，且会产生额外模型费用",
     "asrConfig": "ASR 配置",
     "asrProvider": "ASR 服务商",
     "providerGlm": "GLM",
@@ -96,8 +100,9 @@
     "saveConfig": "保存设置",
     "savingConfig": "保存中...",
     "result": {
-      "saveSuccess": "设置已保存！",
+      "saveSuccess": "设置已保存",
       "saveError": "保存失败：{{message}}",
+      "loadError": "加载设置失败",
       "apiKeyRequired": "请先输入 API Key",
       "groqApiKeyRequired": "请输入 Groq API Key",
       "glmApiKeyRequired": "请输入 GLM API Key",
@@ -106,7 +111,6 @@
       "testFailed": "测试失败：{{message}}",
       "hotkeyInvalid": "请先修复快捷键设置后再保存。"
     },
-    "saveNotice": "修改后需要点击“保存设置”才会生效（语言切换会立即生效）。",
     "troubleshooting": "故障排查",
     "logsDescription": "日志仅保存在本地，默认保留 {{days}} 天，单个文件最大 {{size}} MB。",
     "viewLogs": "查看日志",
@@ -223,7 +227,9 @@
   },
   "notification": {
     "errorTitle": "错误",
-    "permissionTitle": "需要权限"
+    "permissionTitle": "需要权限",
+    "aiFallbackTitle": "提示",
+    "aiFallbackBody": "AI 润色失败，已使用原始文本"
   },
   "time": {
     "hours_one": "{{formattedCount}} 小时",

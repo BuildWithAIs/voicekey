@@ -19,7 +19,7 @@
 主进程核心模块：
 
 - `main.ts` - 应用入口、窗口管理、IPC 处理、PTT 流程编排
-- `audio/` - 音频处理流水线（录音会话、转换、ASR、注入）
+- `audio/` - 音频处理流水线（录音会话、转换、ASR、可选 LLM 润色、注入）
 - `hotkey/` - 快捷键解析与 PTT 行为绑定
 - `ipc/` - IPC 处理器（配置、会话、历史、日志、更新、浮窗）
 - `tray/` - 托盘菜单与本地化刷新
@@ -31,6 +31,7 @@
 - `hotkey-manager.ts` - 全局快捷键管理（基于 `globalShortcut`）
 - `iohook-manager.ts` - 低级键盘钩子（基于 `uiohook-napi`）
 - `asr-provider.ts` - GLM / Groq ASR 服务封装
+- `llm-provider.ts` - GLM / Groq Chat 文本润色封装（轻/中度清洗与标点修正）
 - `text-injector.ts` - 文本注入模拟（基于 `nut-js`）
 - `logger.ts` - 主进程日志与保留策略
 - `updater-manager.ts` - 版本检查与更新跳转
@@ -64,7 +65,8 @@ Electron 环境类型声明
 4. **数据传输** - 渲染进程将音频数据发送回主进程
 5. **格式转换** - `fluent-ffmpeg` 转换 WebM → MP3
 6. **语音识别** - `asr-provider` 调用配置的 GLM / Groq API 转录
-7. **文本注入** - `text-injector` 模拟键盘输入到活动窗口
+7. **AI 润色（可选）** - `llm-provider` 进行轻/中度润色与标点修正
+8. **文本注入** - `text-injector` 模拟键盘输入到活动窗口
 
 ### 配置管理
 

@@ -27,7 +27,6 @@ interface HotkeyConfig {
 
 interface HotkeySettingsProps {
   value: HotkeyConfig
-  originalValue: HotkeyConfig | null
   isLoading?: boolean
   onChange: (value: HotkeyConfig) => void
 }
@@ -43,18 +42,12 @@ const getDefaultHotkeys = (): HotkeyConfig => {
 
 export function HotkeySettings({
   value: config,
-  originalValue,
   isLoading = false,
   onChange,
 }: HotkeySettingsProps) {
   const { t } = useTranslation()
   const [pttInputMode, setPttInputMode] = useState<'preset' | 'record'>('preset')
   const [errors, setErrors] = useState<Record<string, string>>({})
-
-  const isDirty =
-    !!originalValue &&
-    (config.pttKey !== originalValue.pttKey ||
-      config.toggleSettings !== originalValue.toggleSettings)
 
   const getValidationMessage = (messageKey?: HotkeyValidationMessage) =>
     messageKey ? t(`hotkey.validation.${messageKey}`) : t('hotkey.validation.missing')
@@ -91,13 +84,6 @@ export function HotkeySettings({
     toast.info(t('hotkey.toast.reset'), {
       description: t('hotkey.toast.resetDesc'),
     })
-  }
-
-  const handleCancel = () => {
-    if (originalValue) {
-      onChange(originalValue)
-      setErrors({})
-    }
   }
 
   if (isLoading) {
@@ -197,12 +183,6 @@ export function HotkeySettings({
             <RotateCcw className="w-4 h-4 mr-2" />
             {t('hotkey.reset')}
           </Button>
-
-          {isDirty && (
-            <Button variant="ghost" size="sm" onClick={handleCancel}>
-              {t('hotkey.cancel')}
-            </Button>
-          )}
         </div>
       </CardContent>
     </Card>

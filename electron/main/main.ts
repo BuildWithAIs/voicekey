@@ -1,6 +1,7 @@
 ﻿import { app, BrowserWindow, Menu, nativeImage } from 'electron'
 import path from 'node:path'
 import { ASRProvider } from './asr-provider'
+import { LLMProvider } from './llm-provider'
 // 配置管理模块
 import { configManager } from './config-manager'
 // 快捷键模块
@@ -54,6 +55,7 @@ import {
 import { initEnv, VITE_DEV_SERVER_URL } from './env'
 // 全局变量
 let asrProvider: ASRProvider | null = null
+let llmProvider: LLMProvider | null = null
 
 // 设置开机自启
 function updateAutoLaunchState(enable: boolean) {
@@ -70,6 +72,12 @@ function updateAutoLaunchState(enable: boolean) {
 function initializeASRProvider() {
   const config = configManager.getASRConfig()
   asrProvider = new ASRProvider(config)
+}
+
+// 初始化 LLM Provider
+function initializeLLMProvider() {
+  const config = configManager.getASRConfig()
+  llmProvider = new LLMProvider(config)
 }
 
 // 应用程序生命周期
@@ -107,6 +115,8 @@ app.whenReady().then(async () => {
   updateAutoLaunchState(appConfig.autoLaunch ?? false)
   // 初始化ASR Provider
   initializeASRProvider()
+  // 初始化 LLM Provider
+  initializeLLMProvider()
   // 创建后台窗口
   createBackgroundWindow()
   // 创建托盘
@@ -115,6 +125,8 @@ app.whenReady().then(async () => {
   initProcessor({
     getAsrProvider: () => asrProvider,
     initializeASRProvider,
+    getLlmProvider: () => llmProvider,
+    initializeLLMProvider,
   })
   // 初始化 IPC 处理器依赖 必须在 registerAllIPCHandlers 之前
   initIPCHandlers({
@@ -123,6 +135,7 @@ app.whenReady().then(async () => {
       updateAutoLaunchState,
       refreshLocalizedUi,
       initializeASRProvider,
+      initializeLLMProvider,
       registerGlobalHotkeys,
       getAsrProvider: () => asrProvider,
     },

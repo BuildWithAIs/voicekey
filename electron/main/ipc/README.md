@@ -5,7 +5,7 @@
 ## 文件
 
 - `index.ts` - IPC 处理器注册入口与依赖初始化。
-- `config-handlers.ts` - 配置读写、ASR 连接测试、语言快照查询与广播。
+- `config-handlers.ts` - 配置读写、ASR 连接测试、语言快照查询与广播，并在 ASR 配置变更时重建 LLM Provider。
 - `session-handlers.ts` - 录音会话相关处理器（开始/停止/状态/音频数据/取消）。
 - `history-handlers.ts` - 历史记录获取、删除、清空。
 - `log-handlers.ts` - 日志尾部读取、写入、打开目录。

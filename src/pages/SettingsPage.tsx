@@ -1,5 +1,5 @@
-﻿import { useEffect, useRef, useState } from 'react'
-import { CheckCircle2, XCircle, AlertTriangle, Info } from 'lucide-react'
+﻿import { useEffect, useRef, useState, useCallback } from 'react'
+import { CheckCircle2, XCircle, Info } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { type LanguageSetting } from '@electron/shared/i18n'
 import { LOG_FILE_MAX_SIZE_MB, LOG_RETENTION_DAYS } from '@electron/shared/constants'
@@ -20,13 +20,14 @@ import {
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { validateHotkey } from '@/lib/hotkey-utils'
+import { toast } from 'sonner'
 
 export default function SettingsPage() {
   const { t } = useTranslation()
   const [config, setConfig] = useState<AppConfig>({
     app: {
       language: 'system',
+      aiPostProcessEnabled: false,
     },
     asr: {
       provider: 'glm',
@@ -45,17 +46,19 @@ export default function SettingsPage() {
     },
   })
 
-  const [originalConfig, setOriginalConfig] = useState<AppConfig | null>(null)
   const [isConfigLoading, setIsConfigLoading] = useState(true)
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState<{
     type: 'success' | 'error'
     message: string
   } | null>(null)
-  const [saving, setSaving] = useState(false)
   const [logDialogOpen, setLogDialogOpen] = useState(false)
   const hasLoadedConfig = useRef(false)
   const hasLoadedUpdateStatus = useRef(false)
+
+  // 自动保存的防抖 timer
+  const saveTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const lastSavedConfigRef = useRef<AppConfig | null>(null)
 
   useEffect(() => {
     if (hasLoadedConfig.current) return
@@ -65,103 +68,82 @@ export default function SettingsPage() {
       try {
         const loadedConfig = await window.electronAPI.getConfig()
         setConfig(loadedConfig)
-        setOriginalConfig(loadedConfig)
+        lastSavedConfigRef.current = loadedConfig
       } catch (error) {
         console.error('Failed to load config:', error)
+        toast.error(t('settings.result.loadError'))
       } finally {
         setIsConfigLoading(false)
       }
     }
 
     loadConfig()
+  }, [t])
+
+  // 自动保存逻辑（防抖 500ms）
+  const autoSave = useCallback(
+    async (newConfig: AppConfig) => {
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current)
+      }
+
+      saveTimerRef.current = setTimeout(async () => {
+        try {
+          await window.electronAPI.setConfig(newConfig)
+          lastSavedConfigRef.current = newConfig
+          toast.success(t('settings.result.saveSuccess'))
+        } catch (error) {
+          console.error('Failed to auto-save config:', error)
+          const errorMessage = error instanceof Error ? error.message : t('common.unknownError')
+          toast.error(t('settings.result.saveError', { message: errorMessage }))
+        }
+      }, 500)
+    },
+    [t],
+  )
+
+  // 清理 timer
+  useEffect(() => {
+    return () => {
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current)
+      }
+    }
   }, [])
 
-  const handleAppLanguageChange = (value: string) => {
+  const handleAppLanguageChange = async (value: string) => {
     const setting = value as LanguageSetting
-    setConfig((prev) => ({
-      ...prev,
-      app: {
-        ...prev.app,
-        language: setting,
-      },
-    }))
-    setOriginalConfig((prev) =>
-      prev
-        ? {
-            ...prev,
-            app: {
-              ...prev.app,
-              language: setting,
-            },
-          }
-        : prev,
-    )
-    void window.electronAPI.setConfig({ app: { language: setting } }).catch((error) => {
-      console.error('Failed to persist app language:', error)
-    })
-  }
-
-  const getAsrValidationError = () => {
-    const provider = config.asr.provider || 'glm'
-    if (provider === 'groq') {
-      const apiKey = config.asr.groqApiKey?.trim()
-      if (!apiKey) {
-        return t('settings.result.groqApiKeyRequired')
-      }
-      return null
+    const newConfig = {
+      ...config,
+      app: { ...config.app, language: setting },
     }
-
-    const region = config.asr.region || 'cn'
-    const apiKey = config.asr.apiKeys?.[region]?.trim()
-    if (!apiKey) {
-      return t('settings.result.glmApiKeyRequired')
-    }
-    return null
-  }
-
-  const handleSave = async () => {
-    setTestResult(null)
-
-    const pttValidation = validateHotkey(config.hotkey.pttKey)
-    const settingsValidation = validateHotkey(config.hotkey.toggleSettings)
-
-    if (
-      !pttValidation.valid ||
-      !settingsValidation.valid ||
-      config.hotkey.pttKey === config.hotkey.toggleSettings
-    ) {
-      setTestResult({ type: 'error', message: t('settings.result.hotkeyInvalid') })
-      return
-    }
-
-    const asrValidationError = getAsrValidationError()
-    if (asrValidationError) {
-      setTestResult({ type: 'error', message: asrValidationError })
-      return
-    }
-
-    setSaving(true)
+    setConfig(newConfig)
+    // 语言变更立即保存，不防抖
     try {
-      const latestConfig = await window.electronAPI.getConfig()
-
-      await window.electronAPI.setConfig({
-        ...latestConfig,
-        app: config.app,
-        asr: config.asr,
-        hotkey: config.hotkey,
-      })
-
-      setOriginalConfig(config)
-      setTestResult({ type: 'success', message: t('settings.result.saveSuccess') })
+      await window.electronAPI.setConfig({ app: { language: setting } })
+      toast.success(t('settings.result.saveSuccess'))
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : t('common.unknownError')
-      setTestResult({
-        type: 'error',
-        message: t('settings.result.saveError', { message: errorMessage }),
-      })
-    } finally {
-      setSaving(false)
+      console.error('Failed to persist app language:', error)
+      toast.error(t('settings.result.saveError', { message: String(error) }))
     }
+  }
+
+  const handleAutoLaunchChange = (checked: boolean) => {
+    const newConfig = {
+      ...config,
+      app: { ...config.app, autoLaunch: checked },
+    }
+    setConfig(newConfig)
+    void autoSave(newConfig)
+  }
+
+  const handleAiPostProcessChange = (checked: boolean) => {
+    const newConfig = {
+      ...config,
+      app: { ...config.app, aiPostProcessEnabled: checked },
+    }
+    setConfig(newConfig)
+    void autoSave(newConfig)
   }
 
   const handleTestConnection = async () => {
@@ -198,52 +180,57 @@ export default function SettingsPage() {
   // Helper to update API Key for current region
   const handleApiKeyChange = (value: string) => {
     const provider = config.asr.provider || 'glm'
+    let newConfig: AppConfig
+
     if (provider === 'groq') {
-      setConfig((prev) => ({
-        ...prev,
+      newConfig = {
+        ...config,
+        asr: { ...config.asr, groqApiKey: value },
+      }
+    } else {
+      const region = config.asr.region || 'cn'
+      newConfig = {
+        ...config,
         asr: {
-          ...prev.asr,
-          groqApiKey: value,
+          ...config.asr,
+          apiKeys: { ...config.asr.apiKeys, [region]: value },
         },
-      }))
-      return
+      }
     }
 
-    const region = config.asr.region || 'cn'
-    setConfig((prev) => ({
-      ...prev,
-      asr: {
-        ...prev.asr,
-        apiKeys: {
-          ...prev.asr.apiKeys,
-          [region]: value,
-        },
-      },
-    }))
+    setConfig(newConfig)
+    void autoSave(newConfig)
   }
 
   // Helper to change Region
   const handleRegionChange = (value: string) => {
     const region = value as 'cn' | 'intl'
-    setConfig((prev) => ({
-      ...prev,
+    const newConfig = {
+      ...config,
       asr: {
-        ...prev.asr,
+        ...config.asr,
         region,
         endpoint: '', // Clear endpoint to ensure region default is used
       },
-    }))
+    }
+    setConfig(newConfig)
+    void autoSave(newConfig)
   }
 
   const handleProviderChange = (value: string) => {
     const provider = value as 'glm' | 'groq'
-    setConfig((prev) => ({
-      ...prev,
-      asr: {
-        ...prev.asr,
-        provider,
-      },
-    }))
+    const newConfig = {
+      ...config,
+      asr: { ...config.asr, provider },
+    }
+    setConfig(newConfig)
+    void autoSave(newConfig)
+  }
+
+  const handleHotkeyChange = (hotkey: { pttKey: string; toggleSettings: string }) => {
+    const newConfig = { ...config, hotkey }
+    setConfig(newConfig)
+    void autoSave(newConfig)
   }
 
   const isSuccess = testResult?.type === 'success'
@@ -287,20 +274,6 @@ export default function SettingsPage() {
       : currentRegion === 'intl'
         ? 'z.ai'
         : 'bigmodel.cn'
-
-  const isDirty =
-    !!originalConfig &&
-    (config.app.language !== originalConfig.app.language ||
-      (config.app.autoLaunch ?? false) !== (originalConfig.app.autoLaunch ?? false) ||
-      config.asr.provider !== originalConfig.asr.provider ||
-      config.asr.region !== originalConfig.asr.region ||
-      config.asr.endpoint !== originalConfig.asr.endpoint ||
-      config.asr.language !== originalConfig.asr.language ||
-      config.asr.apiKeys.cn !== originalConfig.asr.apiKeys.cn ||
-      config.asr.apiKeys.intl !== originalConfig.asr.apiKeys.intl ||
-      (config.asr.groqApiKey ?? '') !== (originalConfig.asr.groqApiKey ?? '') ||
-      config.hotkey.pttKey !== originalConfig.hotkey.pttKey ||
-      config.hotkey.toggleSettings !== originalConfig.hotkey.toggleSettings)
 
   // Update Logic
   const [checkingUpdate, setCheckingUpdate] = useState(false)
@@ -424,12 +397,7 @@ export default function SettingsPage() {
             <Switch
               id="autoLaunch"
               checked={config.app.autoLaunch ?? false}
-              onCheckedChange={(checked) =>
-                setConfig({
-                  ...config,
-                  app: { ...config.app, autoLaunch: checked },
-                })
-              }
+              onCheckedChange={handleAutoLaunchChange}
               className="no-drag cursor-pointer"
             />
           </div>
@@ -504,7 +472,7 @@ export default function SettingsPage() {
                     className="no-drag bg-muted text-muted-foreground"
                   />
                   <div className="flex items-center space-x-2 mt-2">
-                    <AlertTriangle className="h-4 w-4 text-yellow-500" />
+                    <Info className="h-4 w-4 text-yellow-500" />
                     <p className="text-sm text-muted-foreground">{t('settings.durationWarning')}</p>
                   </div>
                 </div>
@@ -606,15 +574,37 @@ export default function SettingsPage() {
               </TabsContent>
             </Tabs>
           </div>
+
+          <div className="flex items-center justify-between space-x-2">
+            <div className="space-y-0.5">
+              <Label htmlFor="aiPostProcess">{t('settings.aiPostProcess')}</Label>
+              <p className="text-sm text-muted-foreground">{t('settings.aiPostProcessHelp')}</p>
+            </div>
+            <Switch
+              id="aiPostProcess"
+              checked={config.app.aiPostProcessEnabled ?? false}
+              onCheckedChange={handleAiPostProcessChange}
+              className="no-drag cursor-pointer"
+            />
+          </div>
+
+          <Alert>
+            <Info className="h-4 w-4" />
+            <AlertDescription>
+              <div className="flex flex-col gap-1 text-sm">
+                <span>{t('settings.aiPostProcessPros')}</span>
+                <span>{t('settings.aiPostProcessCons')}</span>
+              </div>
+            </AlertDescription>
+          </Alert>
         </CardContent>
       </Card>
 
       <div className="mb-6">
         <HotkeySettings
           value={config.hotkey}
-          originalValue={originalConfig?.hotkey ?? null}
           isLoading={isConfigLoading}
-          onChange={(hotkey) => setConfig((prev) => ({ ...prev, hotkey }))}
+          onChange={handleHotkeyChange}
         />
       </div>
 
@@ -642,13 +632,6 @@ export default function SettingsPage() {
 
       <LogViewerDialog open={logDialogOpen} onOpenChange={setLogDialogOpen} />
 
-      {isDirty && (
-        <Alert className="mb-6">
-          <AlertTriangle className="h-4 w-4" />
-          <AlertDescription>{t('settings.saveNotice')}</AlertDescription>
-        </Alert>
-      )}
-
       {testResult && (
         <Alert variant={isSuccess ? 'default' : 'destructive'} className="mb-6">
           {isSuccess ? (
@@ -670,13 +653,6 @@ export default function SettingsPage() {
           className="no-drag flex-1 cursor-pointer"
         >
           {testing ? t('settings.testingConnection') : t('settings.testConnection')}
-        </Button>
-        <Button
-          onClick={handleSave}
-          disabled={saving || !isDirty}
-          className="no-drag flex-1 cursor-pointer"
-        >
-          {saving ? t('settings.savingConfig') : t('settings.saveConfig')}
         </Button>
       </div>
     </div>
