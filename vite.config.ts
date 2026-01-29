@@ -32,6 +32,10 @@ export default defineConfig(({ mode }) => {
                   'node-record-lpcm16',
                   'fluent-ffmpeg',
                   '@ffmpeg-installer/ffmpeg',
+                  // 以下是由 @mapbox/node-pre-gyp 引入的可选测试依赖
+                  'mock-aws-s3',
+                  'aws-sdk',
+                  'nock',
                 ],
               },
             },
