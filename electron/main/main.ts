@@ -23,6 +23,8 @@ import { textInjector } from './text-injector'
 import { UpdaterManager } from './updater-manager'
 // 托盘管理
 import { createTray, refreshLocalizedUi } from './tray'
+// LLM Provider
+import { LLMProvider } from './llm-provider'
 
 // 通知模块
 import { showNotification } from './notification'
@@ -54,6 +56,7 @@ import {
 import { initEnv, VITE_DEV_SERVER_URL } from './env'
 // 全局变量
 let asrProvider: ASRProvider | null = null
+let llmProvider: LLMProvider | null = null
 
 // 设置开机自启
 function updateAutoLaunchState(enable: boolean) {
@@ -70,6 +73,13 @@ function updateAutoLaunchState(enable: boolean) {
 function initializeASRProvider() {
   const config = configManager.getASRConfig()
   asrProvider = new ASRProvider(config)
+}
+
+// 初始化LLM Provider
+function initializeLLMProvider() {
+  const llmConfig = configManager.getLLMConfig()
+  const asrConfig = configManager.getASRConfig()
+  llmProvider = new LLMProvider(llmConfig, asrConfig)
 }
 
 // 应用程序生命周期
@@ -107,14 +117,17 @@ app.whenReady().then(async () => {
   updateAutoLaunchState(appConfig.autoLaunch ?? false)
   // 初始化ASR Provider
   initializeASRProvider()
+  // 初始化LLM Provider
+  initializeLLMProvider()
   // 创建后台窗口
   createBackgroundWindow()
   // 创建托盘
   createTray()
-  // 初始化音频处理器（需要 ASR Provider 依赖）
+  // 初始化音频处理器（需要 ASR Provider 和 LLM Provider 依赖）
   initProcessor({
     getAsrProvider: () => asrProvider,
     initializeASRProvider,
+    getLlmProvider: () => llmProvider,
   })
   // 初始化 IPC 处理器依赖 必须在 registerAllIPCHandlers 之前
   initIPCHandlers({
@@ -123,8 +136,10 @@ app.whenReady().then(async () => {
       updateAutoLaunchState,
       refreshLocalizedUi,
       initializeASRProvider,
+      initializeLLMProvider,
       registerGlobalHotkeys,
       getAsrProvider: () => asrProvider,
+      getLlmProvider: () => llmProvider,
     },
 
     // session-handlers 依赖

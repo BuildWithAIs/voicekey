@@ -5,6 +5,7 @@ import {
   type HistoryItem,
   type AppConfig,
   type ASRConfig,
+  type LLMConfig,
   type UpdateInfo,
   type LogEntryPayload,
   type LogTailOptions,
@@ -20,6 +21,7 @@ export interface ElectronAPI {
   getConfig: () => Promise<AppConfig>
   setConfig: (config: Partial<AppConfig>) => Promise<void>
   testConnection: (config?: ASRConfig) => Promise<boolean>
+  testLLMConnection: (config?: { llm: LLMConfig; asr: ASRConfig }) => Promise<boolean>
   getAppLanguage: () => Promise<LanguageSnapshot>
   onAppLanguageChanged: (callback: (snapshot: LanguageSnapshot) => void) => () => void
 
@@ -78,6 +80,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getConfig: () => ipcRenderer.invoke(IPC_CHANNELS.CONFIG_GET),
   setConfig: (config: Partial<AppConfig>) => ipcRenderer.invoke(IPC_CHANNELS.CONFIG_SET, config),
   testConnection: (config?: ASRConfig) => ipcRenderer.invoke(IPC_CHANNELS.CONFIG_TEST, config),
+  testLLMConnection: (config?: { llm: LLMConfig; asr: ASRConfig }) =>
+    ipcRenderer.invoke(IPC_CHANNELS.LLM_TEST, config),
   getAppLanguage: () => ipcRenderer.invoke(IPC_CHANNELS.APP_LANGUAGE_GET),
   onAppLanguageChanged: (callback: (snapshot: LanguageSnapshot) => void) => {
     const listener = (_event: IpcRendererEvent, snapshot: LanguageSnapshot) => callback(snapshot)

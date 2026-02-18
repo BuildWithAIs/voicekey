@@ -27,6 +27,17 @@ export interface ASRConfig {
   language?: string
 }
 
+export interface LLMConfig {
+  enabled: boolean
+  useASRKey: boolean
+  apiKeys: {
+    cn: string
+    intl: string
+  }
+  model: string
+  endpoint?: string
+}
+
 export interface HotkeyConfig {
   pttKey: string
   toggleSettings: string
@@ -46,6 +57,7 @@ export interface LanguageSnapshot {
 export interface AppConfig {
   app: AppPreferences
   asr: ASRConfig
+  llm: LLMConfig
   hotkey: HotkeyConfig
 }
 
@@ -85,6 +97,9 @@ export const IPC_CHANNELS = {
   CONFIG_TEST: 'config:test',
   APP_LANGUAGE_GET: 'app:language:get',
   APP_LANGUAGE_CHANGED: 'app:language:changed',
+
+  // LLM 相关
+  LLM_TEST: 'llm:test',
 
   // 录音会话相关
   SESSION_START: 'session:start',

@@ -15,10 +15,12 @@ import {
   type AppPreferences,
   type ASRConfig,
   type HotkeyConfig,
+  type LLMConfig,
 } from '../../shared/types'
 import { configManager } from '../config-manager'
 import { broadcastLanguageSnapshot, getMainLanguageSnapshot, setMainLanguage } from '../i18n'
 import { ASRProvider } from '../asr-provider'
+import { LLMProvider } from '../llm-provider'
 import { hotkeyManager } from '../hotkey-manager'
 import { ioHookManager } from '../iohook-manager'
 
@@ -33,10 +35,14 @@ export type ConfigHandlersDeps = {
   refreshLocalizedUi: () => void
   /** 重新初始化 ASR Provider */
   initializeASRProvider: () => void
+  /** 重新初始化 LLM Provider */
+  initializeLLMProvider: () => void
   /** 重新注册全局快捷键 */
   registerGlobalHotkeys: () => void
   /** 获取当前 ASR Provider 实例 */
   getAsrProvider: () => ASRProvider | null
+  /** 获取当前 LLM Provider 实例 */
+  getLlmProvider: () => LLMProvider | null
 }
 
 let deps: ConfigHandlersDeps
@@ -71,6 +77,7 @@ export function registerConfigHandlers(): void {
       config: {
         app?: Partial<AppPreferences>
         asr?: Partial<ASRConfig>
+        llm?: Partial<LLMConfig>
         hotkey?: Partial<HotkeyConfig>
       },
     ) => {
@@ -88,6 +95,12 @@ export function registerConfigHandlers(): void {
       if (config.asr) {
         configManager.setASRConfig(config.asr)
         deps.initializeASRProvider()
+        // ASR 配置变更可能影响 LLM（当 useASRKey 为 true 时）
+        deps.initializeLLMProvider()
+      }
+      if (config.llm) {
+        configManager.setLLMConfig(config.llm)
+        deps.initializeLLMProvider()
       }
       if (config.hotkey) {
         configManager.setHotkeyConfig(config.hotkey)
@@ -112,5 +125,14 @@ export function registerConfigHandlers(): void {
       return false
     }
     return await asrProvider.testConnection()
+  })
+
+  // LLM_TEST: 测试 LLM 连接
+  ipcMain.handle(IPC_CHANNELS.LLM_TEST, async (_event, config?: { llm: LLMConfig; asr: ASRConfig }) => {
+    if (config) {
+      const tempProvider = new LLMProvider(config.llm, config.asr)
+      return await tempProvider.testConnection()
+    }
+    return await deps.getLlmProvider()?.testConnection() ?? false
   })
 }

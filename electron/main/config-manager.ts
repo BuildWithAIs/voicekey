@@ -1,11 +1,12 @@
 import Store from 'electron-store'
-import { AppConfig, AppPreferences, ASRConfig, HotkeyConfig } from '../shared/types'
-import { DEFAULT_HOTKEYS } from '../shared/constants'
+import { AppConfig, AppPreferences, ASRConfig, HotkeyConfig, LLMConfig } from '../shared/types'
+import { DEFAULT_HOTKEYS, GLM_LLM } from '../shared/constants'
 
 // 配置Schema
 interface ConfigSchema {
   app: AppPreferences
   asr: ASRConfig
+  llm: LLMConfig
   hotkey: HotkeyConfig
 }
 
@@ -25,6 +26,16 @@ const defaultConfig: AppConfig = {
     // apiKey: '',  // Deprecated, removed from default
     endpoint: '',
     language: 'auto',
+  },
+  llm: {
+    enabled: true,  // 默认开启润色功能
+    useASRKey: true,  // 默认使用 ASR 相同的 API Key
+    apiKeys: {
+      cn: '',
+      intl: '',
+    },
+    model: GLM_LLM.DEFAULT_MODEL,
+    endpoint: '',
   },
   hotkey: {
     pttKey: DEFAULT_HOTKEYS.PTT,
@@ -57,6 +68,28 @@ export class ConfigManager {
         this.store.delete('asr.apiKey' as any) // 迁移后删除旧字段
       }
     }
+
+    // 迁移 LLM 配置：确保 llm 配置存在且有默认值
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const rawConfig = this.store.store as any
+    if (!rawConfig.llm) {
+      this.store.set('llm', defaultConfig.llm)
+    } else {
+      // 确保 LLM 配置字段完整
+      const llmConfig = this.getLLMConfig()
+      if (typeof llmConfig.enabled !== 'boolean') {
+        this.store.set('llm.enabled', defaultConfig.llm.enabled)
+      }
+      if (typeof llmConfig.useASRKey !== 'boolean') {
+        this.store.set('llm.useASRKey', defaultConfig.llm.useASRKey)
+      }
+      if (!llmConfig.apiKeys) {
+        this.store.set('llm.apiKeys', defaultConfig.llm.apiKeys)
+      }
+      if (!llmConfig.model) {
+        this.store.set('llm.model', defaultConfig.llm.model)
+      }
+    }
   }
 
   // 获取完整配置
@@ -64,6 +97,7 @@ export class ConfigManager {
     return {
       app: this.getAppConfig(),
       asr: this.getASRConfig(),
+      llm: this.getLLMConfig(),
       hotkey: this.getHotkeyConfig(),
     }
   }
@@ -97,6 +131,25 @@ export class ConfigManager {
   setASRConfig(config: Partial<ASRConfig>): void {
     const current = this.getASRConfig()
     this.store.set('asr', { ...current, ...config })
+  }
+
+  // 获取LLM配置
+  getLLMConfig(): LLMConfig {
+    const config = this.store.get('llm', defaultConfig.llm)
+    // 确保所有字段存在 (防止旧的部分配置覆盖)
+    return {
+      enabled: config.enabled ?? defaultConfig.llm.enabled,
+      useASRKey: config.useASRKey ?? defaultConfig.llm.useASRKey,
+      apiKeys: config.apiKeys ?? defaultConfig.llm.apiKeys,
+      model: config.model || defaultConfig.llm.model,
+      endpoint: config.endpoint ?? '',
+    }
+  }
+
+  // 设置LLM配置
+  setLLMConfig(config: Partial<LLMConfig>): void {
+    const current = this.getLLMConfig()
+    this.store.set('llm', { ...current, ...config })
   }
 
   // 获取快捷键配置

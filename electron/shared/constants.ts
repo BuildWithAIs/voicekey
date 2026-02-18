@@ -9,6 +9,16 @@ export const GLM_ASR = {
   MAX_FILE_SIZE: 25 * 1024 * 1024, // 最大文件大小（25MB）
 } as const
 
+// GLM LLM API 配置
+export const GLM_LLM = {
+  ENDPOINT: 'https://open.bigmodel.cn/api/paas/v4/chat/completions',
+  ENDPOINT_INTL: 'https://api.z.ai/api/paas/v4/chat/completions',
+  DEFAULT_MODEL: 'glm-4.7-flashx',
+  MAX_TOKENS: 4096,
+  TEMPERATURE: 0.3,
+  TIMEOUT: 30000,
+} as const
+
 // 默认快捷键配置
 const isMac = typeof process !== 'undefined' && process.platform === 'darwin'
 export const DEFAULT_HOTKEYS = {

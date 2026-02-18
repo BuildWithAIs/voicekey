@@ -21,16 +21,19 @@ import { textInjector } from '../text-injector'
 import { convertToMP3 } from './converter'
 import { getCurrentSession, updateSession, clearSession } from './session-manager'
 import type { ASRProvider } from '../asr-provider'
+import type { LLMProvider } from '../llm-provider'
 
 /**
  * 处理器外部依赖
- * ASR Provider 需要通过依赖注入传入
+ * ASR Provider 和 LLM Provider 需要通过依赖注入传入
  */
 type ProcessorDeps = {
   /** 获取 ASR Provider 实例 */
   getAsrProvider: () => ASRProvider | null
   /** 初始化 ASR Provider */
   initializeASRProvider: () => void
+  /** 获取 LLM Provider 实例 */
+  getLlmProvider: () => LLMProvider | null
 }
 
 let deps: ProcessorDeps
@@ -118,15 +121,47 @@ export async function handleAudioData(buffer: Buffer): Promise<void> {
       return
     }
 
-    // Step 4: 更新会话状态
+    // Step 4: LLM 润色（可选）
+    let finalText = transcription.text
+    const llmProvider = deps.getLlmProvider()
+    
+    if (llmProvider) {
+      const polishStartTime = Date.now()
+      console.log('[Audio:Processor] Starting LLM polish...')
+      const polishResult = await llmProvider.polishText(transcription.text)
+      const polishDuration = Date.now() - polishStartTime
+      
+      if (polishResult.success) {
+        finalText = polishResult.text
+        console.log(`[Audio:Processor] ⏱️ LLM polish: ${polishDuration}ms`)
+        if (finalText !== transcription.text) {
+          console.log('[Audio:Processor] Text was polished by LLM')
+        } else {
+          console.log('[Audio:Processor] LLM returned unchanged text')
+        }
+      } else {
+        console.log(`[Audio:Processor] LLM polish failed, using original text. Error: ${polishResult.error}`)
+      }
+    } else {
+      console.log('[Audio:Processor] LLM provider not available, skipping polish')
+    }
+
+    // 检查取消
+    if (!getCurrentSession()) {
+      console.log('[Audio:Processor] Session cancelled after polish, aborting')
+      cleanupTempFiles(tempWebmPath, tempMp3Path)
+      return
+    }
+
+    // Step 5: 更新会话状态
     updateSession({
-      transcription: transcription.text,
+      transcription: finalText,
       status: 'completed',
     })
 
-    // Step 5: 保存历史记录
+    // Step 6: 保存历史记录（保存润色后的文本）
     historyManager.add({
-      text: transcription.text,
+      text: finalText,
       duration: getCurrentSession()?.duration,
     })
 
@@ -137,18 +172,18 @@ export async function handleAudioData(buffer: Buffer): Promise<void> {
       return
     }
 
-    // Step 6: 注入文本
+    // Step 7: 注入文本
     const injectStartTime = Date.now()
     console.log('[Audio:Processor] Injecting text...')
-    await textInjector.injectText(transcription.text)
+    await textInjector.injectText(finalText)
     const injectDuration = Date.now() - injectStartTime
     console.log(`[Audio:Processor] ⏱️ Text injection: ${injectDuration}ms`)
 
-    // Step 7: 完成
+    // Step 8: 完成
     updateOverlay({ status: 'success' })
     setTimeout(() => hideOverlay(), 800)
 
-    // Step 8: 清理
+    // Step 9: 清理
     const cleanupStartTime = Date.now()
     cleanupTempFiles(tempWebmPath, tempMp3Path)
     const cleanupDuration = Date.now() - cleanupStartTime
@@ -170,6 +205,7 @@ export async function handleAudioData(buffer: Buffer): Promise<void> {
     console.log(
       `[Audio:Processor] ⏱️   - ASR: ${asrDuration}ms (${((asrDuration / overallDuration) * 100).toFixed(1)}%)`,
     )
+    // Note: LLM duration is logged within its block
     console.log(
       `[Audio:Processor] ⏱️   - Injection: ${injectDuration}ms (${((injectDuration / overallDuration) * 100).toFixed(1)}%)`,
     )

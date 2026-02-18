@@ -1,9 +1,9 @@
 ﻿import { useEffect, useRef, useState } from 'react'
-import { CheckCircle2, XCircle, AlertTriangle } from 'lucide-react'
+import { CheckCircle2, XCircle, AlertTriangle, Sparkles, KeyRound } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { type LanguageSetting } from '@electron/shared/i18n'
-import { LOG_FILE_MAX_SIZE_MB, LOG_RETENTION_DAYS } from '@electron/shared/constants'
-import type { AppConfig, UpdateInfo } from '@electron/shared/types'
+import { LOG_FILE_MAX_SIZE_MB, LOG_RETENTION_DAYS, GLM_LLM } from '@electron/shared/constants'
+import type { AppConfig, UpdateInfo, LLMConfig } from '@electron/shared/types'
 import { LogViewerDialog } from '@/components/LogViewerDialog'
 import { HotkeySettings } from '@/components/HotkeySettings'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -37,6 +37,16 @@ export default function SettingsPage() {
       endpoint: '',
       language: 'auto',
     },
+    llm: {
+      enabled: true,
+      useASRKey: true,
+      apiKeys: {
+        cn: '',
+        intl: '',
+      },
+      model: GLM_LLM.DEFAULT_MODEL,
+      endpoint: '',
+    },
     hotkey: {
       pttKey: '',
       toggleSettings: '',
@@ -46,6 +56,7 @@ export default function SettingsPage() {
   const [originalConfig, setOriginalConfig] = useState<AppConfig | null>(null)
   const [isConfigLoading, setIsConfigLoading] = useState(true)
   const [testing, setTesting] = useState(false)
+  const [llmTesting, setLlmTesting] = useState(false)
   const [testResult, setTestResult] = useState<{
     type: 'success' | 'error'
     message: string
@@ -122,6 +133,7 @@ export default function SettingsPage() {
         ...latestConfig,
         app: config.app,
         asr: config.asr,
+        llm: config.llm,
         hotkey: config.hotkey,
       })
 
@@ -168,6 +180,66 @@ export default function SettingsPage() {
     }
   }
 
+  // LLM 测试连接
+  const handleTestLLMConnection = async () => {
+    const region = config.asr.region || 'cn'
+    const apiKey = config.llm.useASRKey
+      ? config.asr.apiKeys[region]
+      : config.llm.apiKeys[region]
+
+    if (!apiKey) {
+      setTestResult({ type: 'error', message: t('settings.llm.apiKeyRequired') })
+      return
+    }
+
+    setLlmTesting(true)
+    setTestResult(null)
+    try {
+      const success = await window.electronAPI.testLLMConnection({
+        llm: config.llm,
+        asr: config.asr,
+      })
+      setTestResult({
+        type: success ? 'success' : 'error',
+        message: success ? t('settings.llm.connectionSuccess') : t('settings.llm.connectionFailed')
+      })
+    } catch (error) {
+      setTestResult({
+        type: 'error',
+        message: t('settings.llm.connectionFailed')
+      })
+    } finally {
+      setLlmTesting(false)
+    }
+  }
+
+  // 使用 ASR 相同的 API Key
+  const handleUseASRKey = () => {
+    setConfig((prev) => ({
+      ...prev,
+      llm: {
+        ...prev.llm,
+        useASRKey: true,
+      },
+    }))
+  }
+
+  // 处理 LLM API Key 变更
+  const handleLLMApiKeyChange = (value: string) => {
+    const region = config.asr.region || 'cn'
+    setConfig((prev) => ({
+      ...prev,
+      llm: {
+        ...prev.llm,
+        useASRKey: false,
+        apiKeys: {
+          ...prev.llm.apiKeys,
+          [region]: value,
+        },
+      },
+    }))
+  }
+
   // Helper to update API Key for current region
   const handleApiKeyChange = (value: string) => {
     const region = config.asr.region || 'cn'
@@ -212,6 +284,12 @@ export default function SettingsPage() {
       config.asr.language !== originalConfig.asr.language ||
       config.asr.apiKeys.cn !== originalConfig.asr.apiKeys.cn ||
       config.asr.apiKeys.intl !== originalConfig.asr.apiKeys.intl ||
+      config.llm.enabled !== originalConfig.llm.enabled ||
+      config.llm.useASRKey !== originalConfig.llm.useASRKey ||
+      config.llm.apiKeys.cn !== originalConfig.llm.apiKeys.cn ||
+      config.llm.apiKeys.intl !== originalConfig.llm.apiKeys.intl ||
+      config.llm.model !== originalConfig.llm.model ||
+      config.llm.endpoint !== originalConfig.llm.endpoint ||
       config.hotkey.pttKey !== originalConfig.hotkey.pttKey ||
       config.hotkey.toggleSettings !== originalConfig.hotkey.toggleSettings)
 
@@ -416,6 +494,97 @@ export default function SettingsPage() {
               <p className="text-sm text-muted-foreground">{t('settings.durationWarning')}</p>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Sparkles className="h-5 w-5" />
+            {t('settings.llmConfig')}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between space-x-2">
+            <div className="space-y-0.5">
+              <Label htmlFor="llmEnabled">{t('settings.llm.enablePolish')}</Label>
+              <p className="text-sm text-muted-foreground">{t('settings.llm.enablePolishHelp')}</p>
+            </div>
+            <Switch
+              id="llmEnabled"
+              checked={config.llm.enabled}
+              onCheckedChange={(checked) =>
+                setConfig((prev) => ({
+                  ...prev,
+                  llm: { ...prev.llm, enabled: checked },
+                }))
+              }
+              className="no-drag cursor-pointer"
+            />
+          </div>
+
+          {config.llm.enabled && (
+            <>
+              <div className="flex items-center justify-between space-x-2 pt-2 border-t">
+                <div className="space-y-0.5">
+                  <Label htmlFor="useASRKey">{t('settings.llm.useASRKey')}</Label>
+                  <p className="text-sm text-muted-foreground">{t('settings.llm.useASRKeyHelp')}</p>
+                </div>
+                <Button
+                  id="useASRKey"
+                  variant={config.llm.useASRKey ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={handleUseASRKey}
+                  disabled={config.llm.useASRKey}
+                  className="no-drag cursor-pointer"
+                >
+                  <KeyRound className="h-4 w-4 mr-1" />
+                  {config.llm.useASRKey ? t('settings.llm.usingASRKey') : t('settings.llm.useASRKeyButton')}
+                </Button>
+              </div>
+
+              {!config.llm.useASRKey && (
+                <div className="space-y-2">
+                  <Label htmlFor="llmApiKey">{t('settings.llm.apiKey')}</Label>
+                  <Input
+                    id="llmApiKey"
+                    type="password"
+                    value={config.llm.apiKeys[currentRegion]}
+                    onChange={(e) => handleLLMApiKeyChange(e.target.value)}
+                    placeholder={t('settings.llm.apiKeyPlaceholder')}
+                    className="no-drag"
+                  />
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <Label htmlFor="llmModel">{t('settings.llm.model')}</Label>
+                <Input
+                  id="llmModel"
+                  type="text"
+                  value={config.llm.model}
+                  onChange={(e) =>
+                    setConfig((prev) => ({
+                      ...prev,
+                      llm: { ...prev.llm, model: e.target.value },
+                    }))
+                  }
+                  placeholder={t('settings.llm.modelPlaceholder')}
+                  className="no-drag"
+                />
+                <p className="text-sm text-muted-foreground">{t('settings.llm.modelHelp')}</p>
+              </div>
+
+              <Button
+                variant="secondary"
+                onClick={handleTestLLMConnection}
+                disabled={llmTesting || !(config.llm.useASRKey ? config.asr.apiKeys[currentRegion] : config.llm.apiKeys[currentRegion])}
+                className="no-drag w-full cursor-pointer"
+              >
+                {llmTesting ? t('settings.llm.testingConnection') : t('settings.llm.testConnection')}
+              </Button>
+            </>
+          )}
         </CardContent>
       </Card>
 
