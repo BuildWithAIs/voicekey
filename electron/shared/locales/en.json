@@ -12,6 +12,7 @@
     "loading": "Loading...",
     "loadingHistory": "Loading history",
     "allTime": "All time",
+    "today": "Today",
     "range": "Range",
     "unknownError": "Unknown error"
   },
@@ -21,7 +22,13 @@
     "stats": {
       "totalCharacters": "Total characters recognized",
       "totalAudio": "Total audio duration",
-      "recentChange": "+{{value}} in {{range}}"
+      "recentChange": "+{{value}} in {{range}}",
+      "todaySessions": "Today's sessions",
+      "todayDuration": "Today's duration",
+      "todayCharacters": "Today's input",
+      "activeDays": "Active days",
+      "peakDay": "Peak day",
+      "peakDayValue": "{{date}} · {{value}} chars"
     },
     "range": {
       "option_one": "Last day",

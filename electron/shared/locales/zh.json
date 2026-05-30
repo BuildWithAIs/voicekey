@@ -12,6 +12,7 @@
     "loading": "加载中...",
     "loadingHistory": "加载历史记录",
     "allTime": "全部",
+    "today": "今天",
     "range": "范围",
     "unknownError": "未知错误"
   },
@@ -21,7 +22,13 @@
     "stats": {
       "totalCharacters": "识别字符总数",
       "totalAudio": "录音总时长",
-      "recentChange": "{{range}} +{{value}}"
+      "recentChange": "{{range}} +{{value}}",
+      "todaySessions": "今日录音",
+      "todayDuration": "今日时长",
+      "todayCharacters": "今日输入",
+      "activeDays": "活跃天数",
+      "peakDay": "峰值日",
+      "peakDayValue": "{{date}} · {{value}} 字"
     },
     "range": {
       "option_one": "最近 1 天",
