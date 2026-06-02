@@ -271,6 +271,9 @@ export default function SettingsPage() {
   const [refineTestStatus, setRefineTestStatus] = useState<TestStatus>(null)
   const [checkingUpdate, setCheckingUpdate] = useState(false)
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null)
+  const [translationSystemPromptDraft, setTranslationSystemPromptDraft] = useState(
+    BASE_TRANSLATION_SYSTEM_PROMPT,
+  )
   const hasLoadedConfig = useRef(false)
   const hasLoadedUpdateStatus = useRef(false)
   const latestConfigRef = useRef(config)
@@ -298,7 +301,11 @@ export default function SettingsPage() {
         const normalizedConfig: AppConfig = {
           ...loadedConfig,
           llmRefine: normalizeLLMRefineConfig(loadedConfig.llmRefine),
+          translation: { ...defaultTranslationConfig, ...loadedConfig.translation },
         }
+        setTranslationSystemPromptDraft(
+          normalizedConfig.translation.systemPrompt || BASE_TRANSLATION_SYSTEM_PROMPT,
+        )
         setConfig(normalizedConfig)
         setOriginalConfig(normalizedConfig)
       } catch (error) {
@@ -605,6 +612,22 @@ export default function SettingsPage() {
         ...prev.llmRefine,
         [key]: nextValue,
       },
+    }))
+  }
+
+  const handleTranslationSystemPromptChange = (value: string) => {
+    setTranslationSystemPromptDraft(value)
+    setConfig((prev) => ({
+      ...prev,
+      translation: { ...prev.translation, systemPrompt: value },
+    }))
+  }
+
+  const handleResetTranslationSystemPrompt = () => {
+    setTranslationSystemPromptDraft(BASE_TRANSLATION_SYSTEM_PROMPT)
+    setConfig((prev) => ({
+      ...prev,
+      translation: { ...prev.translation, systemPrompt: '' },
     }))
   }
 
@@ -1097,16 +1120,12 @@ export default function SettingsPage() {
                 <Label htmlFor="translationSystemPrompt">
                   {t('settings.translation.systemPrompt')}
                 </Label>
-                {config.translation.systemPrompt && (
+                {(config.translation.systemPrompt ||
+                  translationSystemPromptDraft !== BASE_TRANSLATION_SYSTEM_PROMPT) && (
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() =>
-                      setConfig((prev) => ({
-                        ...prev,
-                        translation: { ...prev.translation, systemPrompt: '' },
-                      }))
-                    }
+                    onClick={handleResetTranslationSystemPrompt}
                     className="h-7 cursor-pointer px-2 text-xs text-muted-foreground hover:text-foreground"
                     title={t('settings.translation.resetSystemPrompt')}
                   >
@@ -1116,13 +1135,8 @@ export default function SettingsPage() {
               </div>
               <textarea
                 id="translationSystemPrompt"
-                value={config.translation.systemPrompt || BASE_TRANSLATION_SYSTEM_PROMPT}
-                onChange={(e) =>
-                  setConfig((prev) => ({
-                    ...prev,
-                    translation: { ...prev.translation, systemPrompt: e.target.value },
-                  }))
-                }
+                value={translationSystemPromptDraft}
+                onChange={(e) => handleTranslationSystemPromptChange(e.target.value)}
                 disabled={!config.translation.enabled}
                 rows={8}
                 className="no-drag w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
