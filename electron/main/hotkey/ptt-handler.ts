@@ -3,6 +3,7 @@ import { hotkeyManager } from '../hotkey-manager'
 import { ioHookManager } from '../iohook-manager'
 import { createSettingsWindow } from '../window'
 import { handleStartRecording, handleStopRecording, getCurrentSession } from '../audio'
+import { translator } from '../translation/translator'
 import { parseAccelerator } from './parser'
 
 type RegisterGlobalHotkeysOptions = {
@@ -14,6 +15,7 @@ type RegisterGlobalHotkeysOptions = {
  */
 export function registerGlobalHotkeys(options: RegisterGlobalHotkeysOptions = {}): void {
   const hotkeyConfig = configManager.getHotkeyConfig()
+  const translationConfig = configManager.getTranslationConfig()
   const pttKey = hotkeyConfig.pttKey
 
   // PTT 逻辑：使用 iohook 监听按下与释放
@@ -64,4 +66,12 @@ export function registerGlobalHotkeys(options: RegisterGlobalHotkeysOptions = {}
   hotkeyManager.register(hotkeyConfig.toggleSettings, () => {
     createSettingsWindow()
   })
+
+  // 注册翻译快捷键 (使用 Electron globalShortcut，因为是单次触发)
+  if (translationConfig.enabled && hotkeyConfig.translateKey) {
+    hotkeyManager.register(hotkeyConfig.translateKey, () => {
+      console.log('[Hotkey] Translation hotkey triggered')
+      void translator.translate()
+    })
+  }
 }

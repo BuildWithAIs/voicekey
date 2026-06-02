@@ -23,6 +23,7 @@ import { HotkeyRecorder } from './HotkeyRecorder'
 interface HotkeyConfig {
   pttKey: string
   toggleSettings: string
+  translateKey: string
 }
 
 interface HotkeySettingsProps {
@@ -38,6 +39,7 @@ const getDefaultHotkeys = (): HotkeyConfig => {
   return {
     pttKey: isMac ? 'Alt' : 'Control+Shift+Space',
     toggleSettings: isMac ? 'Command+Shift+,' : 'Control+Shift+,',
+    translateKey: isMac ? 'Command+Shift+T' : 'Control+Shift+T',
   }
 }
 
@@ -54,12 +56,16 @@ export function HotkeySettings({
   const isDirty =
     !!originalValue &&
     (config.pttKey !== originalValue.pttKey ||
-      config.toggleSettings !== originalValue.toggleSettings)
+      config.toggleSettings !== originalValue.toggleSettings ||
+      config.translateKey !== originalValue.translateKey)
 
   const getValidationMessage = (messageKey?: HotkeyValidationMessage) =>
     messageKey ? t(`hotkey.validation.${messageKey}`) : t('hotkey.validation.missing')
 
-  const handleHotkeyChange = (key: 'pttKey' | 'toggleSettings', nextValue: string) => {
+  const handleHotkeyChange = (
+    key: 'pttKey' | 'toggleSettings' | 'translateKey',
+    nextValue: string,
+  ) => {
     const validation = validateHotkey(nextValue)
 
     if (!validation.valid) {
@@ -73,8 +79,11 @@ export function HotkeySettings({
       return
     }
 
-    const otherKey = key === 'pttKey' ? 'toggleSettings' : 'pttKey'
-    if (nextValue === config[otherKey]) {
+    // Check for duplicate against all other keys
+    const otherKeys = (['pttKey', 'toggleSettings', 'translateKey'] as const).filter(
+      (k) => k !== key,
+    )
+    if (otherKeys.some((k) => nextValue === config[k])) {
       const message = t('hotkey.toast.duplicateDesc')
       setErrors((prev) => ({ ...prev, [key]: message }))
       toast.error(t('hotkey.toast.duplicate'), { description: message })
@@ -190,6 +199,17 @@ export function HotkeySettings({
           description={t('hotkey.settingsHint')}
           hasError={!!errors.toggleSettings}
           errorMessage={errors.toggleSettings}
+        />
+
+        <div className="border-t border-border" />
+
+        <HotkeyRecorder
+          label={t('hotkey.translateLabel')}
+          value={config.translateKey}
+          onChange={(value) => handleHotkeyChange('translateKey', value)}
+          description={t('hotkey.translateHint')}
+          hasError={!!errors.translateKey}
+          errorMessage={errors.translateKey}
         />
 
         <div className="flex items-center justify-between pt-4 border-t border-border">

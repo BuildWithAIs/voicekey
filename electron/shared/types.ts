@@ -34,9 +34,16 @@ export interface LLMRefineConfig {
   translateToEnglish: boolean
 }
 
+export interface TranslationConfig {
+  enabled: boolean
+  targetLanguage: string
+  systemPrompt: string
+}
+
 export interface HotkeyConfig {
   pttKey: string
   toggleSettings: string
+  translateKey: string
 }
 
 export interface AppPreferences {
@@ -55,6 +62,7 @@ export interface AppConfig {
   asr: ASRConfig
   llmRefine: LLMRefineConfig
   hotkey: HotkeyConfig
+  translation: TranslationConfig
 }
 
 export interface HistoryItem {
@@ -140,10 +148,12 @@ export const IPC_CHANNELS = {
   LOG_GET_TAIL: 'log:get-tail',
   LOG_OPEN_FOLDER: 'log:open-folder',
   LOG_WRITE: 'log:write',
+
+  TRANSLATION_TRIGGER: 'translation:trigger',
 } as const
 
 export type OverlayStatus = 'recording' | 'processing' | 'success' | 'error'
-export type OverlayProcessingStage = 'transcribing' | 'refining'
+export type OverlayProcessingStage = 'transcribing' | 'refining' | 'translating'
 
 export interface OverlayState {
   status: OverlayStatus

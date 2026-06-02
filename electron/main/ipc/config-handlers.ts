@@ -3,7 +3,7 @@
  *
  * 负责处理以下 IPC 通道：
  * - CONFIG_GET: 获取全部配置
- * - CONFIG_SET: 设置配置（支持 app/asr/llmRefine/hotkey 部分更新）
+ * - CONFIG_SET: 设置配置（支持 app/asr/llmRefine/hotkey/translation 部分更新）
  * - CONFIG_TEST: 校验 ASR 连接
  * - CONFIG_REFINE_TEST: 校验文本润色连接
  *
@@ -17,6 +17,7 @@ import {
   type ASRConfig,
   type HotkeyConfig,
   type LLMRefineConfig,
+  type TranslationConfig,
 } from '../../shared/types'
 import { configManager } from '../config-manager'
 import { broadcastLanguageSnapshot, getMainLanguageSnapshot, setMainLanguage } from '../i18n'
@@ -78,8 +79,11 @@ export function registerConfigHandlers(): void {
         asr?: Partial<ASRConfig>
         llmRefine?: Partial<LLMRefineConfig>
         hotkey?: Partial<HotkeyConfig>
+        translation?: Partial<TranslationConfig>
       },
     ) => {
+      let shouldReregisterHotkeys = false
+
       if (config.app) {
         configManager.setAppConfig(config.app)
         if (typeof config.app.autoLaunch === 'boolean') {
@@ -106,12 +110,23 @@ export function registerConfigHandlers(): void {
       }
       if (config.hotkey) {
         configManager.setHotkeyConfig(config.hotkey)
+        shouldReregisterHotkeys = true
+      }
+      if (config.translation) {
+        const previousTranslationConfig = configManager.getTranslationConfig()
+        configManager.setTranslationConfig(config.translation)
+        const nextTranslationConfig = configManager.getTranslationConfig()
+        if (previousTranslationConfig.enabled !== nextTranslationConfig.enabled) {
+          shouldReregisterHotkeys = true
+        }
+      }
+      if (shouldReregisterHotkeys) {
         // 重新注册快捷键：先清除所有监听器
         hotkeyManager.unregisterAll()
         ioHookManager.removeAllListeners('keydown')
         ioHookManager.removeAllListeners('keyup')
         deps.registerGlobalHotkeys()
-        console.log('[IPC:Config] Hotkeys re-registered with new config:', config.hotkey)
+        console.log('[IPC:Config] Hotkeys re-registered after config update')
       }
     },
   )

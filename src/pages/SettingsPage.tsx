@@ -2,9 +2,21 @@
 import { CheckCircle2, XCircle, AlertTriangle, Eye, EyeOff, Sparkles } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { type LanguageSetting } from '@electron/shared/i18n'
-import { LOG_FILE_MAX_SIZE_MB, LOG_RETENTION_DAYS, LLM_REFINE } from '@electron/shared/constants'
+import {
+  LOG_FILE_MAX_SIZE_MB,
+  LOG_RETENTION_DAYS,
+  LLM_REFINE,
+  TRANSLATION,
+  TARGET_LANGUAGES,
+  BASE_TRANSLATION_SYSTEM_PROMPT,
+} from '@electron/shared/constants'
 import { normalizeRefineBaseUrl } from '@electron/shared/refine-url'
-import type { AppConfig, LLMRefineConfig, UpdateInfo } from '@electron/shared/types'
+import type {
+  AppConfig,
+  LLMRefineConfig,
+  TranslationConfig,
+  UpdateInfo,
+} from '@electron/shared/types'
 import { LogViewerDialog } from '@/components/LogViewerDialog'
 import { HotkeySettings } from '@/components/HotkeySettings'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
@@ -30,6 +42,12 @@ const defaultLLMRefineConfig: LLMRefineConfig = {
   model: LLM_REFINE.MODEL,
   apiKey: LLM_REFINE.API_KEY,
   translateToEnglish: LLM_REFINE.TRANSLATE_TO_ENGLISH,
+}
+
+const defaultTranslationConfig: TranslationConfig = {
+  enabled: TRANSLATION.ENABLED,
+  targetLanguage: TRANSLATION.TARGET_LANGUAGE,
+  systemPrompt: TRANSLATION.DEFAULT_SYSTEM_PROMPT,
 }
 
 type TestStatus = {
@@ -105,7 +123,36 @@ function isLlmRefineDirty(current: LLMRefineConfig, original: LLMRefineConfig): 
 }
 
 function isHotkeyConfigDirty(current: AppConfig['hotkey'], original: AppConfig['hotkey']): boolean {
-  return current.pttKey !== original.pttKey || current.toggleSettings !== original.toggleSettings
+  return (
+    current.pttKey !== original.pttKey ||
+    current.toggleSettings !== original.toggleSettings ||
+    current.translateKey !== original.translateKey
+  )
+}
+
+function isTranslationConfigDirty(
+  current: TranslationConfig,
+  original: TranslationConfig,
+): boolean {
+  const currentPrompt = current.systemPrompt || BASE_TRANSLATION_SYSTEM_PROMPT
+  const originalPrompt = original.systemPrompt || BASE_TRANSLATION_SYSTEM_PROMPT
+  return (
+    current.enabled !== original.enabled ||
+    current.targetLanguage !== original.targetLanguage ||
+    currentPrompt !== originalPrompt
+  )
+}
+
+function getTranslationErrorMessage(
+  config: TranslationConfig,
+  t: (key: string) => string,
+): string | null {
+  if (!config.enabled) return null
+  const effectivePrompt = config.systemPrompt || BASE_TRANSLATION_SYSTEM_PROMPT
+  if (!effectivePrompt.includes('{{targetLanguage}}')) {
+    return t('settings.translation.missingPlaceholder')
+  }
+  return null
 }
 
 function mergeConfigPatch(config: AppConfig, patch: Partial<AppConfig>): AppConfig {
@@ -125,6 +172,9 @@ function mergeConfigPatch(config: AppConfig, patch: Partial<AppConfig>): AppConf
       ? normalizeLLMRefineConfig({ ...config.llmRefine, ...patch.llmRefine })
       : config.llmRefine,
     hotkey: patch.hotkey ? { ...config.hotkey, ...patch.hotkey } : config.hotkey,
+    translation: patch.translation
+      ? { ...config.translation, ...patch.translation }
+      : config.translation,
   }
 }
 
@@ -204,7 +254,9 @@ export default function SettingsPage() {
     hotkey: {
       pttKey: '',
       toggleSettings: '',
+      translateKey: '',
     },
+    translation: defaultTranslationConfig,
   })
 
   const [originalConfig, setOriginalConfig] = useState<AppConfig | null>(null)
@@ -305,12 +357,15 @@ export default function SettingsPage() {
   const getHotkeyErrorMessage = (hotkey: AppConfig['hotkey']): string | null => {
     const pttValidation = validateHotkey(hotkey.pttKey)
     const settingsValidation = validateHotkey(hotkey.toggleSettings)
+    const translateValidation = validateHotkey(hotkey.translateKey)
 
-    if (
-      !pttValidation.valid ||
-      !settingsValidation.valid ||
-      hotkey.pttKey === hotkey.toggleSettings
-    ) {
+    if (!pttValidation.valid || !settingsValidation.valid || !translateValidation.valid) {
+      return t('settings.result.hotkeyInvalid')
+    }
+
+    // Check for duplicate hotkeys
+    const keys = [hotkey.pttKey, hotkey.toggleSettings, hotkey.translateKey]
+    if (new Set(keys).size !== keys.length) {
       return t('settings.result.hotkeyInvalid')
     }
 
@@ -343,8 +398,15 @@ export default function SettingsPage() {
     const asrDirty = isAsrConfigDirty(currentConfig.asr, currentOriginalConfig.asr)
     const refineDirty = isLlmRefineDirty(normalizedRefineConfig, currentOriginalConfig.llmRefine)
     const hotkeyDirty = isHotkeyConfigDirty(currentConfig.hotkey, currentOriginalConfig.hotkey)
+    const translationDirty = isTranslationConfigDirty(
+      currentConfig.translation,
+      currentOriginalConfig.translation,
+    )
     const refineError = refineDirty ? getRefineErrorMessage(normalizedRefineConfig) : null
     const hotkeyError = hotkeyDirty ? getHotkeyErrorMessage(currentConfig.hotkey) : null
+    const translationError = translationDirty
+      ? getTranslationErrorMessage(currentConfig.translation, t)
+      : null
 
     const patch: Partial<AppConfig> = {}
 
@@ -367,7 +429,11 @@ export default function SettingsPage() {
       patch.hotkey = currentConfig.hotkey
     }
 
-    const invalidMessage = hotkeyError ?? refineError
+    if (translationDirty && !translationError) {
+      patch.translation = currentConfig.translation
+    }
+
+    const invalidMessage = hotkeyError ?? refineError ?? translationError
 
     if (Object.keys(patch).length === 0) {
       if (invalidMessage) {
@@ -419,7 +485,8 @@ export default function SettingsPage() {
       isAppPreferencesDirty(config.app, originalConfig.app) ||
       isAsrConfigDirty(config.asr, originalConfig.asr) ||
       isLlmRefineDirty(normalizedRefineConfig, originalConfig.llmRefine) ||
-      isHotkeyConfigDirty(config.hotkey, originalConfig.hotkey)
+      isHotkeyConfigDirty(config.hotkey, originalConfig.hotkey) ||
+      isTranslationConfigDirty(config.translation, originalConfig.translation)
 
     if (!hasPendingChanges) return
 
@@ -555,6 +622,10 @@ export default function SettingsPage() {
     originalConfig && isLlmRefineDirty(normalizedLLMRefineConfig, originalConfig.llmRefine)
       ? getRefineErrorMessage(normalizedLLMRefineConfig)
       : null
+  const translationValidationMessage =
+    originalConfig && isTranslationConfigDirty(config.translation, originalConfig.translation)
+      ? getTranslationErrorMessage(config.translation, t)
+      : null
 
   useEffect(() => {
     setAsrTestStatus(null)
@@ -575,7 +646,8 @@ export default function SettingsPage() {
           isAppPreferencesDirty(currentConfig.app, currentOriginalConfig.app) ||
           isAsrConfigDirty(currentConfig.asr, currentOriginalConfig.asr) ||
           isLlmRefineDirty(normalizedRefineConfig, currentOriginalConfig.llmRefine) ||
-          isHotkeyConfigDirty(currentConfig.hotkey, currentOriginalConfig.hotkey)
+          isHotkeyConfigDirty(currentConfig.hotkey, currentOriginalConfig.hotkey) ||
+          isTranslationConfigDirty(currentConfig.translation, currentOriginalConfig.translation)
 
         if (hasPendingChanges) {
           void flushAutoSaveRef.current()
@@ -968,6 +1040,114 @@ export default function SettingsPage() {
               </Button>
               <InlineFeedback status={refineTestStatus} testId="refine-test-status" />
             </div>
+          </CardContent>
+        </Card>
+
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle>{t('settings.translation.title')}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground">{t('settings.translation.description')}</p>
+
+            <div className="flex items-center justify-between space-x-2">
+              <div className="space-y-0.5">
+                <Label htmlFor="translationEnabled">{t('settings.translation.enable')}</Label>
+              </div>
+              <Switch
+                id="translationEnabled"
+                checked={config.translation.enabled}
+                onCheckedChange={(checked) =>
+                  setConfig((prev) => ({
+                    ...prev,
+                    translation: { ...prev.translation, enabled: checked },
+                  }))
+                }
+                className="no-drag cursor-pointer"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="targetLanguage">{t('settings.translation.targetLanguage')}</Label>
+              <Select
+                value={config.translation.targetLanguage}
+                onValueChange={(value) =>
+                  setConfig((prev) => ({
+                    ...prev,
+                    translation: { ...prev.translation, targetLanguage: value },
+                  }))
+                }
+                disabled={!config.translation.enabled}
+              >
+                <SelectTrigger id="targetLanguage" className="no-drag w-full cursor-pointer">
+                  <SelectValue placeholder="English" />
+                </SelectTrigger>
+                <SelectContent>
+                  {TARGET_LANGUAGES.map((lang) => (
+                    <SelectItem key={lang.value} value={lang.value}>
+                      {t(`settings.translation.languages.${lang.value}`)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="translationSystemPrompt">
+                  {t('settings.translation.systemPrompt')}
+                </Label>
+                {config.translation.systemPrompt && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() =>
+                      setConfig((prev) => ({
+                        ...prev,
+                        translation: { ...prev.translation, systemPrompt: '' },
+                      }))
+                    }
+                    className="h-7 cursor-pointer px-2 text-xs text-muted-foreground hover:text-foreground"
+                    title={t('settings.translation.resetSystemPrompt')}
+                  >
+                    {t('settings.translation.resetSystemPrompt')}
+                  </Button>
+                )}
+              </div>
+              <textarea
+                id="translationSystemPrompt"
+                value={config.translation.systemPrompt || BASE_TRANSLATION_SYSTEM_PROMPT}
+                onChange={(e) =>
+                  setConfig((prev) => ({
+                    ...prev,
+                    translation: { ...prev.translation, systemPrompt: e.target.value },
+                  }))
+                }
+                disabled={!config.translation.enabled}
+                rows={8}
+                className="no-drag w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+              />
+              <p
+                className="text-xs text-muted-foreground"
+                dangerouslySetInnerHTML={{
+                  __html: t('settings.translation.systemPromptHelp'),
+                }}
+              />
+            </div>
+
+            {config.translation.enabled && !canTestRefine && (
+              <Alert className="border-yellow-500/30 bg-yellow-500/10 [&>svg]:text-yellow-500">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription>{t('settings.translation.refineWarning')}</AlertDescription>
+              </Alert>
+            )}
+
+            {translationValidationMessage && (
+              <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription>{translationValidationMessage}</AlertDescription>
+              </Alert>
+            )}
           </CardContent>
         </Card>
 

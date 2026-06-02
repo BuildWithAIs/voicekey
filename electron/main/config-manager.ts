@@ -6,9 +6,10 @@ import {
   ASRConfig,
   HotkeyConfig,
   LLMRefineConfig,
+  TranslationConfig,
 } from '../shared/types'
 import { normalizeRefineBaseUrl } from '../shared/refine-url'
-import { DEFAULT_HOTKEYS, LLM_REFINE } from '../shared/constants'
+import { DEFAULT_HOTKEYS, LLM_REFINE, TRANSLATION } from '../shared/constants'
 
 const ENCRYPTED_PREFIX = 'enc:'
 
@@ -17,6 +18,7 @@ interface ConfigSchema {
   asr: ASRConfig
   llmRefine: LLMRefineConfig
   hotkey: HotkeyConfig
+  translation: TranslationConfig
 }
 
 const defaultLLMRefineConfig: LLMRefineConfig = {
@@ -43,6 +45,12 @@ function readTranslateToEnglishFlag(config?: Record<string, unknown>): boolean {
   return defaultLLMRefineConfig.translateToEnglish
 }
 
+const defaultTranslationConfig: TranslationConfig = {
+  enabled: TRANSLATION.ENABLED,
+  targetLanguage: TRANSLATION.TARGET_LANGUAGE,
+  systemPrompt: TRANSLATION.DEFAULT_SYSTEM_PROMPT,
+}
+
 const defaultConfig: AppConfig = {
   app: {
     language: 'system',
@@ -63,7 +71,9 @@ const defaultConfig: AppConfig = {
   hotkey: {
     pttKey: DEFAULT_HOTKEYS.PTT,
     toggleSettings: DEFAULT_HOTKEYS.SETTINGS,
+    translateKey: DEFAULT_HOTKEYS.TRANSLATE,
   },
+  translation: defaultTranslationConfig,
 }
 
 function normalizeLLMRefineConfig(config?: Partial<LLMRefineConfig>): LLMRefineConfig {
@@ -230,6 +240,7 @@ export class ConfigManager {
       asr: this.getASRConfig(),
       llmRefine: this.getLLMRefineConfig(),
       hotkey: this.getHotkeyConfig(),
+      translation: this.getTranslationConfig(),
     }
   }
 
@@ -290,12 +301,25 @@ export class ConfigManager {
   }
 
   getHotkeyConfig(): HotkeyConfig {
-    return this.store.get('hotkey', defaultConfig.hotkey)
+    const config = this.store.get('hotkey', defaultConfig.hotkey)
+    return {
+      ...config,
+      translateKey: config.translateKey || defaultConfig.hotkey.translateKey,
+    }
   }
 
   setHotkeyConfig(config: Partial<HotkeyConfig>): void {
     const current = this.getHotkeyConfig()
     this.store.set('hotkey', { ...current, ...config })
+  }
+
+  getTranslationConfig(): TranslationConfig {
+    return this.store.get('translation', defaultConfig.translation)
+  }
+
+  setTranslationConfig(config: Partial<TranslationConfig>): void {
+    const current = this.getTranslationConfig()
+    this.store.set('translation', { ...current, ...config })
   }
 
   reset(): void {

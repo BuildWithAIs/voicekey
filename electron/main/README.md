@@ -14,6 +14,7 @@ Electron 主进程目录，负责窗口管理、IPC、录音编排、ASR/润色�
 - `iohook-manager.ts` - `uiohook-napi` 键盘监听。
 - `asr-provider.ts` - GLM ASR API 封装，支持 `prompt` 与 `request_id`。
 - `refine/` - 文本润色模块，使用 OpenAI-compatible Chat Completions 做后处理、动态 prompt 组装、远程术语表缓存刷新与连接校验。
+- `translation/` - 文本翻译模块，通过快捷键复制选中文本 → LLM API 翻译 → 粘贴替换，复用润色 API 配置。
 - `text-injector.ts` - 基于 `@nut-tree-fork/nut-js` 的文本注入，优先保证多行文本的换行保真。
 - `updater-manager.ts` - GitHub Releases 更新检查。
 - `audio/` - 录音会话与分段转写流水线。

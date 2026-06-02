@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { AudioLines, Check, Mic, Sparkles, X, Zap } from 'lucide-react'
+import { AudioLines, Check, Globe, Mic, Sparkles, X, Zap } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { OverlayProcessingStage, OverlayState } from '../../electron/shared/types'
 import { cn } from '../lib/utils'
@@ -52,6 +52,20 @@ const STAGE_META: Record<
     pillActiveBg: 'bg-violet-500/15',
     pillActiveText: 'text-violet-100',
   },
+  translating: {
+    icon: Globe,
+    iconColor: 'text-cyan-400',
+    circleText: 'text-cyan-300',
+    titleColor: 'text-cyan-100',
+    badgeBorder: 'border-cyan-400/30',
+    badgeBg: 'bg-cyan-500/10',
+    badgeText: 'text-cyan-200',
+    spinnerTop: 'border-t-cyan-500',
+    spinnerBottom: 'border-b-cyan-900',
+    pillActiveBorder: 'border-cyan-400/40',
+    pillActiveBg: 'bg-cyan-500/15',
+    pillActiveText: 'text-cyan-100',
+  },
 }
 
 function getProcessingTitle(
@@ -63,6 +77,8 @@ function getProcessingTitle(
       return t('hud.transcribing')
     case 'refining':
       return t('hud.refining')
+    case 'translating':
+      return t('hud.translating')
     default:
       return t('hud.thinking')
   }
@@ -74,6 +90,8 @@ function getProcessingStepLabel(stage: OverlayProcessingStage, t: (key: string) 
       return t('hud.stepTranscribing')
     case 'refining':
       return t('hud.stepRefining')
+    case 'translating':
+      return t('hud.stepTranslating')
   }
 }
 
@@ -190,7 +208,33 @@ export function HUD() {
           )}
 
           {status === 'processing' &&
-            (showDetailedProcessing ? (
+            (processingStage === 'translating' ? (
+              <div className="flex w-full flex-col gap-1 px-1">
+                {/* Single-step translating view */}
+                <div className="flex items-center justify-between gap-2">
+                  <span
+                    className={cn(
+                      'text-sm font-medium transition-colors duration-300',
+                      meta?.titleColor ?? 'text-white',
+                    )}
+                  >
+                    {getProcessingTitle(processingStage, t)}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div
+                    className={cn(
+                      'flex flex-1 items-center justify-center gap-1 rounded-full border px-2 py-1 text-center text-[10px] font-medium transition-colors duration-300',
+                      meta
+                        ? [meta.pillActiveBorder, meta.pillActiveBg, meta.pillActiveText]
+                        : 'border-indigo-400/40 bg-indigo-500/15 text-indigo-100',
+                    )}
+                  >
+                    <span>{getProcessingStepLabel(processingStage, t)}</span>
+                  </div>
+                </div>
+              </div>
+            ) : showDetailedProcessing ? (
               <div className="flex w-full flex-col gap-1 px-1">
                 {/* Title row */}
                 <div className="flex items-center justify-between gap-2">
