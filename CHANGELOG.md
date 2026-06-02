@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.14](https://github.com/BuildWithAIs/voicekey/compare/v0.1.13...v0.1.14) (2026-06-02)
+
+### Features
+
+- **refine:** enhance transcript handling for empty or minimal inputs ([5b8fa68](https://github.com/BuildWithAIs/voicekey/commit/5b8fa687a5272b6230b1f78a77a3c2010780485e))
+- **stats:** add today's session statistics and peak day tracking ([7b1f555](https://github.com/BuildWithAIs/voicekey/commit/7b1f555a517fa1f47e7eb45ee11faef0a94f854e))
+
+### Bug Fixes
+
+- **translation:** harden selected text replacement ([0622874](https://github.com/BuildWithAIs/voicekey/commit/06228744c35dc4f8918be9379e002e14c29d5917))
+
 ### [0.1.13](https://github.com/BuildWithAIs/voicekey/compare/v0.1.12...v0.1.13) (2026-04-20)
 
 ### Features
