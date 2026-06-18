@@ -31,13 +31,14 @@ export interface LLMRefineConfig {
   endpoint: string
   model: string
   apiKey: string
-  translateToEnglish: boolean
+  /** When true, the refined dictation output is translated into the shared TranslationConfig.targetLanguage. */
+  translateOutput: boolean
 }
 
 export interface TranslationConfig {
   enabled: boolean
+  /** Shared target language used by both selected-text translation and refine output translation. */
   targetLanguage: string
-  systemPrompt: string
 }
 
 export interface HotkeyConfig {

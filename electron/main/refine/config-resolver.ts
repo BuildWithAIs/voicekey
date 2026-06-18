@@ -12,6 +12,8 @@ export interface ResolvedRefineRequestConfig {
 
 export interface ResolveRefineRequestConfigOptions {
   glossaryTerms?: readonly string[]
+  /** Shared translation target language, used when refineConfig.translateOutput is enabled. */
+  targetLanguage?: string
 }
 
 export function resolveRefineRequestConfig(
@@ -34,7 +36,8 @@ export function resolveRefineRequestConfig(
     timeoutMs: OPENAI_CHAT.TIMEOUT_MS,
     systemPrompt: buildRefineSystemPrompt({
       glossaryTerms: options.glossaryTerms,
-      translateToEnglish: refineConfig.translateToEnglish,
+      translateOutput: refineConfig.translateOutput,
+      targetLanguage: options.targetLanguage,
     }),
   }
 }

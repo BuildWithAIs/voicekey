@@ -26,12 +26,17 @@ const defaultLLMRefineConfig: LLMRefineConfig = {
   endpoint: LLM_REFINE.ENDPOINT,
   model: LLM_REFINE.MODEL,
   apiKey: LLM_REFINE.API_KEY,
-  translateToEnglish: LLM_REFINE.TRANSLATE_TO_ENGLISH,
+  translateOutput: LLM_REFINE.TRANSLATE_OUTPUT,
 }
 
-function readTranslateToEnglishFlag(config?: Record<string, unknown>): boolean {
+// Reads the "translate refined output" flag, accepting legacy field names from older configs.
+function readTranslateOutputFlag(config?: Record<string, unknown>): boolean {
   if (!config) {
-    return defaultLLMRefineConfig.translateToEnglish
+    return defaultLLMRefineConfig.translateOutput
+  }
+
+  if (typeof config.translateOutput === 'boolean') {
+    return config.translateOutput
   }
 
   if (typeof config.translateToEnglish === 'boolean') {
@@ -42,13 +47,12 @@ function readTranslateToEnglishFlag(config?: Record<string, unknown>): boolean {
     return config.translateChineseToEnglish
   }
 
-  return defaultLLMRefineConfig.translateToEnglish
+  return defaultLLMRefineConfig.translateOutput
 }
 
 const defaultTranslationConfig: TranslationConfig = {
   enabled: TRANSLATION.ENABLED,
   targetLanguage: TRANSLATION.TARGET_LANGUAGE,
-  systemPrompt: TRANSLATION.DEFAULT_SYSTEM_PROMPT,
 }
 
 const defaultConfig: AppConfig = {
@@ -88,7 +92,7 @@ function normalizeLLMRefineConfig(config?: Partial<LLMRefineConfig>): LLMRefineC
     endpoint: normalizeRefineBaseUrl(config?.endpoint ?? defaultLLMRefineConfig.endpoint),
     model: config?.model ?? defaultLLMRefineConfig.model,
     apiKey: config?.apiKey ?? defaultLLMRefineConfig.apiKey,
-    translateToEnglish: readTranslateToEnglishFlag(rawConfig),
+    translateOutput: readTranslateOutputFlag(rawConfig),
   }
 }
 
@@ -137,6 +141,7 @@ function migrateLLMRefineConfig(config: unknown): LLMRefineConfig | null {
     'model' in rawConfig ||
     'apiKey' in rawConfig ||
     'enabled' in rawConfig ||
+    'translateOutput' in rawConfig ||
     'translateToEnglish' in rawConfig ||
     'translateChineseToEnglish' in rawConfig
   ) {
@@ -314,7 +319,12 @@ export class ConfigManager {
   }
 
   getTranslationConfig(): TranslationConfig {
-    return this.store.get('translation', defaultConfig.translation)
+    const config = this.store.get('translation', defaultConfig.translation)
+    return {
+      enabled:
+        typeof config?.enabled === 'boolean' ? config.enabled : defaultConfig.translation.enabled,
+      targetLanguage: config?.targetLanguage || defaultConfig.translation.targetLanguage,
+    }
   }
 
   setTranslationConfig(config: Partial<TranslationConfig>): void {

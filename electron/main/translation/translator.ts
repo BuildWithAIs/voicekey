@@ -6,11 +6,7 @@ import { configManager } from '../config-manager'
 import { showOverlay, updateOverlay, hideOverlay } from '../window/overlay'
 import { requestChatCompletion, extractMessageContent } from '../refine/openai-client'
 import { normalizeRefineBaseUrl, buildRefineChatEndpoint } from '../../shared/refine-url'
-import {
-  OPENAI_CHAT,
-  BASE_TRANSLATION_SYSTEM_PROMPT,
-  TARGET_LANGUAGES,
-} from '../../shared/constants'
+import { OPENAI_CHAT, buildTranslationSystemPrompt } from '../../shared/constants'
 import { t } from '../i18n'
 
 type ClipboardSnapshot = {
@@ -82,17 +78,6 @@ export class Translator {
       const { originalText, snapshot } = capture
       activeSnapshot = snapshot
 
-      // Guard: the resolved system prompt must contain the {{targetLanguage}} placeholder
-      const promptTemplate = translationConfig.systemPrompt || BASE_TRANSLATION_SYSTEM_PROMPT
-      if (!promptTemplate.includes('{{targetLanguage}}')) {
-        console.error('[Translator] System prompt is missing {{targetLanguage}} placeholder')
-        updateOverlay({ status: 'error', message: t('hud.missingPlaceholder') })
-        this.restoreClipboardQuietly(activeSnapshot)
-        activeSnapshot = null
-        setTimeout(() => hideOverlay(), 3000)
-        return
-      }
-
       // Wait for API response
       let translatedText: string
       try {
@@ -100,7 +85,6 @@ export class Translator {
           resolved,
           originalText,
           translationConfig.targetLanguage,
-          promptTemplate,
         )
       } catch {
         console.error('[Translator] Translation API call failed')
@@ -217,21 +201,14 @@ export class Translator {
 
   /**
    * Build the chat-completion payload and call the LLM.
-   * Uses the user's custom system prompt template if configured,
-   * otherwise falls back to the built-in default.
-   * The `{{targetLanguage}}` placeholder is replaced with the
-   * resolved language label in both cases.
+   * Uses the built-in translation system prompt with the target language resolved in.
    */
   private async requestTranslation(
     resolved: ResolvedTranslationConfig,
     originalText: string,
     targetLanguage: string,
-    promptTemplate: string,
   ): Promise<string> {
-    const template = promptTemplate || BASE_TRANSLATION_SYSTEM_PROMPT
-    const langLabel =
-      TARGET_LANGUAGES.find((l) => l.value === targetLanguage)?.label || targetLanguage
-    const systemPrompt = template.replace(/\{\{targetLanguage\}\}/g, langLabel)
+    const systemPrompt = buildTranslationSystemPrompt(targetLanguage)
 
     const payload = {
       model: resolved.model,
