@@ -108,6 +108,7 @@ function initializeASRProvider() {
 function initializeRefineService() {
   refineService = new RefineService({
     getRefineConfig: () => configManager.getLLMRefineConfig(),
+    getTargetLanguage: () => configManager.getTranslationConfig().targetLanguage,
   })
 }
 
