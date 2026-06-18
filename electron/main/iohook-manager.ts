@@ -114,12 +114,22 @@ export class IOHookManager extends EventEmitter {
     // Get all keycodes that belong to the required modifiers
     const requiredModifierKeys = this.getRequiredModifierKeys(modifiers)
 
+    // 裸修饰键热键（如 PTT = 'Alt'）：主键本身是修饰键且无附加修饰键。
+    // 这类热键必须"单独按下"才算命中——否则 'Alt' 会被 'Alt+T' 之类的组合键误触发，
+    // 因为下面的检查默认只排斥额外的"修饰键"，不排斥额外的普通键（字母）。
+    const isBareModifierHotkey = modifiers.length === 0 && ALL_MODIFIER_KEYS.has(key)
+
     for (const pressedKey of this.pressedKeys) {
       // Skip the main key
       if (pressedKey === key) continue
 
-      // If a pressed key is a modifier key but NOT in the required set, reject
-      if (ALL_MODIFIER_KEYS.has(pressedKey) && !requiredModifierKeys.has(pressedKey)) {
+      if (ALL_MODIFIER_KEYS.has(pressedKey)) {
+        // If a pressed key is a modifier key but NOT in the required set, reject
+        if (!requiredModifierKeys.has(pressedKey)) {
+          return false
+        }
+      } else if (isBareModifierHotkey) {
+        // 裸修饰键热键不允许任何其他按键同时按下（包括字母键）
         return false
       }
     }
