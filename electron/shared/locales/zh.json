@@ -1,7 +1,12 @@
 {
   "app": {
     "name": "Voice Key",
+    "tagline": "说出文字",
     "version": "版本 {{version}}"
+  },
+  "theme": {
+    "light": "浅色",
+    "dark": "深色"
   },
   "nav": {
     "home": "首页",
@@ -18,15 +23,31 @@
   },
   "home": {
     "title": "自然说话，完美成文",
-    "subtitle": "按住 <kbd>{{hotkey}}</kbd> 说话，松开即可插入文本。",
+    "eyebrow": "概览",
+    "subtitle": "按住快捷键说出文字，松开即把内容注入到光标处。",
+    "charUnit": "字",
+    "recent7": "近 7 天",
+    "greeting": {
+      "morning": "早上好",
+      "afternoon": "下午好",
+      "evening": "晚上好",
+      "night": "夜深了"
+    },
+    "hero": {
+      "standby": "随时待命",
+      "holdToTalk": "按住说话",
+      "holdHint": "在任何应用里按住快捷键，说完即得文字",
+      "lowVolumeOn": "低音量增强 · 已开启"
+    },
     "stats": {
       "totalCharacters": "识别字符总数",
       "totalAudio": "录音总时长",
       "recentChange": "{{range}} +{{value}}",
       "todaySessions": "今日录音",
       "todayDuration": "今日时长",
-      "todayCharacters": "今日输入",
+      "todayCharacters": "今日字数",
       "activeDays": "活跃天数",
+      "activeDaysHint": "坚持用语音记录",
       "peakDay": "峰值日",
       "peakDayValue": "{{date}} · {{value}} 字"
     },
@@ -43,6 +64,7 @@
       "description": "所选时间范围内的识别字符数",
       "ariaLabel": "识别量趋势",
       "seriesLabel": "字符数",
+      "days": "{{count}} 天",
       "rangeSelectAriaLabel": "选择时间范围",
       "rangePlaceholder": "最近 3 个月"
     },
@@ -61,6 +83,24 @@
   },
   "settings": {
     "title": "设置",
+    "eyebrow": "偏好设置",
+    "subtitle": "配置语音识别、润色翻译与快捷键，所有修改都会自动保存。",
+    "descGeneral": "界面语言与启动方式",
+    "descAsr": "GLM ASR · 把语音转成文字",
+    "descRefine": "共用一套大模型连接",
+    "descLogs": "排查问题时使用",
+    "connectionTitle": "连接状态",
+    "aboutHint": "保持更新以获得最佳体验",
+    "health": {
+      "asr": "语音识别",
+      "asrOn": "已配置密钥",
+      "asrOff": "未配置",
+      "refine": "润色服务",
+      "refineOn": "连接就绪",
+      "refineOff": "未完成配置",
+      "translation": "翻译",
+      "translationOff": "未启用"
+    },
     "about": "关于 Voice Key",
     "version": "当前版本：v{{version}}",
     "checkUpdate": "检查更新",
@@ -223,6 +263,16 @@
   },
   "history": {
     "title": "历史记录",
+    "eyebrow": "听写历史",
+    "clearTitle": "清空全部",
+    "groupCount_one": "{{formattedCount}} 条",
+    "groupCount_other": "{{formattedCount}} 条",
+    "detailPlaceholder": "选择左侧的一条记录，在这里查看完整文字",
+    "detail": {
+      "chars": "字数",
+      "duration": "时长",
+      "speed": "字/分"
+    },
     "loading": "加载中...",
     "loadFailed": "加载历史记录失败",
     "searchPlaceholder": "搜索历史记录...",

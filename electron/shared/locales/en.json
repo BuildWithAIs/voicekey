@@ -1,7 +1,12 @@
 {
   "app": {
     "name": "Voice Key",
+    "tagline": "Speak to type",
     "version": "Version {{version}}"
+  },
+  "theme": {
+    "light": "Light",
+    "dark": "Dark"
   },
   "nav": {
     "home": "Home",
@@ -18,15 +23,31 @@
   },
   "home": {
     "title": "Speak naturally, write perfectly",
-    "subtitle": "Hold down <kbd>{{hotkey}}</kbd>, speak, and let go to insert spoken text.",
+    "eyebrow": "Overview",
+    "subtitle": "Hold the hotkey and speak — let go to inject the text at your cursor.",
+    "charUnit": "chars",
+    "recent7": "Last 7 days",
+    "greeting": {
+      "morning": "Good morning",
+      "afternoon": "Good afternoon",
+      "evening": "Good evening",
+      "night": "Working late"
+    },
+    "hero": {
+      "standby": "Ready to listen",
+      "holdToTalk": "Hold to talk",
+      "holdHint": "Hold the key in any app — speak, and get text",
+      "lowVolumeOn": "Low-volume boost · On"
+    },
     "stats": {
       "totalCharacters": "Total characters recognized",
       "totalAudio": "Total audio duration",
       "recentChange": "+{{value}} in {{range}}",
       "todaySessions": "Today's sessions",
       "todayDuration": "Today's duration",
-      "todayCharacters": "Today's input",
+      "todayCharacters": "Today's characters",
       "activeDays": "Active days",
+      "activeDaysHint": "Days you dictated",
       "peakDay": "Peak day",
       "peakDayValue": "{{date}} · {{value}} chars"
     },
@@ -43,6 +64,7 @@
       "description": "Characters recognized in the selected range",
       "ariaLabel": "Recognition volume trend",
       "seriesLabel": "Characters",
+      "days": "{{count}}d",
       "rangeSelectAriaLabel": "Select time range",
       "rangePlaceholder": "Last 3 months"
     },
@@ -61,6 +83,24 @@
   },
   "settings": {
     "title": "Settings",
+    "eyebrow": "Preferences",
+    "subtitle": "Configure speech recognition, refine & translation, and hotkeys — changes save automatically.",
+    "descGeneral": "Language and startup",
+    "descAsr": "GLM ASR · turn speech into text",
+    "descRefine": "Shares one LLM connection",
+    "descLogs": "For troubleshooting",
+    "connectionTitle": "Connection",
+    "aboutHint": "Stay up to date for the best experience",
+    "health": {
+      "asr": "Speech recognition",
+      "asrOn": "Key configured",
+      "asrOff": "Not configured",
+      "refine": "Refinement",
+      "refineOn": "Ready",
+      "refineOff": "Incomplete",
+      "translation": "Translation",
+      "translationOff": "Off"
+    },
     "about": "About Voice Key",
     "version": "Current Version: v{{version}}",
     "checkUpdate": "Check for Updates",
@@ -223,6 +263,16 @@
   },
   "history": {
     "title": "History",
+    "eyebrow": "Dictation history",
+    "clearTitle": "Clear all",
+    "groupCount_one": "{{formattedCount}} item",
+    "groupCount_other": "{{formattedCount}} items",
+    "detailPlaceholder": "Select a record on the left to read it in full",
+    "detail": {
+      "chars": "Characters",
+      "duration": "Duration",
+      "speed": "CPM"
+    },
     "loading": "Loading...",
     "loadFailed": "Failed to load history",
     "searchPlaceholder": "Search history...",
