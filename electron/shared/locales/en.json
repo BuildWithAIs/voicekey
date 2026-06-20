@@ -36,8 +36,7 @@
     "hero": {
       "standby": "Ready to listen",
       "holdToTalk": "Hold to talk",
-      "holdHint": "Hold the key in any app — speak, and get text",
-      "lowVolumeOn": "Low-volume boost · On"
+      "holdHint": "Hold the key in any app — speak, and get text"
     },
     "stats": {
       "totalCharacters": "Total characters recognized",

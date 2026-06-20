@@ -102,10 +102,6 @@ export default function HomePage() {
           <div className="relative z-10 mt-4 h-10 text-white/90">
             <VoiceWave bars={42} active level={0.5} />
           </div>
-          <div className="relative z-10 mt-3 flex items-center gap-2 text-xs text-white/85">
-            <span className="h-2 w-2 rounded-full bg-white" />
-            {t('home.hero.lowVolumeOn')}
-          </div>
         </div>
 
         {/* 今日字数 */}

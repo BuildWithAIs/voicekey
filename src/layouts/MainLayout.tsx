@@ -1,10 +1,8 @@
-import { ReactNode, useEffect, useState } from 'react'
+import { ReactNode } from 'react'
 import { Home, Settings, History, Sun, Moon } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 import { useTheme } from '@/lib/useTheme'
-import { VoiceWave } from '@/components/VoiceWave'
-import { HotkeyKeys } from '@/components/HotkeyKeys'
 
 interface MainLayoutProps {
   children: ReactNode
@@ -29,26 +27,11 @@ function VMark({ className }: { className?: string }) {
 export default function MainLayout({ children, currentRoute }: MainLayoutProps) {
   const { t } = useTranslation()
   const { theme, setTheme } = useTheme()
-  const [pttKey, setPttKey] = useState('')
-
-  useEffect(() => {
-    let cancelled = false
-    window.electronAPI
-      .getConfig()
-      .then((config) => {
-        if (!cancelled) setPttKey(config?.hotkey?.pttKey ?? '')
-      })
-      .catch((error) => console.error('Failed to load config:', error))
-    return () => {
-      cancelled = true
-    }
-  }, [])
 
   const navigate = (path: string) => {
     window.location.hash = path
   }
   const isMac = window.electronAPI.platform === 'darwin'
-  const fallbackPtt = isMac ? 'Alt' : 'Control+Shift+Space'
 
   const navItems = [
     { path: '/home', label: t('nav.home'), icon: Home },
@@ -109,21 +92,6 @@ export default function MainLayout({ children, currentRoute }: MainLayoutProps) 
           </nav>
 
           <div className="flex-1" />
-
-          {/* 待命状态卡 */}
-          <div className="rounded-xl border bg-card p-3 shadow-sm">
-            <div className="flex items-center gap-2 text-xs font-semibold text-secondary-foreground">
-              <span className="h-[7px] w-[7px] animate-pulse rounded-full bg-green-500" />
-              {t('home.hero.standby')}
-            </div>
-            <div className="my-2.5 h-[26px] text-primary">
-              <VoiceWave bars={22} active={false} level={0.5} />
-            </div>
-            <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-              <span>{t('home.hero.holdToTalk')}</span>
-              <HotkeyKeys value={pttKey || fallbackPtt} />
-            </div>
-          </div>
 
           {/* 版本 + 主题切换 */}
           <div className="mt-3 flex items-center justify-between px-1">

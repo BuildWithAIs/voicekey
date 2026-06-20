@@ -36,8 +36,7 @@
     "hero": {
       "standby": "随时待命",
       "holdToTalk": "按住说话",
-      "holdHint": "在任何应用里按住快捷键，说完即得文字",
-      "lowVolumeOn": "低音量增强 · 已开启"
+      "holdHint": "在任何应用里按住快捷键，说完即得文字"
     },
     "stats": {
       "totalCharacters": "识别字符总数",
