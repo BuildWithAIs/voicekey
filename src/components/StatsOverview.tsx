@@ -21,7 +21,7 @@ function StatTile({
   sub?: ReactNode
 }) {
   return (
-    <div className="rounded-xl border bg-card p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-md">
+    <div className="rounded-xl border bg-card p-4 shadow-sm transition-[border-color,box-shadow,transform] hover:-translate-y-0.5 hover:border-primary/35 hover:shadow-md">
       <div className="flex items-center gap-2 text-[11.5px] font-semibold text-muted-foreground">
         <span className="grid h-[26px] w-[26px] place-items-center rounded-lg bg-accent text-accent-foreground">
           {icon}

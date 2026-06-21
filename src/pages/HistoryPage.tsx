@@ -23,6 +23,35 @@ interface DayGroup {
   items: HistoryItem[]
 }
 
+interface VisibleDayGroup extends DayGroup {
+  visibleItems: HistoryItem[]
+}
+
+interface RenderWindow {
+  key: string
+  limit: number
+}
+
+type RenderSchedulerWindow = Window & {
+  requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number
+  cancelIdleCallback?: (handle: number) => void
+}
+
+const INITIAL_HISTORY_RENDER_COUNT = 36
+const HISTORY_RENDER_CHUNK_SIZE = 72
+
+function scheduleHistoryRenderChunk(callback: () => void): () => void {
+  const scheduler = window as RenderSchedulerWindow
+
+  if (scheduler.requestIdleCallback && scheduler.cancelIdleCallback) {
+    const handle = scheduler.requestIdleCallback(callback, { timeout: 120 })
+    return () => scheduler.cancelIdleCallback?.(handle)
+  }
+
+  const handle = window.setTimeout(callback, 16)
+  return () => window.clearTimeout(handle)
+}
+
 export default function HistoryPage() {
   const { t, i18n } = useTranslation()
   const [searchQuery, setSearchQuery] = React.useState('')
@@ -30,6 +59,10 @@ export default function HistoryPage() {
   const [items, setItems] = React.useState<HistoryItem[]>([])
   const [loading, setLoading] = React.useState(true)
   const [selectedId, setSelectedId] = React.useState<string | null>(null)
+  const [renderWindow, setRenderWindow] = React.useState<RenderWindow>({
+    key: '',
+    limit: INITIAL_HISTORY_RENDER_COUNT,
+  })
 
   const locale = getLocale(i18n.language)
   const numberFormatter = React.useMemo(() => new Intl.NumberFormat(locale), [locale])
@@ -95,13 +128,19 @@ export default function HistoryPage() {
   }, [loadHistory])
 
   const filteredItems = React.useMemo(() => {
-    const filtered = items.filter((item) =>
-      item.text.toLowerCase().includes(searchQuery.toLowerCase()),
-    )
+    const normalizedQuery = searchQuery.trim().toLowerCase()
+    const filtered = normalizedQuery
+      ? items.filter((item) => item.text.toLowerCase().includes(normalizedQuery))
+      : [...items]
+
     return filtered.sort((a, b) =>
       sortOrder === 'newest' ? b.timestamp - a.timestamp : a.timestamp - b.timestamp,
     )
   }, [items, searchQuery, sortOrder])
+
+  const renderKey = `${items.length}:${sortOrder}:${searchQuery}`
+  const effectiveRenderLimit =
+    renderWindow.key === renderKey ? renderWindow.limit : INITIAL_HISTORY_RENDER_COUNT
 
   const groupedItems = React.useMemo<DayGroup[]>(() => {
     const groups: DayGroup[] = []
@@ -119,9 +158,63 @@ export default function HistoryPage() {
     return groups
   }, [filteredItems, formatDateGroup, formatWeekday])
 
+  const visibleGroups = React.useMemo<VisibleDayGroup[]>(() => {
+    let remaining = effectiveRenderLimit
+    const groups: VisibleDayGroup[] = []
+
+    for (const group of groupedItems) {
+      if (remaining <= 0) break
+
+      const visibleItems = group.items.slice(0, remaining)
+      remaining -= visibleItems.length
+
+      if (visibleItems.length > 0) {
+        groups.push({ ...group, visibleItems })
+      }
+    }
+
+    return groups
+  }, [effectiveRenderLimit, groupedItems])
+
+  React.useEffect(() => {
+    setRenderWindow((prev) => {
+      if (prev.key === renderKey) return prev
+      return {
+        key: renderKey,
+        limit: Math.min(INITIAL_HISTORY_RENDER_COUNT, filteredItems.length),
+      }
+    })
+  }, [filteredItems.length, renderKey])
+
+  React.useEffect(() => {
+    const currentLimit = Math.min(effectiveRenderLimit, filteredItems.length)
+    if (currentLimit >= filteredItems.length) return
+
+    return scheduleHistoryRenderChunk(() => {
+      React.startTransition(() => {
+        setRenderWindow((prev) => {
+          if (prev.key !== renderKey) return prev
+          return {
+            key: renderKey,
+            limit: Math.min(filteredItems.length, prev.limit + HISTORY_RENDER_CHUNK_SIZE),
+          }
+        })
+      })
+    })
+  }, [effectiveRenderLimit, filteredItems.length, renderKey])
+
   const selected = React.useMemo(
     () => items.find((item) => item.id === selectedId) ?? null,
     [items, selectedId],
+  )
+
+  const selectItem = React.useCallback((id: string) => {
+    setSelectedId(id)
+  }, [])
+
+  const formatSecondsLabel = React.useCallback(
+    (count: number) => t('time.seconds', { count, formattedCount: formatNumber(count) }),
+    [formatNumber, t],
   )
 
   const copyToClipboard = React.useCallback(
@@ -250,7 +343,7 @@ export default function HistoryPage() {
         <div className="mt-6 grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_332px]">
           {/* 列表 */}
           <div className="flex flex-col gap-5">
-            {groupedItems.map((group) => (
+            {visibleGroups.map((group) => (
               <div key={group.label}>
                 <div className="mb-2.5 flex items-center gap-2.5">
                   <span className="font-display text-sm font-semibold text-foreground">
@@ -265,7 +358,7 @@ export default function HistoryPage() {
                   </span>
                 </div>
                 <div className="flex flex-col gap-2">
-                  {group.items.map((item) => (
+                  {group.visibleItems.map((item) => (
                     <HistoryRow
                       key={item.id}
                       item={item}
@@ -273,14 +366,12 @@ export default function HistoryPage() {
                       time={formatTime(item.timestamp)}
                       charLabel={formatNumber(countCharacters(item.text))}
                       seconds={Math.max(1, Math.round((item.duration ?? 0) / 1000))}
-                      onSelect={() => setSelectedId(item.id)}
-                      onCopy={() => copyToClipboard(item.text)}
-                      onDelete={() => deleteItem(item.id)}
+                      onSelect={selectItem}
+                      onCopy={copyToClipboard}
+                      onDelete={deleteItem}
                       copyTitle={t('history.copyTitle')}
                       deleteTitle={t('history.deleteTitle')}
-                      secondsLabel={(count) =>
-                        t('time.seconds', { count, formattedCount: formatNumber(count) })
-                      }
+                      secondsLabel={formatSecondsLabel}
                       charUnit={t('home.charUnit')}
                     />
                   ))}
@@ -323,81 +414,90 @@ interface HistoryRowProps {
   time: string
   charLabel: string
   seconds: number
-  onSelect: () => void
-  onCopy: () => void
-  onDelete: () => void
+  onSelect: (id: string) => void
+  onCopy: (text: string) => void
+  onDelete: (id: string) => void
   copyTitle: string
   deleteTitle: string
   secondsLabel: (count: number) => string
   charUnit: string
 }
 
-function HistoryRow({
-  item,
-  selected,
-  time,
-  charLabel,
-  seconds,
-  onSelect,
-  onCopy,
-  onDelete,
-  copyTitle,
-  deleteTitle,
-  secondsLabel,
-  charUnit,
-}: HistoryRowProps) {
-  return (
-    <div
-      onClick={onSelect}
-      className={cn(
-        'group relative flex cursor-pointer gap-3 rounded-xl border bg-card p-3.5 shadow-sm transition-all hover:-translate-y-px hover:shadow-md',
-        selected
-          ? 'border-primary ring-3 ring-primary/15'
-          : 'border-transparent hover:border-border',
-      )}
-    >
-      <div className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] bg-accent text-accent-foreground">
-        <Mic className="h-[17px] w-[17px]" />
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="line-clamp-2 text-[13.5px] leading-relaxed text-foreground">{item.text}</p>
-        <div className="mt-2 flex items-center gap-2 text-[11px] text-muted-foreground">
-          <span className="tnum inline-flex items-center gap-1.5 rounded-md bg-secondary px-2 py-0.5">
-            <Clock className="h-3 w-3" />
-            {time}
-          </span>
-          <span className="tnum inline-flex items-center gap-1.5 rounded-md bg-secondary px-2 py-0.5">
-            <span className="h-3 w-6 text-primary">
-              <VoiceWave bars={7} active={false} />
+const HistoryRow = React.memo(
+  ({
+    item,
+    selected,
+    time,
+    charLabel,
+    seconds,
+    onSelect,
+    onCopy,
+    onDelete,
+    copyTitle,
+    deleteTitle,
+    secondsLabel,
+    charUnit,
+  }: HistoryRowProps) => {
+    const handleSelect = React.useCallback(() => onSelect(item.id), [item.id, onSelect])
+    const handleCopy = React.useCallback(() => onCopy(item.text), [item.text, onCopy])
+    const handleDelete = React.useCallback(() => onDelete(item.id), [item.id, onDelete])
+
+    return (
+      <div
+        data-history-row="true"
+        onClick={handleSelect}
+        className={cn(
+          'vk-history-row group relative flex cursor-pointer gap-3 rounded-xl border bg-card p-3.5 shadow-sm transition-[border-color,box-shadow,transform] hover:-translate-y-px hover:shadow-md',
+          selected
+            ? 'border-primary ring-3 ring-primary/15'
+            : 'border-transparent hover:border-border',
+        )}
+      >
+        <div className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] bg-accent text-accent-foreground">
+          <Mic className="h-[17px] w-[17px]" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="line-clamp-2 text-[13.5px] leading-relaxed text-foreground">{item.text}</p>
+          <div className="mt-2 flex items-center gap-2 text-[11px] text-muted-foreground">
+            <span className="tnum inline-flex items-center gap-1.5 rounded-md bg-secondary px-2 py-0.5">
+              <Clock className="h-3 w-3" />
+              {time}
             </span>
-            {secondsLabel(seconds)}
-          </span>
-          <span className="tnum inline-flex items-center gap-1.5 rounded-md bg-secondary px-2 py-0.5">
-            <Type className="h-3 w-3" />
-            {charLabel} {charUnit}
-          </span>
+            <span className="tnum inline-flex items-center gap-1.5 rounded-md bg-secondary px-2 py-0.5">
+              <span className="h-3 w-6 text-primary">
+                <VoiceWave bars={7} active={false} />
+              </span>
+              {secondsLabel(seconds)}
+            </span>
+            <span className="tnum inline-flex items-center gap-1.5 rounded-md bg-secondary px-2 py-0.5">
+              <Type className="h-3 w-3" />
+              {charLabel} {charUnit}
+            </span>
+          </div>
+        </div>
+        <div
+          onClick={(e) => e.stopPropagation()}
+          className="absolute right-2.5 top-2.5 flex gap-0.5 rounded-lg border bg-card p-0.5 opacity-0 shadow-md transition-opacity group-hover:opacity-100"
+        >
+          <Button variant="ghost" size="icon-sm" title={copyTitle} onClick={handleCopy}>
+            <Copy className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            title={deleteTitle}
+            onClick={handleDelete}
+            className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
         </div>
       </div>
-      <div
-        onClick={(e) => e.stopPropagation()}
-        className="absolute right-2.5 top-2.5 flex gap-0.5 rounded-lg border bg-card p-0.5 opacity-0 shadow-md transition-opacity group-hover:opacity-100"
-      >
-        <Button variant="ghost" size="icon-sm" title={copyTitle} onClick={onCopy}>
-          <Copy className="h-4 w-4" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          title={deleteTitle}
-          onClick={onDelete}
-          className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-        >
-          <Trash2 className="h-4 w-4" />
-        </Button>
-      </div>
-    </div>
-  )
-}
+    )
+  },
+)
+
+HistoryRow.displayName = 'HistoryRow'
 
 interface DetailPaneProps {
   item: HistoryItem | null

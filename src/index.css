@@ -187,6 +187,13 @@
   }
 }
 
+html.vk-theme-changing *,
+html.vk-theme-changing *::before,
+html.vk-theme-changing *::after {
+  transition: none !important;
+  transition-delay: 0s !important;
+}
+
 /* macOS 风格窗口支持 */
 .drag-region {
   -webkit-app-region: drag;
@@ -329,4 +336,9 @@
 .vk-scroll::-webkit-scrollbar-thumb:hover {
   background: color-mix(in oklch, var(--muted-foreground) 42%, transparent);
   background-clip: padding-box;
+}
+
+.vk-history-row {
+  content-visibility: auto;
+  contain-intrinsic-size: 96px;
 }
