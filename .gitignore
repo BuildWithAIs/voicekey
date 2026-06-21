@@ -32,3 +32,10 @@ temp-docs/
 # Website (官网子项目)
 website/node_modules/
 website/dist/
+
+# Agent / 设计工具产物（本地工具，不入产品仓库）
+.agents/
+.claude/
+designs/
+skills-lock.json
+systemprompt.txt

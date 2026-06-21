@@ -2,6 +2,7 @@ import * as React from 'react'
 import { Area, AreaChart, CartesianGrid, XAxis } from 'recharts'
 import { useTranslation } from 'react-i18next'
 import { getLocale } from '@electron/shared/i18n'
+import { cn } from '@/lib/utils'
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -12,16 +13,7 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from '@/components/ui/chart'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 
-// Helper interfaces and functions from HomePage.tsx
-// Helper interfaces and functions
 export interface HistoryItem {
   id: string
   text: string
@@ -31,7 +23,7 @@ export interface HistoryItem {
 
 interface TrendPoint {
   label: string
-  date: number // Added to support recharts data key
+  date: number
   characters: number
   durationMs: number
 }
@@ -83,7 +75,7 @@ const buildTrendData = (
     const stats = dailyMap.get(key) ?? { characters: 0, durationMs: 0 }
     points.push({
       label: formatLabel(date),
-      date: date.getTime(), // Use YYYY-MM-DD as data key for chart
+      date: date.getTime(),
       characters: stats.characters,
       durationMs: stats.durationMs,
     })
@@ -91,9 +83,15 @@ const buildTrendData = (
   return points
 }
 
+const RANGE_OPTIONS = [
+  { value: '7d', days: 7 },
+  { value: '30d', days: 30 },
+  { value: '90d', days: 90 },
+] as const
+
 export default function InteractiveCharts({ historyItems, loading }: InteractiveChartsProps) {
   const { t, i18n } = useTranslation()
-  const [timeRange, setTimeRange] = React.useState('7d')
+  const [timeRange, setTimeRange] = React.useState<'7d' | '30d' | '90d'>('7d')
 
   const locale = getLocale(i18n.language)
   const chartConfig = React.useMemo<ChartConfig>(
@@ -110,61 +108,54 @@ export default function InteractiveCharts({ historyItems, loading }: Interactive
     [locale],
   )
 
-  const filteredData = React.useMemo(() => {
-    let days = 90
-    if (timeRange === '30d') {
-      days = 30
-    } else if (timeRange === '7d') {
-      days = 7
-    }
+  const days = timeRange === '90d' ? 90 : timeRange === '30d' ? 30 : 7
 
-    return buildTrendData(historyItems, days, (date) => dayFormatter.format(date))
-  }, [historyItems, timeRange, dayFormatter])
+  const filteredData = React.useMemo(
+    () => buildTrendData(historyItems, days, (date) => dayFormatter.format(date)),
+    [historyItems, days, dayFormatter],
+  )
 
   return (
-    <Card className="pt-0">
-      <CardHeader className="flex items-center gap-2 space-y-0 border-b py-5 sm:flex-row">
+    <Card className="gap-0 overflow-hidden pt-0">
+      <CardHeader className="flex flex-col gap-3 border-b py-5 sm:flex-row sm:items-center">
         <div className="grid flex-1 gap-1">
-          <CardTitle className="flex items-center gap-2">
+          <CardTitle className="flex items-center gap-2 text-[15px]">
             {t('home.chart.title')}
             {loading && (
-              <span className="text-sm font-normal text-muted-foreground">
-                ({t('common.loadingHistory', { defaultValue: 'Loading...' })})
+              <span className="text-xs font-normal text-muted-foreground">
+                {t('common.loading')}
               </span>
             )}
           </CardTitle>
-          <CardDescription>{t('home.chart.description')}</CardDescription>
+          <CardDescription className="text-xs">{t('home.chart.description')}</CardDescription>
         </div>
-        <Select value={timeRange} onValueChange={setTimeRange}>
-          <SelectTrigger
-            className="cursor-pointer hidden w-[160px] rounded-lg sm:ml-auto sm:flex"
-            aria-label={t('home.chart.rangeSelectAriaLabel')}
-          >
-            <SelectValue placeholder={t('home.chart.rangePlaceholder')} />
-          </SelectTrigger>
-          <SelectContent className="rounded-xl">
-            <SelectItem value="90d" className="rounded-lg">
-              {t('home.range.option', { count: 90 })}
-            </SelectItem>
-            <SelectItem value="30d" className="rounded-lg">
-              {t('home.range.option', { count: 30 })}
-            </SelectItem>
-            <SelectItem value="7d" className="rounded-lg">
-              {t('home.range.option', { count: 7 })}
-            </SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="inline-flex rounded-lg border bg-secondary p-0.5">
+          {RANGE_OPTIONS.map((option) => (
+            <button
+              key={option.value}
+              onClick={() => setTimeRange(option.value)}
+              className={cn(
+                'cursor-pointer rounded-md px-3 py-1 text-xs font-semibold transition-colors',
+                timeRange === option.value
+                  ? 'bg-card text-primary shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              {t('home.chart.days', { count: option.days })}
+            </button>
+          ))}
+        </div>
       </CardHeader>
       <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
         <ChartContainer config={chartConfig} className="aspect-auto h-[250px] w-full">
           <AreaChart data={filteredData}>
             <defs>
               <linearGradient id="fillCharacters" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="var(--chart-1)" stopOpacity={0.8} />
-                <stop offset="95%" stopColor="var(--chart-1)" stopOpacity={0.1} />
+                <stop offset="0%" stopColor="var(--chart-1)" stopOpacity={0.38} />
+                <stop offset="95%" stopColor="var(--chart-1)" stopOpacity={0.02} />
               </linearGradient>
             </defs>
-            <CartesianGrid vertical={false} />
+            <CartesianGrid vertical={false} strokeDasharray="3 4" />
             <XAxis
               dataKey="date"
               tickLine={false}
@@ -173,15 +164,11 @@ export default function InteractiveCharts({ historyItems, loading }: Interactive
               minTickGap={32}
               tickFormatter={(value) => {
                 const raw = value
-                // 如果是数字（时间戳），直接用；否则把 YYYY-MM-DD 当作本地日期解析
                 const date =
                   typeof raw === 'number' || /^\d+$/.test(String(raw))
                     ? new Date(Number(raw))
                     : new Date(`${String(raw)}T00:00:00`)
-                return date.toLocaleDateString(locale, {
-                  month: 'short',
-                  day: 'numeric',
-                })
+                return date.toLocaleDateString(locale, { month: 'short', day: 'numeric' })
               }}
             />
             <ChartTooltip
@@ -189,20 +176,14 @@ export default function InteractiveCharts({ historyItems, loading }: Interactive
               content={
                 <ChartTooltipContent
                   labelFormatter={(value, payload) => {
-                    // payload 优先：recharts 会把 data point 放在 payload[0].payload
                     const candidate =
                       payload && payload.length > 0 ? (payload[0]?.payload?.date ?? value) : value
-
                     const raw = candidate
                     const date =
                       typeof raw === 'number' || /^\d+$/.test(String(raw))
                         ? new Date(Number(raw))
                         : new Date(`${String(raw)}T00:00:00`)
-
-                    return date.toLocaleDateString(locale, {
-                      month: 'short',
-                      day: 'numeric',
-                    })
+                    return date.toLocaleDateString(locale, { month: 'short', day: 'numeric' })
                   }}
                   indicator="dot"
                 />
@@ -213,6 +194,7 @@ export default function InteractiveCharts({ historyItems, loading }: Interactive
               type="monotone"
               fill="url(#fillCharacters)"
               stroke="var(--chart-1)"
+              strokeWidth={2.5}
               stackId="a"
             />
             <ChartLegend content={<ChartLegendContent />} />

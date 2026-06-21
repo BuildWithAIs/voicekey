@@ -30,12 +30,28 @@ React 组件目录，包含应用级组件与 `ui/` 组件库。
 
 ### `Waveform.tsx`
 
-根据实时音频电平渲染波形动画。
+根据实时音频电平渲染波形动画（HUD 录音浮窗使用）。
+
+### `VoiceWave.tsx`
+
+品牌装饰声波：一排高度各异的竖条，`active` 时上下脉动，颜色继承 `currentColor`。纯装饰，不读取真实音频，用于侧栏待命卡、主页英雄区与历史记录。
+
+### `HotkeyKeys.tsx`
+
+将 Electron Accelerator 字符串渲染成一组实体键帽（按平台映射 ⌘ ⌥ ⇧ ⌃ 等符号）。
+
+### `HotkeySettings.tsx`
+
+快捷键配置卡片：PTT 预设/自定义、打开设置与翻译快捷键，含校验与重置。
 
 ### `LogViewerDialog.tsx`
 
 日志查看对话框，负责展示主进程日志尾部内容。
 
+### `StatsOverview.tsx`
+
+主页统计磁贴行（累计字数 / 累计时长 / 活跃天数 / 峰值日），数据来自 `@/lib/stats`。
+
 ### `InteractiveCharts.tsx`
 
-首页趋势图组件，聚合历史记录并绘制字符识别趋势。
+首页趋势图组件，聚合历史记录并绘制字符识别趋势，含 7/30/90 天分段切换。

@@ -1,5 +1,20 @@
-﻿import { useEffect, useRef, useState } from 'react'
-import { CheckCircle2, XCircle, AlertTriangle, Eye, EyeOff, Sparkles } from 'lucide-react'
+import { ReactNode, useEffect, useRef, useState } from 'react'
+import {
+  CheckCircle2,
+  XCircle,
+  AlertTriangle,
+  Eye,
+  EyeOff,
+  Sparkles,
+  SlidersHorizontal,
+  Mic,
+  ScrollText,
+  Activity,
+  Info,
+  Plug,
+  RefreshCw,
+  Languages,
+} from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { type LanguageSetting } from '@electron/shared/i18n'
 import {
@@ -20,7 +35,6 @@ import { LogViewerDialog } from '@/components/LogViewerDialog'
 import { HotkeySettings } from '@/components/HotkeySettings'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -31,6 +45,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
+import { cn } from '@/lib/utils'
 import { validateHotkey } from '@/lib/hotkey-utils'
 
 const AUTO_SAVE_DELAY_MS = 700
@@ -62,19 +77,15 @@ function readTranslateOutputFlag(config?: Record<string, unknown>): boolean {
   if (!config) {
     return defaultLLMRefineConfig.translateOutput
   }
-
   if (typeof config.translateOutput === 'boolean') {
     return config.translateOutput
   }
-
   if (typeof config.translateToEnglish === 'boolean') {
     return config.translateToEnglish
   }
-
   if (typeof config.translateChineseToEnglish === 'boolean') {
     return config.translateChineseToEnglish
   }
-
   return defaultLLMRefineConfig.translateOutput
 }
 
@@ -185,34 +196,103 @@ function InlineFeedback({
       {isSaving ? (
         <div className="mt-0.5 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
       ) : isSuccess ? (
-        <CheckCircle2 className="h-4 w-4 text-chart-2" />
+        <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-500" />
       ) : (
         <XCircle className="h-4 w-4" />
       )}
-      <AlertDescription className={isSuccess ? 'text-chart-2' : ''}>
+      <AlertDescription className={isSuccess ? 'text-green-600 dark:text-green-500' : ''}>
         {status.message}
       </AlertDescription>
     </Alert>
   )
 }
 
-function SaveStatusCard({
-  status,
-  className = '',
-  testId,
+function SectionCard({
+  icon,
+  title,
+  desc,
+  children,
 }: {
-  status: SaveStatus
-  className?: string
-  testId?: string
+  icon: ReactNode
+  title: string
+  desc?: string
+  children: ReactNode
 }) {
-  if (!status) return null
-
   return (
-    <div
-      className={`rounded-xl border border-border/80 bg-background/95 p-3 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/85 ${className}`}
-      data-testid={testId}
-    >
-      <InlineFeedback status={status} />
+    <section className="rounded-2xl border bg-card p-5 shadow-sm">
+      <div className="mb-5 flex items-center gap-3">
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] bg-accent text-accent-foreground">
+          {icon}
+        </span>
+        <div>
+          <h2 className="text-[15px] font-semibold text-foreground">{title}</h2>
+          {desc ? <p className="mt-0.5 text-xs text-muted-foreground">{desc}</p> : null}
+        </div>
+      </div>
+      {children}
+    </section>
+  )
+}
+
+function ToggleRow({
+  title,
+  desc,
+  checked,
+  onChange,
+  disabled = false,
+}: {
+  title: string
+  desc?: string
+  checked: boolean
+  onChange: (value: boolean) => void
+  disabled?: boolean
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4">
+      <div>
+        <div className="text-[13px] font-semibold text-foreground">{title}</div>
+        {desc ? (
+          <div className="mt-0.5 max-w-[420px] text-xs leading-relaxed text-muted-foreground">
+            {desc}
+          </div>
+        ) : null}
+      </div>
+      <Switch
+        checked={checked}
+        onCheckedChange={onChange}
+        disabled={disabled}
+        className="no-drag cursor-pointer disabled:cursor-not-allowed"
+      />
+    </div>
+  )
+}
+
+function Segmented({
+  value,
+  onChange,
+  options,
+}: {
+  value: string
+  onChange: (value: string) => void
+  options: { value: string; label: string }[]
+}) {
+  return (
+    <div className="inline-flex rounded-lg border bg-secondary p-0.5">
+      {options.map((option) => (
+        <button
+          key={option.value}
+          type="button"
+          onClick={() => onChange(option.value)}
+          className={cn(
+            'no-drag cursor-pointer rounded-md px-5 py-1.5 text-xs font-semibold transition-colors',
+            value === option.value
+              ? 'bg-card text-primary shadow-sm'
+              : 'text-muted-foreground hover:text-foreground',
+          )}
+        >
+          {option.label}
+        </button>
+      ))}
     </div>
   )
 }
@@ -352,7 +432,6 @@ export default function SettingsPage() {
       return t('settings.result.hotkeyInvalid')
     }
 
-    // Check for duplicate hotkeys
     const keys = [hotkey.pttKey, hotkey.toggleSettings, hotkey.translateKey]
     if (new Set(keys).size !== keys.length) {
       return t('settings.result.hotkeyInvalid')
@@ -365,7 +444,6 @@ export default function SettingsPage() {
     if (refineConfig.enabled && !isRefineConfigComplete(refineConfig)) {
       return t('settings.result.refineConfigRequired')
     }
-
     return null
   }
 
@@ -554,7 +632,6 @@ export default function SettingsPage() {
     }
   }
 
-  // Helper to update API Key for current region
   const handleApiKeyChange = (value: string) => {
     const region = config.asr.region || 'cn'
     setConfig((prev) => ({
@@ -569,7 +646,6 @@ export default function SettingsPage() {
     }))
   }
 
-  // Helper to change Region
   const handleRegionChange = (value: string) => {
     const region = value as 'cn' | 'intl'
     setConfig((prev) => ({
@@ -577,7 +653,7 @@ export default function SettingsPage() {
       asr: {
         ...prev.asr,
         region,
-        endpoint: '', // Clear endpoint to ensure region default is used
+        endpoint: '',
       },
     }))
   }
@@ -682,65 +758,39 @@ export default function SettingsPage() {
     }
   }
 
+  const asrEndpoint =
+    config.asr.endpoint ||
+    (currentRegion === 'intl'
+      ? 'https://api.z.ai/api/paas/v4/audio/transcriptions'
+      : 'https://open.bigmodel.cn/api/paas/v4/audio/transcriptions')
+
+  const translationActive = config.translation.enabled || translateOutput
+  const activeTargetLanguage = TARGET_LANGUAGES.find(
+    (lang) => lang.value === config.translation.targetLanguage,
+  )
+
   return (
-    <div className="grid gap-6 xl:grid-cols-[minmax(0,48rem)_18rem] xl:items-start">
-      <div className="min-w-0 max-w-xl xl:max-w-none">
-        <h1 className="mb-6 text-2xl font-bold text-foreground">{t('settings.title')}</h1>
+    <div className="mx-auto max-w-[1040px] px-8 py-7">
+      {/* 页头 */}
+      <div className="mb-6">
+        <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-primary">
+          <SlidersHorizontal className="h-3 w-3" />
+          {t('settings.eyebrow')}
+        </span>
+        <h1 className="mt-2 font-display text-[27px] font-bold tracking-tight text-foreground">
+          {t('settings.title')}
+        </h1>
+        <p className="mt-2 text-sm text-muted-foreground">{t('settings.subtitle')}</p>
+      </div>
 
-        <InlineFeedback
-          status={saveStatus}
-          className="mb-6 xl:hidden"
-          testId="save-status-inline"
-        />
-
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle>{t('settings.about')}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between">
-              <div className="space-y-1">
-                <p className="text-sm font-medium">
-                  {t('settings.version', { version: __APP_VERSION__ })}
-                </p>
-                {updateInfo?.hasUpdate && (
-                  <p className="text-sm text-chart-2 font-medium">
-                    {t('settings.hasUpdate', { version: updateInfo.latestVersion })}
-                  </p>
-                )}
-                {updateInfo?.hasUpdate === false && !updateInfo.error && (
-                  <p className="text-sm text-muted-foreground">{t('settings.noUpdate')}</p>
-                )}
-                {updateInfo?.error && (
-                  <p className="text-sm text-destructive">{t('settings.updateError')}</p>
-                )}
-              </div>
-              <div className="flex gap-2">
-                {updateInfo?.hasUpdate ? (
-                  <Button size="sm" onClick={handleOpenRelease} className="cursor-pointer no-drag">
-                    {t('settings.downloadUpdate')}
-                  </Button>
-                ) : (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleCheckUpdate}
-                    disabled={checkingUpdate}
-                    className="cursor-pointer no-drag"
-                  >
-                    {checkingUpdate ? t('settings.checkingUpdate') : t('settings.checkUpdate')}
-                  </Button>
-                )}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle>{t('settings.appPreferences')}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
+      <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_256px]">
+        <div className="flex min-w-0 flex-col gap-4">
+          {/* 通用 */}
+          <SectionCard
+            icon={<SlidersHorizontal className="h-[18px] w-[18px]" />}
+            title={t('settings.appPreferences')}
+            desc={t('settings.descGeneral')}
+          >
             <div className="space-y-2">
               <Label htmlFor="appLanguage">{t('settings.appLanguage')}</Label>
               <Select value={config.app.language} onValueChange={handleAppLanguageChange}>
@@ -754,48 +804,39 @@ export default function SettingsPage() {
                 </SelectContent>
               </Select>
             </div>
-
-            <div className="flex items-center justify-between space-x-2">
-              <div className="space-y-0.5">
-                <Label htmlFor="autoLaunch">{t('settings.autoLaunch')}</Label>
-                <p className="text-sm text-muted-foreground">{t('settings.autoLaunchHelp')}</p>
-              </div>
-              <Switch
-                id="autoLaunch"
+            <div className="mt-4">
+              <ToggleRow
+                title={t('settings.autoLaunch')}
+                desc={t('settings.autoLaunchHelp')}
                 checked={config.app.autoLaunch ?? false}
-                onCheckedChange={(checked) =>
-                  setConfig({
-                    ...config,
-                    app: { ...config.app, autoLaunch: checked },
-                  })
+                onChange={(checked) =>
+                  setConfig((prev) => ({ ...prev, app: { ...prev.app, autoLaunch: checked } }))
                 }
-                className="no-drag cursor-pointer"
               />
             </div>
-          </CardContent>
-        </Card>
+          </SectionCard>
 
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle>{t('settings.asrConfig')}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
+          {/* 语音识别 */}
+          <SectionCard
+            icon={<Mic className="h-[18px] w-[18px]" />}
+            title={t('settings.asrConfig')}
+            desc={t('settings.descAsr')}
+          >
             <div className="space-y-2">
-              <Label htmlFor="region">{t('settings.region')}</Label>
-              <Select value={currentRegion} onValueChange={handleRegionChange}>
-                <SelectTrigger id="region" className="no-drag w-full cursor-pointer">
-                  <SelectValue placeholder={t('settings.languagePlaceholder')} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="cn">{t('settings.regionChina')}</SelectItem>
-                  <SelectItem value="intl">{t('settings.regionIntl')}</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label>{t('settings.region')}</Label>
+              <Segmented
+                value={currentRegion}
+                onChange={handleRegionChange}
+                options={[
+                  { value: 'cn', label: t('settings.regionChina') },
+                  { value: 'intl', label: t('settings.regionIntl') },
+                ]}
+              />
             </div>
 
-            <div className="space-y-2">
+            <div className="mt-4 space-y-2">
               <Label htmlFor="apiKey">
-                {t('settings.apiKey')} <span className="text-destructive">*</span>
+                {t('settings.apiKey')} <span className="text-primary">*</span>
               </Label>
               <div className="relative">
                 <Input
@@ -804,18 +845,18 @@ export default function SettingsPage() {
                   value={currentApiKey}
                   onChange={(e) => handleApiKeyChange(e.target.value)}
                   placeholder={t('settings.apiKeyPlaceholder')}
-                  className="no-drag pr-10"
+                  className="no-drag pr-10 font-mono"
                 />
                 <button
                   type="button"
                   onClick={() => setShowAsrApiKey((prev) => !prev)}
                   aria-label={showAsrApiKey ? t('settings.hideKey') : t('settings.showKey')}
-                  className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-foreground no-drag"
+                  className="no-drag absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-foreground"
                 >
                   {showAsrApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
-              <p className="text-sm text-muted-foreground mr-1">
+              <p className="text-xs text-muted-foreground">
                 {t('settings.apiKeyHelp')}{' '}
                 <a
                   href={
@@ -825,204 +866,178 @@ export default function SettingsPage() {
                   }
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-primary hover:underline"
+                  className="font-semibold text-primary hover:underline"
                 >
                   {currentRegion === 'intl' ? 'z.ai' : 'bigmodel.cn'}
                 </a>
               </p>
             </div>
 
-            <div className="space-y-2">
+            <div className="mt-4 space-y-2">
               <Label htmlFor="endpoint">{t('settings.apiEndpoint')}</Label>
               <Input
                 id="endpoint"
                 type="text"
-                value={
-                  config.asr.endpoint ||
-                  (currentRegion === 'intl'
-                    ? 'https://api.z.ai/api/paas/v4/audio/transcriptions'
-                    : 'https://open.bigmodel.cn/api/paas/v4/audio/transcriptions')
-                }
+                value={asrEndpoint}
                 readOnly
                 disabled
-                className="no-drag bg-muted text-muted-foreground"
+                className="no-drag bg-muted font-mono text-muted-foreground"
               />
-              <div className="mt-2 flex items-center space-x-2">
-                <AlertTriangle className="h-4 w-4 text-yellow-500" />
-                <p className="text-sm text-muted-foreground">{t('settings.durationWarning')}</p>
+              <div className="mt-1 flex items-start gap-2 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-3 py-2.5 text-xs leading-relaxed text-muted-foreground">
+                <AlertTriangle className="mt-px h-4 w-4 shrink-0 text-yellow-600 dark:text-yellow-500" />
+                {t('settings.durationWarning')}
               </div>
             </div>
 
-            <div className="flex items-center justify-between space-x-2">
-              <div className="space-y-0.5">
-                <Label htmlFor="lowVolumeMode">{t('settings.lowVolumeMode')}</Label>
-                <p className="text-sm text-muted-foreground">{t('settings.lowVolumeModeHelp')}</p>
-              </div>
-              <Switch
-                id="lowVolumeMode"
+            <div className="mt-4 border-t pt-4">
+              <ToggleRow
+                title={t('settings.lowVolumeMode')}
+                desc={t('settings.lowVolumeModeHelp')}
                 checked={config.asr.lowVolumeMode ?? true}
-                onCheckedChange={(checked) =>
-                  setConfig((prev) => ({
-                    ...prev,
-                    asr: { ...prev.asr, lowVolumeMode: checked },
-                  }))
+                onChange={(checked) =>
+                  setConfig((prev) => ({ ...prev, asr: { ...prev.asr, lowVolumeMode: checked } }))
                 }
-                className="no-drag cursor-pointer"
               />
             </div>
 
-            <div className="space-y-3 border-t border-border pt-4">
+            <div className="mt-4 space-y-3 border-t pt-4">
               <Button
                 variant="secondary"
+                size="sm"
                 onClick={handleTestConnection}
                 disabled={testingAsr || !currentApiKey}
                 className="no-drag cursor-pointer"
               >
+                <Plug className="h-4 w-4" />
                 {testingAsr ? t('settings.testingConnection') : t('settings.testConnection')}
               </Button>
               <InlineFeedback status={asrTestStatus} testId="asr-test-status" />
             </div>
-          </CardContent>
-        </Card>
+          </SectionCard>
 
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle>{t('settings.refineAndTranslation')}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {/* ── 共享 LLM 连接（润色与翻译共用） ── */}
-            <div className="space-y-4">
-              <p className="text-sm text-muted-foreground">{t('settings.llmConnectionHelp')}</p>
+          {/* 润色与翻译 */}
+          <SectionCard
+            icon={<Sparkles className="h-[18px] w-[18px]" />}
+            title={t('settings.refineAndTranslation')}
+            desc={t('settings.descRefine')}
+          >
+            {/* 共享 LLM 连接 */}
+            <p className="mb-4 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.05em] text-muted-foreground">
+              <Plug className="h-3.5 w-3.5" />
+              {t('settings.llmConnectionHelp')}
+            </p>
 
-              <div className="space-y-2">
-                <Label htmlFor="refineEndpoint">
-                  {t('settings.refineEndpoint')} <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  id="refineEndpoint"
-                  type="text"
-                  value={normalizedLLMRefineConfig.endpoint}
-                  onChange={(e) => handleRefineConfigChange('endpoint', e.target.value)}
-                  placeholder={t('settings.refineEndpointPlaceholder')}
-                  className="no-drag"
-                />
-                <p className="text-sm text-muted-foreground">{t('settings.refineEndpointHelp')}</p>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="refineModel">
-                  {t('settings.refineModel')} <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  id="refineModel"
-                  type="text"
-                  value={normalizedLLMRefineConfig.model}
-                  onChange={(e) => handleRefineConfigChange('model', e.target.value)}
-                  placeholder={t('settings.refineModelPlaceholder')}
-                  className="no-drag"
-                />
-                <Alert className="border-primary/30 bg-primary/5 [&>svg]:text-primary">
-                  <Sparkles className="h-4 w-4" />
-                  <AlertTitle>{t('settings.refineModelTipTitle')}</AlertTitle>
-                  <AlertDescription className="text-foreground/80">
-                    {t('settings.refineModelHelp')}
-                  </AlertDescription>
-                </Alert>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="refineApiKey">
-                  {t('settings.refineApiKey')} <span className="text-destructive">*</span>
-                </Label>
-                <div className="relative">
-                  <Input
-                    id="refineApiKey"
-                    type={showRefineApiKey ? 'text' : 'password'}
-                    value={normalizedLLMRefineConfig.apiKey}
-                    onChange={(e) => handleRefineConfigChange('apiKey', e.target.value)}
-                    placeholder={t('settings.refineApiKeyPlaceholder')}
-                    className="no-drag pr-10"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowRefineApiKey((prev) => !prev)}
-                    aria-label={
-                      showRefineApiKey ? t('settings.hideRefineKey') : t('settings.showRefineKey')
-                    }
-                    className="absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-foreground no-drag"
-                  >
-                    {showRefineApiKey ? (
-                      <EyeOff className="h-4 w-4" />
-                    ) : (
-                      <Eye className="h-4 w-4" />
-                    )}
-                  </button>
-                </div>
-              </div>
-
-              {refineValidationMessage && (
-                <Alert variant="destructive" data-testid="refine-validation-status">
-                  <AlertTriangle className="h-4 w-4" />
-                  <AlertDescription>{refineValidationMessage}</AlertDescription>
-                </Alert>
-              )}
-
-              <div className="space-y-3">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleTestRefineConnection}
-                  disabled={testingRefine || !canTestRefine}
-                  className="no-drag cursor-pointer"
-                >
-                  {testingRefine
-                    ? t('settings.testingRefineConnection')
-                    : t('settings.testRefineConnection')}
-                </Button>
-                <InlineFeedback status={refineTestStatus} testId="refine-test-status" />
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="refineEndpoint">
+                {t('settings.refineEndpoint')} <span className="text-primary">*</span>
+              </Label>
+              <Input
+                id="refineEndpoint"
+                type="text"
+                value={normalizedLLMRefineConfig.endpoint}
+                onChange={(e) => handleRefineConfigChange('endpoint', e.target.value)}
+                placeholder={t('settings.refineEndpointPlaceholder')}
+                className="no-drag font-mono"
+              />
+              <p className="text-xs text-muted-foreground">{t('settings.refineEndpointHelp')}</p>
             </div>
 
-            {/* ── 文本润色 ── */}
-            <div className="space-y-4 border-t border-border pt-6">
-              <h3 className="text-sm font-semibold text-foreground">
-                {t('settings.llmRefineConfig')}
-              </h3>
+            <div className="mt-4 space-y-2">
+              <Label htmlFor="refineModel">
+                {t('settings.refineModel')} <span className="text-primary">*</span>
+              </Label>
+              <Input
+                id="refineModel"
+                type="text"
+                value={normalizedLLMRefineConfig.model}
+                onChange={(e) => handleRefineConfigChange('model', e.target.value)}
+                placeholder={t('settings.refineModelPlaceholder')}
+                className="no-drag font-mono"
+              />
+              <Alert className="border-primary/30 bg-accent/40 [&>svg]:text-primary">
+                <Sparkles className="h-4 w-4" />
+                <AlertTitle>{t('settings.refineModelTipTitle')}</AlertTitle>
+                <AlertDescription className="text-foreground/80">
+                  {t('settings.refineModelHelp')}
+                </AlertDescription>
+              </Alert>
+            </div>
 
-              <div className="flex items-center justify-between space-x-2">
-                <div className="space-y-0.5">
-                  <Label htmlFor="llmRefineEnabled">{t('settings.llmRefineEnabled')}</Label>
-                  <p className="text-sm text-muted-foreground">
-                    {t('settings.llmRefineEnabledHelp')}
-                  </p>
-                </div>
-                <Switch
-                  id="llmRefineEnabled"
-                  checked={llmRefineEnabled}
-                  onCheckedChange={(checked) =>
-                    setConfig((prev) => ({
-                      ...prev,
-                      llmRefine: {
-                        ...prev.llmRefine,
-                        enabled: checked,
-                      },
-                    }))
+            <div className="mt-4 space-y-2">
+              <Label htmlFor="refineApiKey">
+                {t('settings.refineApiKey')} <span className="text-primary">*</span>
+              </Label>
+              <div className="relative">
+                <Input
+                  id="refineApiKey"
+                  type={showRefineApiKey ? 'text' : 'password'}
+                  value={normalizedLLMRefineConfig.apiKey}
+                  onChange={(e) => handleRefineConfigChange('apiKey', e.target.value)}
+                  placeholder={t('settings.refineApiKeyPlaceholder')}
+                  className="no-drag pr-10 font-mono"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowRefineApiKey((prev) => !prev)}
+                  aria-label={
+                    showRefineApiKey ? t('settings.hideRefineKey') : t('settings.showRefineKey')
                   }
-                  className="no-drag cursor-pointer"
-                />
+                  className="no-drag absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-foreground"
+                >
+                  {showRefineApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
               </div>
             </div>
 
-            {/* ── 翻译 ── */}
-            <div className="space-y-4 border-t border-border pt-6">
-              <h3 className="text-sm font-semibold text-foreground">
+            {refineValidationMessage && (
+              <Alert variant="destructive" className="mt-4" data-testid="refine-validation-status">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription>{refineValidationMessage}</AlertDescription>
+              </Alert>
+            )}
+
+            <div className="mt-4 space-y-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleTestRefineConnection}
+                disabled={testingRefine || !canTestRefine}
+                className="no-drag cursor-pointer"
+              >
+                <Plug className="h-4 w-4" />
+                {testingRefine
+                  ? t('settings.testingRefineConnection')
+                  : t('settings.testRefineConnection')}
+              </Button>
+              <InlineFeedback status={refineTestStatus} testId="refine-test-status" />
+            </div>
+
+            {/* 文本润色 */}
+            <div className="mt-5 border-t pt-5">
+              <p className="mb-4 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.05em] text-muted-foreground">
+                <Sparkles className="h-3.5 w-3.5" />
+                {t('settings.llmRefineConfig')}
+              </p>
+              <ToggleRow
+                title={t('settings.llmRefineEnabled')}
+                desc={t('settings.llmRefineEnabledHelp')}
+                checked={llmRefineEnabled}
+                onChange={(checked) =>
+                  setConfig((prev) => ({
+                    ...prev,
+                    llmRefine: { ...prev.llmRefine, enabled: checked },
+                  }))
+                }
+              />
+            </div>
+
+            {/* 翻译 */}
+            <div className="mt-5 border-t pt-5">
+              <p className="mb-4 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.05em] text-muted-foreground">
+                <Languages className="h-3.5 w-3.5" />
                 {t('settings.translation.title')}
-              </h3>
-              <p className="text-sm text-muted-foreground">
-                {t('settings.translation.description')}
               </p>
 
-              {/* 目标语言：润色翻译与选中翻译共用 */}
               <div className="space-y-2">
                 <Label htmlFor="targetLanguage">{t('settings.translation.targetLanguage')}</Label>
                 <Select
@@ -1048,104 +1063,210 @@ export default function SettingsPage() {
                 </Select>
               </div>
 
-              {/* 触发方式一：快捷键翻译选中文本 */}
-              <div className="flex items-center justify-between space-x-2">
-                <div className="space-y-0.5">
-                  <Label htmlFor="translationEnabled">{t('settings.translation.enable')}</Label>
-                </div>
-                <Switch
-                  id="translationEnabled"
+              <div className="mt-4">
+                <ToggleRow
+                  title={t('settings.translation.enable')}
                   checked={config.translation.enabled}
-                  onCheckedChange={(checked) =>
+                  onChange={(checked) =>
                     setConfig((prev) => ({
                       ...prev,
                       translation: { ...prev.translation, enabled: checked },
                     }))
                   }
-                  className="no-drag cursor-pointer"
                 />
               </div>
 
-              {/* 触发方式二：润色听写结果时翻译为目标语言 */}
-              <div className="flex items-center justify-between space-x-2">
-                <div className="space-y-0.5">
-                  <Label htmlFor="translateOutput">{t('settings.translateOutput')}</Label>
-                  <p className="text-sm text-muted-foreground">
-                    {t('settings.translateOutputHelp')}
-                  </p>
-                </div>
-                <Switch
-                  id="translateOutput"
+              <div className="mt-4">
+                <ToggleRow
+                  title={t('settings.translateOutput')}
+                  desc={t('settings.translateOutputHelp')}
                   checked={translateOutput}
                   disabled={!llmRefineEnabled}
-                  onCheckedChange={(checked) =>
+                  onChange={(checked) =>
                     setConfig((prev) => ({
                       ...prev,
-                      llmRefine: {
-                        ...prev.llmRefine,
-                        translateOutput: checked,
-                      },
+                      llmRefine: { ...prev.llmRefine, translateOutput: checked },
                     }))
                   }
-                  className="no-drag cursor-pointer disabled:cursor-not-allowed"
                 />
               </div>
 
               {config.translation.enabled && !canTestRefine && (
-                <Alert className="border-yellow-500/30 bg-yellow-500/10 [&>svg]:text-yellow-500">
+                <Alert className="mt-4 border-yellow-500/30 bg-yellow-500/10 [&>svg]:text-yellow-600 dark:[&>svg]:text-yellow-500">
                   <AlertTriangle className="h-4 w-4" />
                   <AlertDescription>{t('settings.translation.refineWarning')}</AlertDescription>
                 </Alert>
               )}
             </div>
-          </CardContent>
-        </Card>
+          </SectionCard>
 
-        <div className="mb-6 space-y-3">
-          <HotkeySettings
-            value={config.hotkey}
-            originalValue={originalConfig?.hotkey ?? null}
-            isLoading={isConfigLoading}
-            onChange={(hotkey) => setConfig((prev) => ({ ...prev, hotkey }))}
-          />
-          {hotkeyValidationMessage && (
-            <Alert variant="destructive" data-testid="hotkey-validation-status">
-              <AlertTriangle className="h-4 w-4" />
-              <AlertDescription>{hotkeyValidationMessage}</AlertDescription>
-            </Alert>
-          )}
+          {/* 快捷键 */}
+          <div className="space-y-3">
+            <HotkeySettings
+              value={config.hotkey}
+              originalValue={originalConfig?.hotkey ?? null}
+              isLoading={isConfigLoading}
+              onChange={(hotkey) => setConfig((prev) => ({ ...prev, hotkey }))}
+            />
+            {hotkeyValidationMessage && (
+              <Alert variant="destructive" data-testid="hotkey-validation-status">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription>{hotkeyValidationMessage}</AlertDescription>
+              </Alert>
+            )}
+          </div>
+
+          {/* 诊断 */}
+          <SectionCard
+            icon={<ScrollText className="h-[18px] w-[18px]" />}
+            title={t('settings.troubleshooting')}
+            desc={t('settings.descLogs')}
+          >
+            <div className="flex items-center justify-between gap-4">
+              <p className="max-w-[420px] text-xs leading-relaxed text-muted-foreground">
+                {t('settings.logsDescription', {
+                  days: LOG_RETENTION_DAYS,
+                  size: LOG_FILE_MAX_SIZE_MB,
+                })}
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setLogDialogOpen(true)}
+                className="no-drag shrink-0 cursor-pointer"
+              >
+                <ScrollText className="h-4 w-4" />
+                {t('settings.viewLogs')}
+              </Button>
+            </div>
+          </SectionCard>
+
+          <LogViewerDialog open={logDialogOpen} onOpenChange={setLogDialogOpen} />
         </div>
 
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle>{t('settings.troubleshooting')}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              {t('settings.logsDescription', {
-                days: LOG_RETENTION_DAYS,
-                size: LOG_FILE_MAX_SIZE_MB,
-              })}
-            </p>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setLogDialogOpen(true)}
-              className="no-drag cursor-pointer"
+        {/* 右侧栏 */}
+        <aside className="hidden xl:block">
+          <div className="sticky top-0 flex flex-col gap-4">
+            {/* 自动保存状态 */}
+            <div
+              className={cn(
+                'flex items-center gap-2.5 rounded-xl border px-4 py-3 text-[13px] font-semibold shadow-sm',
+                saveStatus?.state === 'error' || saveStatus?.state === 'invalid'
+                  ? 'border-destructive/30 bg-destructive/10 text-destructive'
+                  : saveStatus?.state === 'saving'
+                    ? 'bg-secondary text-muted-foreground'
+                    : 'border-green-500/30 bg-green-500/10 text-green-600 dark:text-green-500',
+              )}
+              data-testid="save-status-card"
             >
-              {t('settings.viewLogs')}
-            </Button>
-          </CardContent>
-        </Card>
+              {saveStatus?.state === 'saving' ? (
+                <>
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                  {t('settings.autoSave.saving')}
+                </>
+              ) : saveStatus?.state === 'error' || saveStatus?.state === 'invalid' ? (
+                <>
+                  <XCircle className="h-[17px] w-[17px]" />
+                  {saveStatus.message}
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="h-[17px] w-[17px]" />
+                  {t('settings.autoSave.saved')}
+                </>
+              )}
+            </div>
 
-        <LogViewerDialog open={logDialogOpen} onOpenChange={setLogDialogOpen} />
+            {/* 连接状态 */}
+            <div className="rounded-xl border bg-card p-4 shadow-sm">
+              <p className="mb-1 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.05em] text-muted-foreground">
+                <Activity className="h-3.5 w-3.5" />
+                {t('settings.connectionTitle')}
+              </p>
+              <HealthItem
+                on={Boolean(currentApiKey)}
+                title={t('settings.health.asr')}
+                status={currentApiKey ? t('settings.health.asrOn') : t('settings.health.asrOff')}
+              />
+              <HealthItem
+                on={canTestRefine}
+                title={t('settings.health.refine')}
+                status={
+                  canTestRefine ? t('settings.health.refineOn') : t('settings.health.refineOff')
+                }
+              />
+              <HealthItem
+                on={translationActive}
+                title={t('settings.health.translation')}
+                status={
+                  translationActive && activeTargetLanguage
+                    ? `→ ${t(`settings.translation.languages.${activeTargetLanguage.value}`)}`
+                    : t('settings.health.translationOff')
+                }
+              />
+            </div>
+
+            {/* 关于 */}
+            <div className="rounded-xl border bg-card p-4 shadow-sm">
+              <p className="mb-2.5 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.05em] text-muted-foreground">
+                <Info className="h-3.5 w-3.5" />
+                {t('settings.about')}
+              </p>
+              <div className="text-[13px] font-semibold text-foreground">
+                {t('settings.version', { version: __APP_VERSION__ })}
+              </div>
+              {updateInfo?.hasUpdate ? (
+                <p className="mt-1 text-xs font-medium text-green-600 dark:text-green-500">
+                  {t('settings.hasUpdate', { version: updateInfo.latestVersion })}
+                </p>
+              ) : updateInfo?.hasUpdate === false && !updateInfo.error ? (
+                <p className="mt-1 text-xs text-muted-foreground">{t('settings.noUpdate')}</p>
+              ) : updateInfo?.error ? (
+                <p className="mt-1 text-xs text-destructive">{t('settings.updateError')}</p>
+              ) : (
+                <p className="mt-1 text-xs text-muted-foreground">{t('settings.aboutHint')}</p>
+              )}
+              {updateInfo?.hasUpdate ? (
+                <Button
+                  size="sm"
+                  onClick={handleOpenRelease}
+                  className="no-drag mt-3 w-full cursor-pointer"
+                >
+                  {t('settings.downloadUpdate')}
+                </Button>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleCheckUpdate}
+                  disabled={checkingUpdate}
+                  className="no-drag mt-3 w-full cursor-pointer"
+                >
+                  <RefreshCw className={cn('h-4 w-4', checkingUpdate && 'animate-spin')} />
+                  {checkingUpdate ? t('settings.checkingUpdate') : t('settings.checkUpdate')}
+                </Button>
+              )}
+            </div>
+          </div>
+        </aside>
       </div>
+    </div>
+  )
+}
 
-      <aside className="hidden xl:block">
-        <div className="sticky top-6">
-          <SaveStatusCard status={saveStatus} testId="save-status-card" />
-        </div>
-      </aside>
+function HealthItem({ on, title, status }: { on: boolean; title: string; status: string }) {
+  return (
+    <div className="flex items-center gap-2.5 border-b py-2.5 last:border-b-0">
+      <span
+        className={cn(
+          'h-2.5 w-2.5 shrink-0 rounded-full',
+          on ? 'bg-green-500 ring-3 ring-green-500/20' : 'bg-muted-foreground/40',
+        )}
+      />
+      <div>
+        <div className="text-[12.5px] font-semibold text-foreground">{title}</div>
+        <div className="text-[11px] text-muted-foreground">{status}</div>
+      </div>
     </div>
   )
 }

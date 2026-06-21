@@ -1,19 +1,38 @@
 import { ReactNode } from 'react'
-import { Home, Settings, History } from 'lucide-react'
+import { Home, Settings, History, Sun, Moon } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import voiceKeyLogo from '@/assets/page-logo.png'
+import { cn } from '@/lib/utils'
+import { useTheme } from '@/lib/useTheme'
 
 interface MainLayoutProps {
   children: ReactNode
   currentRoute: string
 }
 
+/** 可重新着色的品牌 V 标记。 */
+function VMark({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
+      <path
+        d="M5.4 5 L12 18.4 L18.6 5"
+        stroke="currentColor"
+        strokeWidth={4.4}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
 export default function MainLayout({ children, currentRoute }: MainLayoutProps) {
   const { t } = useTranslation()
+  const { theme, setTheme } = useTheme()
+
   const navigate = (path: string) => {
     window.location.hash = path
   }
   const isMac = window.electronAPI.platform === 'darwin'
+
   const navItems = [
     { path: '/home', label: t('nav.home'), icon: Home },
     { path: '/settings', label: t('nav.settings'), icon: Settings },
@@ -21,61 +40,95 @@ export default function MainLayout({ children, currentRoute }: MainLayoutProps) 
   ]
 
   return (
-    <div className="flex flex-col h-screen bg-sidebar">
-      {/* 顶部拖拽区域 - 横跨整个窗口 */}
+    <div className="flex h-screen flex-col bg-sidebar">
+      {/* 顶部拖拽区域（macOS 交通灯留白） */}
       {isMac ? <div className="drag-region h-12 shrink-0 bg-sidebar" /> : null}
 
-      {/* 主区域 - 左右分栏 */}
       <div className="flex flex-1 overflow-hidden">
-        {/* 左侧：侧边栏 */}
-        <aside className="w-52 bg-sidebar  border-sidebar-border  flex flex-col">
-          {/* Logo */}
-          <div className="no-drag px-5 py-4 flex items-center gap-2">
-            <div className="rounded-full w-10 h-10 overflow-hidden bg-white flex items-center justify-center">
-              <img src={voiceKeyLogo} alt={t('app.name')} className="w-6 h-6" />
-            </div>
-            <span className="font-semibold text-sidebar-foreground">{t('app.name')}</span>
+        {/* 左侧栏 */}
+        <aside className="flex w-[232px] flex-col bg-sidebar px-3.5 pb-4">
+          {/* 品牌 */}
+          <div className="no-drag flex items-center gap-2.5 px-2 pb-4 pt-1">
+            <span className="vk-brand-gradient grid h-9 w-9 place-items-center rounded-[11px] text-white shadow-[0_10px_22px_-8px_var(--primary)]">
+              <VMark className="h-5 w-5" />
+            </span>
+            <span className="flex flex-col leading-tight">
+              <span className="font-display text-[15px] font-bold tracking-tight text-sidebar-foreground">
+                {t('app.name')}
+              </span>
+              <span className="mt-0.5 text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
+                {t('app.tagline')}
+              </span>
+            </span>
           </div>
 
-          {/* 导航菜单 */}
-          <nav className="flex-1 px-3 py-2">
+          {/* 导航 */}
+          <nav className="flex flex-col gap-1">
             {navItems.map((item) => {
               const Icon = item.icon
               const isActive =
                 currentRoute === item.path ||
                 (currentRoute === '/' && item.path === '/home') ||
-                (currentRoute === '/settings' && item.path === '/settings')
+                (currentRoute === '' && item.path === '/home')
               return (
                 <button
                   key={item.path}
                   onClick={() => navigate(item.path)}
-                  className={`cursor-pointer no-drag w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors mb-1 ${
+                  className={cn(
+                    'no-drag relative flex cursor-pointer items-center gap-3 rounded-[10px] px-3 py-2 text-[13.5px] font-medium transition-colors',
                     isActive
-                      ? 'bg-sidebar-primary text-sidebar-accent-foreground'
-                      : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground'
-                  }`}
+                      ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+                      : 'text-sidebar-foreground/70 hover:bg-accent hover:text-sidebar-foreground',
+                  )}
                 >
-                  <Icon className="w-4 h-4" />
+                  {isActive && (
+                    <span className="absolute -left-3.5 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-primary" />
+                  )}
+                  <Icon className="h-[18px] w-[18px] opacity-90" />
                   {item.label}
                 </button>
               )
             })}
           </nav>
 
-          {/* 底部信息 */}
-          <div className="p-4  border-t border-sidebar-border">
-            <p className="text-xs text-muted-foreground">
-              {t('app.version', { version: __APP_VERSION__ })}
-            </p>
+          <div className="flex-1" />
+
+          {/* 版本 + 主题切换 */}
+          <div className="mt-3 flex items-center justify-between px-1">
+            <span className="font-mono text-[11px] text-muted-foreground">v{__APP_VERSION__}</span>
+            <div className="no-drag flex items-center gap-0.5 rounded-full border bg-secondary p-0.5">
+              <button
+                onClick={() => setTheme('light')}
+                title={t('theme.light')}
+                className={cn(
+                  'grid h-[22px] w-[26px] cursor-pointer place-items-center rounded-full transition-colors',
+                  theme === 'light'
+                    ? 'bg-card text-primary shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                <Sun className="h-[14px] w-[14px]" />
+              </button>
+              <button
+                onClick={() => setTheme('dark')}
+                title={t('theme.dark')}
+                className={cn(
+                  'grid h-[22px] w-[26px] cursor-pointer place-items-center rounded-full transition-colors',
+                  theme === 'dark'
+                    ? 'bg-card text-primary shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                <Moon className="h-[14px] w-[14px]" />
+              </button>
+            </div>
           </div>
         </aside>
 
-        {/* 右侧：页面内容 */}
-        <main className="flex-1 p-6 pl-3">
-          {/* 外层：圆角 + 裁剪 */}
-          <div className="h-full rounded-lg bg-background overflow-hidden">
-            {/* 内层：滚动 + 内边距 */}
-            <div className="h-full overflow-auto px-8 py-6">{children}</div>
+        {/* 右侧内容 */}
+        <main className="flex-1 p-3 pl-0">
+          <div className="h-full overflow-hidden rounded-2xl border bg-background">
+            <div className="vk-scroll h-full overflow-auto">{children}</div>
           </div>
         </main>
       </div>

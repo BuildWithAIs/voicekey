@@ -156,7 +156,7 @@ export function HotkeyRecorder({
         <div
           onClick={startRecording}
           className={cn(
-            'flex-1 px-4 py-2.5 rounded-lg border cursor-pointer transition-all',
+            'flex-1 px-4 py-2.5 rounded-lg border cursor-pointer transition-[background-color,border-color,box-shadow,color]',
             'bg-background text-foreground font-mono text-sm',
             'select-none',
             isRecording

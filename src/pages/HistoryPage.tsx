@@ -1,5 +1,5 @@
-﻿import * as React from 'react'
-import { Search, Filter, Clock, Copy, Trash2, Mic } from 'lucide-react'
+import * as React from 'react'
+import { Search, SlidersHorizontal, Clock, Copy, Trash2, Mic, Type } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { Input } from '@/components/ui/input'
@@ -13,12 +13,43 @@ import {
 } from '@/components/ui/select'
 import { HISTORY_RETENTION_DAYS } from '@electron/shared/constants'
 import { getLocale } from '@electron/shared/i18n'
+import { cn } from '@/lib/utils'
+import { VoiceWave } from '@/components/VoiceWave'
+import { countCharacters, type HistoryItem } from '@/lib/stats'
 
-interface HistoryItem {
-  id: string
-  text: string
-  timestamp: number
-  duration?: number
+interface DayGroup {
+  label: string
+  weekday: string
+  items: HistoryItem[]
+}
+
+interface VisibleDayGroup extends DayGroup {
+  visibleItems: HistoryItem[]
+}
+
+interface RenderWindow {
+  key: string
+  limit: number
+}
+
+type RenderSchedulerWindow = Window & {
+  requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number
+  cancelIdleCallback?: (handle: number) => void
+}
+
+const INITIAL_HISTORY_RENDER_COUNT = 36
+const HISTORY_RENDER_CHUNK_SIZE = 72
+
+function scheduleHistoryRenderChunk(callback: () => void): () => void {
+  const scheduler = window as RenderSchedulerWindow
+
+  if (scheduler.requestIdleCallback && scheduler.cancelIdleCallback) {
+    const handle = scheduler.requestIdleCallback(callback, { timeout: 120 })
+    return () => scheduler.cancelIdleCallback?.(handle)
+  }
+
+  const handle = window.setTimeout(callback, 16)
+  return () => window.clearTimeout(handle)
 }
 
 export default function HistoryPage() {
@@ -27,24 +58,34 @@ export default function HistoryPage() {
   const [sortOrder, setSortOrder] = React.useState<'newest' | 'oldest'>('newest')
   const [items, setItems] = React.useState<HistoryItem[]>([])
   const [loading, setLoading] = React.useState(true)
+  const [selectedId, setSelectedId] = React.useState<string | null>(null)
+  const [renderWindow, setRenderWindow] = React.useState<RenderWindow>({
+    key: '',
+    limit: INITIAL_HISTORY_RENDER_COUNT,
+  })
 
   const locale = getLocale(i18n.language)
   const numberFormatter = React.useMemo(() => new Intl.NumberFormat(locale), [locale])
-
   const formatNumber = React.useCallback(
     (value: number) => numberFormatter.format(value),
     [numberFormatter],
   )
 
   const formatTime = React.useCallback(
-    (timestamp: number) => {
-      const date = new Date(timestamp)
-      return new Intl.DateTimeFormat(locale, {
-        hour: 'numeric',
-        minute: 'numeric',
-      }).format(date)
-    },
+    (timestamp: number) =>
+      new Intl.DateTimeFormat(locale, { hour: '2-digit', minute: '2-digit' }).format(
+        new Date(timestamp),
+      ),
     [locale],
+  )
+
+  const weekdayFormatter = React.useMemo(
+    () => new Intl.DateTimeFormat(locale, { weekday: 'short' }),
+    [locale],
+  )
+  const formatWeekday = React.useCallback(
+    (timestamp: number) => weekdayFormatter.format(new Date(timestamp)),
+    [weekdayFormatter],
   )
 
   const formatDateGroup = React.useCallback(
@@ -54,7 +95,6 @@ export default function HistoryPage() {
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
       const yesterday = new Date(today)
       yesterday.setDate(yesterday.getDate() - 1)
-
       const itemDate = new Date(date.getFullYear(), date.getMonth(), date.getDate())
 
       if (itemDate.getTime() === today.getTime()) return t('history.today')
@@ -74,6 +114,7 @@ export default function HistoryPage() {
       setLoading(true)
       const data = await window.electronAPI.getHistory()
       setItems(data)
+      setSelectedId((prev) => prev ?? data[0]?.id ?? null)
     } catch (error) {
       console.error('Failed to load history:', error)
       toast.error(t('history.loadFailed'))
@@ -87,27 +128,94 @@ export default function HistoryPage() {
   }, [loadHistory])
 
   const filteredItems = React.useMemo(() => {
-    const filtered = items.filter((item) =>
-      item.text.toLowerCase().includes(searchQuery.toLowerCase()),
-    )
+    const normalizedQuery = searchQuery.trim().toLowerCase()
+    const filtered = normalizedQuery
+      ? items.filter((item) => item.text.toLowerCase().includes(normalizedQuery))
+      : [...items]
 
-    return filtered.sort((a, b) => {
-      if (sortOrder === 'newest') {
-        return b.timestamp - a.timestamp
-      }
-      return a.timestamp - b.timestamp
-    })
+    return filtered.sort((a, b) =>
+      sortOrder === 'newest' ? b.timestamp - a.timestamp : a.timestamp - b.timestamp,
+    )
   }, [items, searchQuery, sortOrder])
 
-  const groupedItems = React.useMemo(() => {
-    const groups: Record<string, HistoryItem[]> = {}
+  const renderKey = `${items.length}:${sortOrder}:${searchQuery}`
+  const effectiveRenderLimit =
+    renderWindow.key === renderKey ? renderWindow.limit : INITIAL_HISTORY_RENDER_COUNT
+
+  const groupedItems = React.useMemo<DayGroup[]>(() => {
+    const groups: DayGroup[] = []
+    const index = new Map<string, DayGroup>()
     filteredItems.forEach((item) => {
-      const group = formatDateGroup(item.timestamp)
-      if (!groups[group]) groups[group] = []
-      groups[group].push(item)
+      const label = formatDateGroup(item.timestamp)
+      let group = index.get(label)
+      if (!group) {
+        group = { label, weekday: formatWeekday(item.timestamp), items: [] }
+        index.set(label, group)
+        groups.push(group)
+      }
+      group.items.push(item)
     })
     return groups
-  }, [filteredItems, formatDateGroup])
+  }, [filteredItems, formatDateGroup, formatWeekday])
+
+  const visibleGroups = React.useMemo<VisibleDayGroup[]>(() => {
+    let remaining = effectiveRenderLimit
+    const groups: VisibleDayGroup[] = []
+
+    for (const group of groupedItems) {
+      if (remaining <= 0) break
+
+      const visibleItems = group.items.slice(0, remaining)
+      remaining -= visibleItems.length
+
+      if (visibleItems.length > 0) {
+        groups.push({ ...group, visibleItems })
+      }
+    }
+
+    return groups
+  }, [effectiveRenderLimit, groupedItems])
+
+  React.useEffect(() => {
+    setRenderWindow((prev) => {
+      if (prev.key === renderKey) return prev
+      return {
+        key: renderKey,
+        limit: Math.min(INITIAL_HISTORY_RENDER_COUNT, filteredItems.length),
+      }
+    })
+  }, [filteredItems.length, renderKey])
+
+  React.useEffect(() => {
+    const currentLimit = Math.min(effectiveRenderLimit, filteredItems.length)
+    if (currentLimit >= filteredItems.length) return
+
+    return scheduleHistoryRenderChunk(() => {
+      React.startTransition(() => {
+        setRenderWindow((prev) => {
+          if (prev.key !== renderKey) return prev
+          return {
+            key: renderKey,
+            limit: Math.min(filteredItems.length, prev.limit + HISTORY_RENDER_CHUNK_SIZE),
+          }
+        })
+      })
+    })
+  }, [effectiveRenderLimit, filteredItems.length, renderKey])
+
+  const selected = React.useMemo(
+    () => items.find((item) => item.id === selectedId) ?? null,
+    [items, selectedId],
+  )
+
+  const selectItem = React.useCallback((id: string) => {
+    setSelectedId(id)
+  }, [])
+
+  const formatSecondsLabel = React.useCallback(
+    (count: number) => t('time.seconds', { count, formattedCount: formatNumber(count) }),
+    [formatNumber, t],
+  )
 
   const copyToClipboard = React.useCallback(
     (text: string) => {
@@ -122,6 +230,7 @@ export default function HistoryPage() {
       try {
         await window.electronAPI.deleteHistoryItem(id)
         setItems((prev) => prev.filter((item) => item.id !== id))
+        setSelectedId((prev) => (prev === id ? null : prev))
         toast.success(t('history.deleteSuccess'))
       } catch (error) {
         console.error('Failed to delete item:', error)
@@ -136,6 +245,7 @@ export default function HistoryPage() {
     try {
       await window.electronAPI.clearHistory()
       setItems([])
+      setSelectedId(null)
       toast.success(t('history.clearSuccess'))
     } catch (error) {
       console.error('Failed to clear history:', error)
@@ -143,29 +253,36 @@ export default function HistoryPage() {
     }
   }, [t])
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <p className="text-muted-foreground">{t('history.loading')}</p>
-      </div>
-    )
-  }
-
   const recordCount = t('history.recordCount', {
     count: items.length,
     formattedCount: formatNumber(items.length),
   })
 
+  if (loading) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <p className="text-muted-foreground">{t('history.loading')}</p>
+      </div>
+    )
+  }
+
   return (
-    <div className="flex flex-col h-full w-full">
-      <div className="flex items-center justify-between sticky pb-6 top-0 z-10 bg-background/80 backdrop-blur-md  transition-all duration-300">
+    <div className="mx-auto max-w-[1040px] px-8 py-7">
+      {/* 页头 */}
+      <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">{t('history.title')}</h1>
-          <p className="text-sm text-muted-foreground mt-1.5 flex items-center gap-2">
+          <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-primary">
+            <Clock className="h-3 w-3" />
+            {t('history.eyebrow')}
+          </span>
+          <h1 className="mt-2 font-display text-[27px] font-bold tracking-tight text-foreground">
+            {t('history.title')}
+          </h1>
+          <p className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
             <span>{items.length > 0 ? recordCount : t('history.empty')}</span>
             {items.length > 0 && (
               <>
-                <span className="w-1 h-1 rounded-full bg-muted-foreground/30" />
+                <span className="h-1 w-1 rounded-full bg-muted-foreground/40" />
                 <span className="text-muted-foreground/70">
                   {t('history.autoSaveLimit', {
                     count: HISTORY_RETENTION_DAYS,
@@ -177,19 +294,19 @@ export default function HistoryPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <div className="relative w-64 group/search">
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground/70 group-focus-within/search:text-primary transition-colors" />
+          <div className="relative w-60">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder={t('history.searchPlaceholder')}
-              className="pl-9 bg-secondary/30 border-transparent hover:bg-secondary/50 focus:bg-background transition-all duration-200"
+              className="h-9 pl-9"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
           <Select value={sortOrder} onValueChange={(v) => setSortOrder(v as 'newest' | 'oldest')}>
-            <SelectTrigger className="w-[140px] bg-secondary/30 border-transparent hover:bg-secondary/50 transition-colors">
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Filter className="h-3.5 w-3.5" />
+            <SelectTrigger className="h-9 w-[124px]">
+              <div className="flex items-center gap-2">
+                <SlidersHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
                 <SelectValue placeholder={t('history.sortPlaceholder')} />
               </div>
             </SelectTrigger>
@@ -201,9 +318,10 @@ export default function HistoryPage() {
           {items.length > 0 && (
             <Button
               variant="ghost"
-              size="sm"
+              size="icon-sm"
               onClick={clearAll}
-              className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+              title={t('history.clearTitle')}
+              className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
             >
               <Trash2 className="h-4 w-4" />
             </Button>
@@ -211,95 +329,258 @@ export default function HistoryPage() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto custom-scrollbar rounded-xl border border-border/40 px-3">
-        {Object.entries(groupedItems).length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-[calc(100vh-200px)] text-muted-foreground">
-            <div className="bg-secondary/30 p-8 rounded-full mb-6 ring-1 ring-border/50">
-              <Search className="h-10 w-10 opacity-40 text-primary/60" />
-            </div>
-            <p className="text-lg font-medium text-foreground/80">
-              {items.length === 0 ? t('history.emptyTitleNone') : t('history.emptyTitleNoMatch')}
-            </p>
-            <p className="text-sm mt-2 text-muted-foreground/60 max-w-xs text-center">
-              {items.length === 0 ? t('history.emptyDescNone') : t('history.emptyDescNoMatch')}
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-8 pb-10 mt-4">
-            {Object.entries(groupedItems).map(([group, groupItems]) => (
-              <div key={group} className="space-y-2">
-                <div className="">
-                  <h3 className="text-xs font-semibold text-muted-foreground/60 uppercase tracking-widest pl-2 mb-2 backdrop-blur-[2px]">
-                    {group}
-                  </h3>
+      {filteredItems.length === 0 ? (
+        <div className="mt-6 rounded-2xl border bg-card shadow-sm">
+          <EmptyState
+            none={items.length === 0}
+            title={
+              items.length === 0 ? t('history.emptyTitleNone') : t('history.emptyTitleNoMatch')
+            }
+            desc={items.length === 0 ? t('history.emptyDescNone') : t('history.emptyDescNoMatch')}
+          />
+        </div>
+      ) : (
+        <div className="mt-6 grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_332px]">
+          {/* 列表 */}
+          <div className="flex flex-col gap-5">
+            {visibleGroups.map((group) => (
+              <div key={group.label}>
+                <div className="mb-2.5 flex items-center gap-2.5">
+                  <span className="font-display text-sm font-semibold text-foreground">
+                    {group.label}
+                  </span>
+                  <span className="text-[11px] text-muted-foreground">{group.weekday}</span>
+                  <span className="ml-auto font-mono text-[11px] text-muted-foreground">
+                    {t('history.groupCount', {
+                      count: group.items.length,
+                      formattedCount: formatNumber(group.items.length),
+                    })}
+                  </span>
                 </div>
-                <div className="grid gap-2">
-                  {groupItems.map((item) => (
-                    <div
+                <div className="flex flex-col gap-2">
+                  {group.visibleItems.map((item) => (
+                    <HistoryRow
                       key={item.id}
-                      className="group relative flex items-start gap-4 p-4 rounded-xl border border-transparent hover:bg-secondary/40 hover:border-border/40 transition-all duration-200"
-                    >
-                      <div className="flex-shrink-0 mt-1">
-                        <div className="h-9 w-9 rounded-full bg-primary/5 ring-1 ring-primary/10 flex items-center justify-center text-primary/80 group-hover:text-primary group-hover:bg-primary/10 transition-colors">
-                          <Mic className="h-4.5 w-4.5" />
-                        </div>
-                      </div>
-
-                      <div className="flex-1 min-w-0 grid gap-2">
-                        <p className="text-sm text-foreground/90 leading-relaxed font-medium line-clamp-3 group-hover:text-foreground transition-colors selection:bg-primary/20">
-                          {item.text}
-                        </p>
-                        <div className="flex items-center gap-3 text-xs text-muted-foreground/60 group-hover:text-muted-foreground/80 transition-colors">
-                          <div className="flex items-center gap-1.5 bg-secondary/30 px-2 py-0.5 rounded-md">
-                            <Clock className="h-3 w-3" />
-                            <span className="tabular-nums font-medium">
-                              {formatTime(item.timestamp)}
-                            </span>
-                          </div>
-                          {item.duration && (
-                            <div className="flex items-center gap-1.5 bg-secondary/30 px-2 py-0.5 rounded-md">
-                              <span className="font-medium">
-                                {t('time.seconds', {
-                                  count: Math.round(item.duration / 1000),
-                                  formattedCount: formatNumber(Math.round(item.duration / 1000)),
-                                })}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all duration-200 absolute right-2 top-2 scale-95 group-hover:scale-100">
-                        <div className="flex items-center bg-background/95 backdrop-blur shadow-sm border border-border/40 rounded-lg p-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="cursor-pointer h-8 w-8 text-muted-foreground hover:text-foreground rounded-md transition-colors"
-                            onClick={() => copyToClipboard(item.text)}
-                            title={t('history.copyTitle')}
-                          >
-                            <Copy className="h-4 w-4" />
-                          </Button>
-                          <div className="w-px h-4 bg-border/60 mx-1" />
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="cursor-pointer h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md transition-colors"
-                            onClick={() => deleteItem(item.id)}
-                            title={t('history.deleteTitle')}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
+                      item={item}
+                      selected={selectedId === item.id}
+                      time={formatTime(item.timestamp)}
+                      charLabel={formatNumber(countCharacters(item.text))}
+                      seconds={Math.max(1, Math.round((item.duration ?? 0) / 1000))}
+                      onSelect={selectItem}
+                      onCopy={copyToClipboard}
+                      onDelete={deleteItem}
+                      copyTitle={t('history.copyTitle')}
+                      deleteTitle={t('history.deleteTitle')}
+                      secondsLabel={formatSecondsLabel}
+                      charUnit={t('home.charUnit')}
+                    />
                   ))}
                 </div>
               </div>
             ))}
           </div>
-        )}
+
+          {/* 详情 */}
+          <DetailPane
+            item={selected}
+            formatNumber={formatNumber}
+            formatTime={formatTime}
+            dateLabel={selected ? formatDateGroup(selected.timestamp) : ''}
+            weekday={selected ? formatWeekday(selected.timestamp) : ''}
+            onCopy={copyToClipboard}
+            onDelete={deleteItem}
+          />
+        </div>
+      )}
+    </div>
+  )
+}
+
+function EmptyState({ none, title, desc }: { none: boolean; title: string; desc: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center px-5 py-16 text-center">
+      <div className="mb-5 grid h-[72px] w-[72px] place-items-center rounded-[22px] bg-accent text-accent-foreground">
+        {none ? <Mic className="h-8 w-8" /> : <Search className="h-8 w-8" />}
       </div>
+      <h3 className="text-base font-semibold text-foreground">{title}</h3>
+      <p className="mt-2 max-w-[280px] text-sm leading-relaxed text-muted-foreground">{desc}</p>
+    </div>
+  )
+}
+
+interface HistoryRowProps {
+  item: HistoryItem
+  selected: boolean
+  time: string
+  charLabel: string
+  seconds: number
+  onSelect: (id: string) => void
+  onCopy: (text: string) => void
+  onDelete: (id: string) => void
+  copyTitle: string
+  deleteTitle: string
+  secondsLabel: (count: number) => string
+  charUnit: string
+}
+
+const HistoryRow = React.memo(
+  ({
+    item,
+    selected,
+    time,
+    charLabel,
+    seconds,
+    onSelect,
+    onCopy,
+    onDelete,
+    copyTitle,
+    deleteTitle,
+    secondsLabel,
+    charUnit,
+  }: HistoryRowProps) => {
+    const handleSelect = React.useCallback(() => onSelect(item.id), [item.id, onSelect])
+    const handleCopy = React.useCallback(() => onCopy(item.text), [item.text, onCopy])
+    const handleDelete = React.useCallback(() => onDelete(item.id), [item.id, onDelete])
+
+    return (
+      <div
+        data-history-row="true"
+        onClick={handleSelect}
+        className={cn(
+          'vk-history-row group relative flex cursor-pointer gap-3 rounded-xl border bg-card p-3.5 shadow-sm transition-[border-color,box-shadow,transform] hover:-translate-y-px hover:shadow-md',
+          selected
+            ? 'border-primary ring-3 ring-primary/15'
+            : 'border-transparent hover:border-border',
+        )}
+      >
+        <div className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] bg-accent text-accent-foreground">
+          <Mic className="h-[17px] w-[17px]" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="line-clamp-2 text-[13.5px] leading-relaxed text-foreground">{item.text}</p>
+          <div className="mt-2 flex items-center gap-2 text-[11px] text-muted-foreground">
+            <span className="tnum inline-flex items-center gap-1.5 rounded-md bg-secondary px-2 py-0.5">
+              <Clock className="h-3 w-3" />
+              {time}
+            </span>
+            <span className="tnum inline-flex items-center gap-1.5 rounded-md bg-secondary px-2 py-0.5">
+              <span className="h-3 w-6 text-primary">
+                <VoiceWave bars={7} active={false} />
+              </span>
+              {secondsLabel(seconds)}
+            </span>
+            <span className="tnum inline-flex items-center gap-1.5 rounded-md bg-secondary px-2 py-0.5">
+              <Type className="h-3 w-3" />
+              {charLabel} {charUnit}
+            </span>
+          </div>
+        </div>
+        <div
+          onClick={(e) => e.stopPropagation()}
+          className="absolute right-2.5 top-2.5 flex gap-0.5 rounded-lg border bg-card p-0.5 opacity-0 shadow-md transition-opacity group-hover:opacity-100"
+        >
+          <Button variant="ghost" size="icon-sm" title={copyTitle} onClick={handleCopy}>
+            <Copy className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            title={deleteTitle}
+            onClick={handleDelete}
+            className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+    )
+  },
+)
+
+HistoryRow.displayName = 'HistoryRow'
+
+interface DetailPaneProps {
+  item: HistoryItem | null
+  formatNumber: (value: number) => string
+  formatTime: (timestamp: number) => string
+  dateLabel: string
+  weekday: string
+  onCopy: (text: string) => void
+  onDelete: (id: string) => void
+}
+
+function DetailPane({
+  item,
+  formatNumber,
+  formatTime,
+  dateLabel,
+  weekday,
+  onCopy,
+  onDelete,
+}: DetailPaneProps) {
+  const { t } = useTranslation()
+  if (!item) {
+    return (
+      <div className="sticky top-0 flex flex-col items-center justify-center rounded-2xl border bg-card px-6 py-14 text-center shadow-sm">
+        <div className="mb-4 grid h-[60px] w-[60px] place-items-center rounded-[20px] bg-accent text-accent-foreground">
+          <Mic className="h-7 w-7" />
+        </div>
+        <p className="max-w-[220px] text-sm leading-relaxed text-muted-foreground">
+          {t('history.detailPlaceholder')}
+        </p>
+      </div>
+    )
+  }
+
+  const seconds = Math.max(1, Math.round((item.duration ?? 0) / 1000))
+  const chars = countCharacters(item.text)
+  const cpm = Math.round(chars / (seconds / 60))
+
+  return (
+    <div className="sticky top-0 flex max-h-[600px] flex-col overflow-hidden rounded-2xl border bg-card shadow-sm">
+      <div className="border-b bg-gradient-to-b from-accent/60 to-transparent px-5 pb-4 pt-5">
+        <div className="mb-3.5 h-[34px] text-primary">
+          <VoiceWave bars={48} active={false} />
+        </div>
+        <div className="font-display text-[19px] font-semibold text-foreground">
+          {formatTime(item.timestamp)}
+        </div>
+        <div className="mt-0.5 text-xs text-muted-foreground">
+          {dateLabel} · {weekday}
+        </div>
+      </div>
+      <div className="vk-scroll overflow-y-auto px-5 py-4">
+        <p className="text-sm leading-[1.8] text-foreground">{item.text}</p>
+      </div>
+      <div className="grid grid-cols-3 gap-2 px-5 pb-4">
+        <DetailStat value={formatNumber(chars)} label={t('history.detail.chars')} />
+        <DetailStat value={`${seconds}s`} label={t('history.detail.duration')} />
+        <DetailStat value={formatNumber(cpm)} label={t('history.detail.speed')} />
+      </div>
+      <div className="flex items-center gap-2 border-t px-5 py-3.5">
+        <Button className="flex-1" size="sm" onClick={() => onCopy(item.text)}>
+          <Copy className="h-4 w-4" />
+          {t('history.copyTitle')}
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          title={t('history.deleteTitle')}
+          onClick={() => onDelete(item.id)}
+          className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+function DetailStat({ value, label }: { value: string; label: string }) {
+  return (
+    <div className="rounded-lg bg-secondary px-1.5 py-2.5 text-center">
+      <div className="tnum font-display text-[17px] font-semibold text-foreground">{value}</div>
+      <div className="mt-0.5 text-[10.5px] text-muted-foreground">{label}</div>
     </div>
   )
 }

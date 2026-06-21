@@ -126,13 +126,17 @@ export function HotkeySettings({
   const filteredPresets = PTT_PRESETS.filter((p) => p.platform === 'all' || p.platform === platform)
 
   return (
-    <Card>
+    <Card className="rounded-2xl">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Keyboard className="w-5 h-5" />
-          {t('hotkey.title')}
-        </CardTitle>
-        <CardDescription>{t('hotkey.description')}</CardDescription>
+        <div className="flex items-center gap-3">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] bg-accent text-accent-foreground">
+            <Keyboard className="h-[18px] w-[18px]" />
+          </span>
+          <div>
+            <CardTitle className="text-[15px]">{t('hotkey.title')}</CardTitle>
+            <CardDescription className="mt-0.5 text-xs">{t('hotkey.description')}</CardDescription>
+          </div>
+        </div>
       </CardHeader>
 
       <CardContent className="space-y-6">
