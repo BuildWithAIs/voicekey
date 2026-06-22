@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.16](https://github.com/BuildWithAIs/voicekey/compare/v0.1.15...v0.1.16) (2026-06-22)
+
+### Features
+
+- **settings:** consolidate refine & translation, unify target language ([99b1636](https://github.com/BuildWithAIs/voicekey/commit/99b1636c1cbf66cffd25a19b41cc513974991e50))
+- **ui:** redesign home, settings, and history pages ([9ef8fc4](https://github.com/BuildWithAIs/voicekey/commit/9ef8fc44664dfd7d2802289ba41d1f210fcd9c74))
+
+### Bug Fixes
+
+- **hotkey:** prevent bare-modifier PTT from misfiring on combo hotkeys ([90483c7](https://github.com/BuildWithAIs/voicekey/commit/90483c768ade582aaf9408ecca84db47a33e1d10))
+
 ### [0.1.15](https://github.com/BuildWithAIs/voicekey/compare/v0.1.14...v0.1.15) (2026-06-03)
 
 ### Features
