@@ -10,6 +10,8 @@ import {
   type LogTailOptions,
   type LanguageSnapshot,
   type LLMRefineConfig,
+  type LocalASRDownloadProgress,
+  type LocalASRStatus,
   type RefineConnectionResult,
   type RecordingStartPayload,
   type AudioChunkPayload,
@@ -25,6 +27,9 @@ export interface ElectronAPI {
   setConfig: (config: Partial<AppConfig>) => Promise<void>
   testConnection: (config?: ASRConfig) => Promise<boolean>
   testRefineConnection: (config: LLMRefineConfig) => Promise<RefineConnectionResult>
+  getLocalASRStatus: () => Promise<LocalASRStatus>
+  downloadLocalASR: () => Promise<LocalASRStatus>
+  onLocalASRDownloadProgress: (callback: (progress: LocalASRDownloadProgress) => void) => () => void
   getAppLanguage: () => Promise<LanguageSnapshot>
   onAppLanguageChanged: (callback: (snapshot: LanguageSnapshot) => void) => () => void
 
@@ -85,6 +90,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   testConnection: (config?: ASRConfig) => ipcRenderer.invoke(IPC_CHANNELS.CONFIG_TEST, config),
   testRefineConnection: (config: LLMRefineConfig) =>
     ipcRenderer.invoke(IPC_CHANNELS.CONFIG_REFINE_TEST, config),
+  getLocalASRStatus: () => ipcRenderer.invoke(IPC_CHANNELS.LOCAL_ASR_STATUS),
+  downloadLocalASR: () => ipcRenderer.invoke(IPC_CHANNELS.LOCAL_ASR_DOWNLOAD),
+  onLocalASRDownloadProgress: (callback: (progress: LocalASRDownloadProgress) => void) => {
+    const listener = (_event: IpcRendererEvent, progress: LocalASRDownloadProgress) => {
+      callback(progress)
+    }
+    ipcRenderer.on(IPC_CHANNELS.LOCAL_ASR_DOWNLOAD_PROGRESS, listener)
+    return () => ipcRenderer.removeListener(IPC_CHANNELS.LOCAL_ASR_DOWNLOAD_PROGRESS, listener)
+  },
   getAppLanguage: () => ipcRenderer.invoke(IPC_CHANNELS.APP_LANGUAGE_GET),
   onAppLanguageChanged: (callback: (snapshot: LanguageSnapshot) => void) => {
     const listener = (_event: IpcRendererEvent, snapshot: LanguageSnapshot) => callback(snapshot)

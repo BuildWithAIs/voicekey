@@ -4,6 +4,7 @@ import {
   AppConfig,
   AppPreferences,
   ASRConfig,
+  ASRProviderType,
   HotkeyConfig,
   LLMRefineConfig,
   TranslationConfig,
@@ -151,6 +152,10 @@ function migrateLLMRefineConfig(config: unknown): LLMRefineConfig | null {
   return null
 }
 
+function normalizeASRProvider(provider: unknown): ASRProviderType {
+  return provider === 'local-sensevoice' ? 'local-sensevoice' : 'glm'
+}
+
 export class ConfigManager {
   private store: Store<ConfigSchema>
 
@@ -259,9 +264,15 @@ export class ConfigManager {
   }
 
   getASRConfig(): ASRConfig {
-    const config = this.store.get('asr', defaultConfig.asr)
-    if (!config.apiKeys) {
-      config.apiKeys = { cn: '', intl: '' }
+    const storedConfig = this.store.get('asr', defaultConfig.asr)
+    const config: ASRConfig = {
+      ...defaultConfig.asr,
+      ...storedConfig,
+      provider: normalizeASRProvider(storedConfig.provider),
+      apiKeys: {
+        ...defaultConfig.asr.apiKeys,
+        ...(storedConfig.apiKeys ?? {}),
+      },
     }
     config.apiKeys = {
       cn: this.decryptKey(config.apiKeys.cn),
@@ -278,7 +289,15 @@ export class ConfigManager {
 
   setASRConfig(config: Partial<ASRConfig>): void {
     const current = this.getASRConfig()
-    const merged = { ...current, ...config }
+    const merged = {
+      ...current,
+      ...config,
+      provider: normalizeASRProvider(config.provider ?? current.provider),
+      apiKeys: {
+        ...current.apiKeys,
+        ...(config.apiKeys ?? {}),
+      },
+    }
     if (merged.apiKeys) {
       merged.apiKeys = {
         cn: this.encryptKey(merged.apiKeys.cn),
@@ -338,6 +357,9 @@ export class ConfigManager {
 
   isValid(): boolean {
     const asr = this.getASRConfig()
+    if (asr.provider === 'local-sensevoice') {
+      return true
+    }
     const region = asr.region || 'cn'
     const key = asr.apiKeys?.[region]
     return !!key && key.length > 0
