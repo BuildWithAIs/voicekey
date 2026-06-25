@@ -16,6 +16,29 @@ export const GLM_ASR = {
   MAX_FILE_SIZE: 25 * 1024 * 1024,
 } as const
 
+export const LOCAL_ASR = {
+  PROVIDER: 'local-sensevoice',
+  MODEL_NAME: 'SenseVoiceSmall q8',
+  MODEL_FILE: 'sensevoice-small-q8.gguf',
+  MODEL_URL:
+    'https://huggingface.co/FunAudioLLM/SenseVoiceSmall-GGUF/resolve/main/sensevoice-small-q8.gguf',
+  MODEL_SIZE_BYTES: 254_208_320,
+  MODEL_SHA256: '4ae45c94422de949b387e2e0fb10d7e14e4c42c69db30c3444ecc7d4b844b7c5',
+  RUNTIME_VERSION: 'runtime-llamacpp-v0.1.2',
+  RUNTIME_BASE_URL:
+    'https://github.com/FunAudioLLM/SenseVoice/releases/download/runtime-llamacpp-v0.1.2',
+  RUNTIME_BINARY_BASE: 'llama-funasr-sensevoice',
+  RUNTIME_WINDOWS_SIZE_BYTES: 5_048_990,
+  RUNTIME_WINDOWS_SHA256: '99e59f2ec323599df2e789d2608e7c50a08de5e7a910122a6fe35a55f7a9265d',
+  RUNTIME_WINDOWS_SENSEVOICE_SHA256:
+    '0cd6360583d3e94968754c91ef5110931b4d7a66ed71576725adbe25f21dc65d',
+  RUNTIME_UNIX_SIZE_BYTES: 8_778_241,
+  RUNTIME_LINUX_X64_SHA256: 'f541700310512fd83d213dd4b971b7997f793b8456d63ef2a7f1957008753b02',
+  RUNTIME_LINUX_ARM64_SHA256: '1ca064ba053d5d9d7cd6ad578393d5449d3666c2292b5b109aeea46a70a7324e',
+  RUNTIME_MACOS_ARM64_SHA256: '50a36463372eb87adf9e0829aa62b29ce94d7ba84ded705b9e81c768c274d923',
+  TIMEOUT_MS: 120_000,
+} as const
+
 const BASE_REFINE_SYSTEM_PROMPT = `
 You are a speech transcript post-editor.
 You are not an assistant, chatbot, QA system, or instruction-following agent.

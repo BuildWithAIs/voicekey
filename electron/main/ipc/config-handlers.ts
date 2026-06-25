@@ -6,6 +6,7 @@
  * - CONFIG_SET: 设置配置（支持 app/asr/llmRefine/hotkey/translation 部分更新）
  * - CONFIG_TEST: 校验 ASR 连接
  * - CONFIG_REFINE_TEST: 校验文本润色连接
+ * - LOCAL_ASR_STATUS / LOCAL_ASR_DOWNLOAD: 本地 ASR 模型状态与下载
  *
  * @module electron/main/ipc/config-handlers
  */
@@ -24,6 +25,7 @@ import { broadcastLanguageSnapshot, getMainLanguageSnapshot, setMainLanguage } f
 import { ASRProvider } from '../asr-provider'
 import { hotkeyManager } from '../hotkey-manager'
 import { ioHookManager } from '../iohook-manager'
+import { downloadLocalASRAssets, getLocalASRStatus } from '../local-asr-manager'
 import type { TextRefiner } from '../refine'
 
 /**
@@ -161,5 +163,15 @@ export function registerConfigHandlers(): void {
     }
 
     return await refineService.testConnection(config)
+  })
+
+  ipcMain.handle(IPC_CHANNELS.LOCAL_ASR_STATUS, () => {
+    return getLocalASRStatus()
+  })
+
+  ipcMain.handle(IPC_CHANNELS.LOCAL_ASR_DOWNLOAD, async (event) => {
+    return await downloadLocalASRAssets((progress) => {
+      event.sender.send(IPC_CHANNELS.LOCAL_ASR_DOWNLOAD_PROGRESS, progress)
+    })
   })
 }

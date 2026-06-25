@@ -10,8 +10,10 @@ export interface VoiceSession {
   duration?: number
 }
 
+export type ASRProviderType = 'glm' | 'local-sensevoice'
+
 export interface ASRConfig {
-  provider: 'glm'
+  provider: ASRProviderType
   region: 'cn' | 'intl'
   apiKeys: {
     cn: string
@@ -24,6 +26,29 @@ export interface ASRConfig {
 
   endpoint?: string
   language?: string
+}
+
+export type LocalASRDownloadPhase = 'runtime' | 'model'
+
+export interface LocalASRDownloadProgress {
+  phase: LocalASRDownloadPhase
+  receivedBytes: number
+  totalBytes?: number
+  percent?: number
+}
+
+export interface LocalASRStatus {
+  supported: boolean
+  ready: boolean
+  downloading: boolean
+  modelName: string
+  installDir: string
+  executablePath?: string
+  modelPath?: string
+  missing: string[]
+  downloadSizeBytes: number
+  progress?: LocalASRDownloadProgress
+  error?: string
 }
 
 export interface LLMRefineConfig {
@@ -116,6 +141,9 @@ export const IPC_CHANNELS = {
   CONFIG_SET: 'config:set',
   CONFIG_TEST: 'config:test',
   CONFIG_REFINE_TEST: 'config:refine:test',
+  LOCAL_ASR_STATUS: 'local-asr:status',
+  LOCAL_ASR_DOWNLOAD: 'local-asr:download',
+  LOCAL_ASR_DOWNLOAD_PROGRESS: 'local-asr:download-progress',
   APP_LANGUAGE_GET: 'app:language:get',
   APP_LANGUAGE_CHANGED: 'app:language:changed',
 
