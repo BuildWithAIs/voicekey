@@ -3,7 +3,7 @@
  *
  * 负责：
  * - FFmpeg 初始化（处理 app.asar.unpacked 路径）
- * - WebM 到 MP3 格式转换
+ * - WebM 到 MP3 / WAV 格式转换
  *
  * @module electron/main/audio/converter
  */
@@ -13,11 +13,31 @@ import { createRequire } from 'node:module'
 import { updateOverlay, hideOverlay } from '../window/overlay'
 import { t } from '../i18n'
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let ffmpeg: any
+interface FfmpegCommand {
+  toFormat(format: string): FfmpegCommand
+  audioCodec(codec: string): FfmpegCommand
+  audioBitrate(bitrate: string): FfmpegCommand
+  audioFrequency(frequency: number): FfmpegCommand
+  audioChannels(channels: number): FfmpegCommand
+  audioFilters(filter: string): FfmpegCommand
+  on(event: 'end', listener: () => void): FfmpegCommand
+  on(event: 'error', listener: (error: Error) => void): FfmpegCommand
+  save(outputPath: string): void
+}
+
+type FfmpegFactory = {
+  (inputPath: string): FfmpegCommand
+  setFfmpegPath: (ffmpegPath: string) => void
+}
+
+let ffmpeg: FfmpegFactory
 let ffmpegInitialized = false
 
 export interface ConvertToMP3Options {
+  gainDb?: number
+}
+
+export interface ConvertToWAVOptions {
   gainDb?: number
 }
 
@@ -35,7 +55,7 @@ export function initializeFfmpeg(): void {
 
   try {
     const require = createRequire(import.meta.url)
-    const ffmpegModule = require('fluent-ffmpeg')
+    const ffmpegModule = require('fluent-ffmpeg') as FfmpegFactory
     const ffmpegInstaller = require('@ffmpeg-installer/ffmpeg')
 
     let ffmpegPath = ffmpegInstaller.path
@@ -70,19 +90,47 @@ export function convertToMP3(
   outputPath: string,
   options?: ConvertToMP3Options,
 ): Promise<void> {
+  return convertAudio(inputPath, outputPath, 'MP3', options, (command) => {
+    command.toFormat('mp3').audioCodec('libmp3lame').audioBitrate('128k')
+  })
+}
+
+/**
+ * 转换音频格式为 16kHz 单声道 WAV
+ *
+ * 本地 ASR runtime 使用最基础的 PCM WAV 输入，避开 native MP3 解码路径差异。
+ */
+export function convertToWAV(
+  inputPath: string,
+  outputPath: string,
+  options?: ConvertToWAVOptions,
+): Promise<void> {
+  return convertAudio(inputPath, outputPath, 'WAV', options, (command) => {
+    command.toFormat('wav').audioCodec('pcm_s16le').audioFrequency(16000).audioChannels(1)
+  })
+}
+
+function convertAudio(
+  inputPath: string,
+  outputPath: string,
+  outputLabel: string,
+  options: { gainDb?: number } | undefined,
+  configure: (command: FfmpegCommand) => void,
+): Promise<void> {
   const conversionStartTime = Date.now()
   return new Promise((resolve, reject) => {
     // 确保 ffmpeg 已初始化
     initializeFfmpeg()
 
-    console.log(`[Audio:Converter] Converting audio to MP3...`)
+    console.log(`[Audio:Converter] Converting audio to ${outputLabel}...`)
     console.log(`[Audio:Converter]   Input: ${inputPath}`)
     console.log(`[Audio:Converter]   Output: ${outputPath}`)
     if (typeof options?.gainDb === 'number') {
       console.log(`[Audio:Converter]   Gain: +${options.gainDb}dB`)
     }
 
-    const command = ffmpeg(inputPath).toFormat('mp3').audioCodec('libmp3lame').audioBitrate('128k')
+    const command = ffmpeg(inputPath)
+    configure(command)
 
     if (typeof options?.gainDb === 'number') {
       command.audioFilters(`volume=${options.gainDb}dB`)
