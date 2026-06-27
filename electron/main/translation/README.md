@@ -1,6 +1,6 @@
 # Translation Module
 
-- `translator.ts` — Core translation/polishing service: captures selected text via Ctrl+C, calls LLM API with the built-in translation prompt resolved to the shared target language, and replaces the selection via plain-text Ctrl+V (clipboard save/restore). No character-by-character deletion — relies on standard GUI behavior where Ctrl+V replaces selected text.
+- `translator.ts` — Core translation/polishing service: captures selected text via Ctrl+C, calls the LLM API with the built-in native-quality translation prompt resolved to the shared target language, and replaces the selection via plain-text Ctrl+V (clipboard save/restore). No character-by-character deletion — relies on standard GUI behavior where Ctrl+V replaces selected text.
 
 ## Architecture
 
@@ -35,6 +35,6 @@ Before both copy and paste, the module uses a temporary clipboard sentinel to de
 
 - `refine/openai-client.ts` — `requestChatCompletion`, `extractMessageContent`
 - `shared/refine-url.ts` — `normalizeRefineBaseUrl`, `buildRefineChatEndpoint`
-- `shared/constants.ts` — `buildTranslationSystemPrompt`, `OPENAI_CHAT`
+- `shared/constants.ts` — `buildTranslationSystemPrompt`, native-quality translation guidance, `OPENAI_CHAT`
 - `window/overlay.ts` — `showOverlay`, `updateOverlay`, `hideOverlay`
 - `config-manager.ts` — `getLLMRefineConfig`, `getTranslationConfig`
