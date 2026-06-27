@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.17](https://github.com/BuildWithAIs/voicekey/compare/v0.1.16...v0.1.17) (2026-06-27)
+
+### Features
+
+- add local SenseVoice ASR support ([27178cb](https://github.com/BuildWithAIs/voicekey/commit/27178cb87c176828fefd2c856637eb262178d53b))
+- **refine:** improve polish and translation prompts ([3d6258d](https://github.com/BuildWithAIs/voicekey/commit/3d6258d1d1af5eb4f9aa33c6dda648fe146c3822))
+
+### Bug Fixes
+
+- harden local ASR runtime fallback ([3d4d874](https://github.com/BuildWithAIs/voicekey/commit/3d4d8741136681b909267bfcae7b2efcc42e6494))
+
 ### [0.1.16](https://github.com/BuildWithAIs/voicekey/compare/v0.1.15...v0.1.16) (2026-06-22)
 
 ### Features
