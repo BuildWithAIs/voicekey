@@ -130,6 +130,26 @@ Every directory contains a `README.md` that describes its structure and contents
 - ❌ `asr-provider.ts` - Handles ASR functionality
 - ❌ `Button` - A button component
 
+## Reclaude Delegation
+
+Use the `reclaude-code` skill as an available senior engineering partner for substantial
+implementation, debugging, refactoring, test-fixing, repository investigation, and code review.
+For non-trivial coding or review work, explicitly consider whether delegating a focused slice to
+`reclaude` would improve quality or speed.
+
+When delegating, the current agent remains responsible for product and technical direction:
+
+1. Define the objective, scope, files/directories, constraints, and verification commands clearly.
+2. Prefer non-interactive `reclaude -p` usage, following the skill's current command guidance.
+3. For implementation work, avoid overlapping edits with `reclaude`; split the task by files,
+   modules, or phases so two agents are not modifying the same file at the same time.
+4. Parallelize only when the work can be cleanly separated, such as one agent investigating or
+   reviewing while the other implements in a different area.
+5. For analysis-only or code-review requests, keep the delegated task read-only unless the user has
+   asked for direct fixes.
+6. After `reclaude` returns, inspect the changed files and diffs yourself, run relevant checks, and
+   reconcile any issues before reporting completion.
+
 ## Commands
 
 ### Development
