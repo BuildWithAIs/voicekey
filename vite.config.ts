@@ -32,6 +32,7 @@ export default defineConfig(({ mode }) => {
                   'node-record-lpcm16',
                   'fluent-ffmpeg',
                   '@ffmpeg-installer/ffmpeg',
+                  'sherpa-onnx',
                 ],
               },
             },

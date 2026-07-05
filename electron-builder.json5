@@ -15,6 +15,7 @@
     '**/node_modules/@nut-tree-fork/**',
     '**/node_modules/@ffmpeg-installer/ffmpeg/**',
     '**/node_modules/fluent-ffmpeg/**',
+    '**/node_modules/sherpa-onnx/**',
   ],
   extraMetadata: {
     main: 'dist-electron/main.mjs', // 更新入口

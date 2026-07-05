@@ -146,8 +146,8 @@
     "asrProviderLocal": "本地模型",
     "asrProviderGlm": "智谱 GLM",
     "localAsr": {
-      "modelName": "SenseVoiceSmall q8",
-      "help": "离线识别，音频不上传。首次使用需下载约 {{size}} 的运行时和模型文件。",
+      "modelName": "SenseVoiceSmall int8",
+      "help": "离线识别，音频不上传。首次使用需下载约 {{size}} 的模型文件。",
       "ready": "已就绪",
       "download": "下载模型",
       "downloading": "下载中...",
@@ -155,7 +155,6 @@
       "downloadFailed": "下载失败：{{message}}",
       "unsupported": "当前平台暂不支持此本地模型。",
       "phase": {
-        "runtime": "下载运行时",
         "model": "下载模型"
       }
     },

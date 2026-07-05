@@ -18,37 +18,26 @@ export const GLM_ASR = {
 
 export const LOCAL_ASR = {
   PROVIDER: 'local-sensevoice',
-  MODEL_NAME: 'SenseVoiceSmall q8',
-  MODEL_FILE: 'sensevoice-small-q8.gguf',
-  MODEL_URL:
-    'https://huggingface.co/FunAudioLLM/SenseVoiceSmall-GGUF/resolve/main/sensevoice-small-q8.gguf',
-  MODEL_SIZE_BYTES: 254_208_320,
-  MODEL_SHA256: '4ae45c94422de949b387e2e0fb10d7e14e4c42c69db30c3444ecc7d4b844b7c5',
-  RUNTIME_VERSION: 'runtime-llamacpp-v0.1.2',
-  RUNTIME_BASE_URL:
-    'https://github.com/FunAudioLLM/SenseVoice/releases/download/runtime-llamacpp-v0.1.2',
-  RUNTIME_BINARY_BASE: 'llama-funasr-sensevoice',
-  RUNTIME_WINDOWS_SIZE_BYTES: 5_048_990,
-  RUNTIME_WINDOWS_SHA256: '99e59f2ec323599df2e789d2608e7c50a08de5e7a910122a6fe35a55f7a9265d',
-  RUNTIME_WINDOWS_SENSEVOICE_SHA256:
-    '0cd6360583d3e94968754c91ef5110931b4d7a66ed71576725adbe25f21dc65d',
-  RUNTIME_UNIX_SIZE_BYTES: 8_778_241,
-  RUNTIME_LINUX_X64_SHA256: 'f541700310512fd83d213dd4b971b7997f793b8456d63ef2a7f1957008753b02',
-  RUNTIME_LINUX_ARM64_SHA256: '1ca064ba053d5d9d7cd6ad578393d5449d3666c2292b5b109aeea46a70a7324e',
-  RUNTIME_MACOS_ARM64_SHA256: '50a36463372eb87adf9e0829aa62b29ce94d7ba84ded705b9e81c768c274d923',
-  WHISPER_MODEL_NAME: 'Whisper tiny',
-  WHISPER_MODEL_FILE: 'ggml-tiny.bin',
-  WHISPER_MODEL_URL: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin',
-  WHISPER_MODEL_SIZE_BYTES: 77_691_713,
-  WHISPER_MODEL_SHA256: 'be07e048e1e599ad46341c8d2a135645097a538221678b7acdd1b1919c6e1b21',
-  WHISPER_RUNTIME_URL:
-    'https://github.com/ggml-org/whisper.cpp/releases/download/v1.9.1/whisper-bin-x64.zip',
-  WHISPER_RUNTIME_FILE: 'whisper-bin-x64.zip',
-  WHISPER_RUNTIME_SIZE_BYTES: 7_982_101,
-  WHISPER_RUNTIME_SHA256: '7d8be46ecd31828e1eb7a2ecdd0d6b314feafd82163038ab6092594b0a063539',
-  WHISPER_CLI_SHA256: '58245314fb73b30fbd0cf0542c5c172e23f02b6eb7cad7b51e792439cf5e1755',
-  TIMEOUT_MS: 120_000,
-  SMOKE_TEST_TIMEOUT_MS: 45_000,
+  MODEL_NAME: 'SenseVoiceSmall int8',
+  MODEL_VERSION: 'sensevoice-int8-2024-07-17',
+  MODEL_FILES: [
+    {
+      name: 'model.int8.onnx',
+      url: 'https://huggingface.co/csukuangfj/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17/resolve/main/model.int8.onnx',
+      sizeBytes: 239_233_841,
+      sha256: 'c71f0ce00bec95b07744e116345e33d8cbbe08cef896382cf907bf4b51a2cd51',
+    },
+    {
+      name: 'tokens.txt',
+      url: 'https://huggingface.co/csukuangfj/sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17/resolve/main/tokens.txt',
+      sizeBytes: 315_894,
+      sha256: 'f449eb28dc567533d7fa59be34e2abca8784f771850c78a47fb731a31429a1dc',
+    },
+  ],
+  MODEL_FILE: 'model.int8.onnx',
+  TOKENS_FILE: 'tokens.txt',
+  LANGUAGE: 'zh',
+  DOWNLOAD_SIZE_BYTES: 239_549_735,
   HEALTH_CHECK_VERSION: 1,
 } as const
 

@@ -146,8 +146,8 @@
     "asrProviderLocal": "Local model",
     "asrProviderGlm": "Zhipu GLM",
     "localAsr": {
-      "modelName": "SenseVoiceSmall q8",
-      "help": "Offline recognition; audio is not uploaded. First use downloads about {{size}} of runtime and model files.",
+      "modelName": "SenseVoiceSmall int8",
+      "help": "Offline recognition; audio is not uploaded. First use downloads about {{size}} of model files.",
       "ready": "Ready",
       "download": "Download model",
       "downloading": "Downloading...",
@@ -155,7 +155,6 @@
       "downloadFailed": "Download failed: {{message}}",
       "unsupported": "This local model is not available on the current platform.",
       "phase": {
-        "runtime": "Downloading runtime",
         "model": "Downloading model"
       }
     },

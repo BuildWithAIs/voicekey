@@ -2,7 +2,7 @@
  * 设置窗口管理模块
  *
  * 职责：创建和管理应用设置窗口
- * 窗口特性：全屏工作区尺寸、macOS hiddenInset 标题栏、毛玻璃效果
+ * 窗口特性：最大化铺满工作区、macOS hiddenInset 标题栏、毛玻璃效果
  */
 import { BrowserWindow, screen } from 'electron'
 import path from 'node:path'
@@ -19,7 +19,7 @@ const MIN_HEIGHT = 500
  * 创建或聚焦设置窗口
  *
  * 特性：
- * - 全屏工作区尺寸
+ * - 最大化铺满工作区（非原生全屏）
  * - macOS hiddenInset 标题栏
  * - 毛玻璃效果 (vibrancy)
  * - 透明背景
@@ -31,13 +31,16 @@ export function createSettingsWindow(): BrowserWindow | void {
     return
   }
 
-  const { width, height } = screen.getPrimaryDisplay().workAreaSize
+  const workArea = screen.getPrimaryDisplay().workArea
 
   settingsWindow = new BrowserWindow({
-    width,
-    height,
+    x: workArea.x,
+    y: workArea.y,
+    width: workArea.width,
+    height: workArea.height,
     minWidth: MIN_WIDTH,
     minHeight: MIN_HEIGHT,
+    show: false,
     title: t('window.settingsTitle'),
     titleBarStyle: 'hiddenInset', // macOS 风格：隐藏标题栏但保留交通灯按钮
     trafficLightPosition: { x: 20, y: 20 }, // 交通灯按钮位置
@@ -48,6 +51,17 @@ export function createSettingsWindow(): BrowserWindow | void {
       nodeIntegration: false,
       contextIsolation: true,
     },
+  })
+
+  settingsWindow.once('ready-to-show', () => {
+    if (!settingsWindow || settingsWindow.isDestroyed()) {
+      return
+    }
+
+    settingsWindow.setBounds(screen.getPrimaryDisplay().workArea)
+    settingsWindow.maximize()
+    settingsWindow.show()
+    settingsWindow.focus()
   })
 
   // 开发模式加载 Vite 开发服务器，生产模式加载打包后的 index.html

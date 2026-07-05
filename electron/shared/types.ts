@@ -28,7 +28,7 @@ export interface ASRConfig {
   language?: string
 }
 
-export type LocalASRDownloadPhase = 'runtime' | 'model'
+export type LocalASRDownloadPhase = 'model'
 
 export interface LocalASRDownloadProgress {
   phase: LocalASRDownloadPhase
@@ -43,7 +43,6 @@ export interface LocalASRStatus {
   downloading: boolean
   modelName: string
   installDir: string
-  executablePath?: string
   modelPath?: string
   missing: string[]
   downloadSizeBytes: number

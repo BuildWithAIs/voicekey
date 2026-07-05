@@ -52,6 +52,7 @@
     "react-i18next": "^16.5.3",
     "recharts": "^2.15.4",
     "semver": "^7.7.3",
+    "sherpa-onnx": "^1.13.3",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.4.0",
     "uiohook-napi": "^1.5.4"
