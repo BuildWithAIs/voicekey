@@ -2,8 +2,53 @@ import { IPC_CHANNELS, type RecordingStartPayload, type VoiceSession } from '../
 import { showOverlay, hideOverlay, updateOverlay, showErrorAndHide } from '../window/overlay'
 import { getBackgroundWindow } from '../window/background'
 import { t } from '../i18n'
+import { abortChunkSession, hasReceivedFinalChunk } from './processor'
+
+// How long after SESSION_STOP the final audio chunk may take to arrive before
+// the session is considered lost (renderer crashed or dropped the marker).
+const FINAL_CHUNK_TIMEOUT_MS = 10_000
 
 let currentSession: VoiceSession | null = null
+let finalChunkWatchdog: ReturnType<typeof setTimeout> | null = null
+
+function clearFinalChunkWatchdog(): void {
+  if (finalChunkWatchdog) {
+    clearTimeout(finalChunkWatchdog)
+    finalChunkWatchdog = null
+  }
+}
+
+function startFinalChunkWatchdog(sessionId: string): void {
+  clearFinalChunkWatchdog()
+  finalChunkWatchdog = setTimeout(() => {
+    finalChunkWatchdog = null
+    if (!currentSession || currentSession.id !== sessionId) return
+    if (currentSession.status !== 'processing') return
+    if (hasReceivedFinalChunk(sessionId)) return
+
+    console.error(
+      `[Audio:Session] Final audio chunk never arrived for ${sessionId}, aborting session`,
+    )
+    abortChunkSession(sessionId)
+    currentSession = null
+    showErrorAndHide(t('errors.stopFailed'))
+  }, FINAL_CHUNK_TIMEOUT_MS)
+}
+
+// Called when the hidden recording renderer crashes or hangs: fail the active
+// session so the HUD does not stay stuck and chunk state does not leak.
+export function handleBackgroundRendererGone(): void {
+  clearFinalChunkWatchdog()
+  if (!currentSession) return
+
+  console.error('[Audio:Session] Background renderer gone, aborting session', currentSession.id)
+  const wasActive = currentSession.status === 'recording' || currentSession.status === 'processing'
+  abortChunkSession(currentSession.id)
+  currentSession = null
+  if (wasActive) {
+    showErrorAndHide(t('errors.internal'))
+  }
+}
 
 type HandleStopRecordingOptions = {
   willRunRefine?: boolean
@@ -37,6 +82,8 @@ export async function handleStartRecording(): Promise<void> {
     console.log('[Audio:Session] Already recording, ignoring')
     return
   }
+
+  clearFinalChunkWatchdog()
 
   try {
     showOverlay({ status: 'recording' })
@@ -92,8 +139,11 @@ export async function handleStopRecording(options: HandleStopRecordingOptions = 
     if (bgWindow) {
       console.log('[Audio:Session] Sending SESSION_STOP to backgroundWindow')
       bgWindow.webContents.send(IPC_CHANNELS.SESSION_STOP)
+      startFinalChunkWatchdog(currentSession.id)
     } else {
       console.error('[Audio:Session] Cannot send SESSION_STOP: backgroundWindow not available')
+      abortChunkSession(currentSession.id)
+      currentSession = null
       showErrorAndHide(t('errors.stopFailed'))
     }
   } catch (error) {
@@ -106,9 +156,11 @@ export async function handleCancelSession(): Promise<void> {
   console.log('[Audio:Session] handleCancelSession triggered')
 
   hideOverlay()
+  clearFinalChunkWatchdog()
 
   if (currentSession) {
     console.log('[Audio:Session] Cancelling session:', currentSession.id)
+    abortChunkSession(currentSession.id)
     currentSession = null
   }
 

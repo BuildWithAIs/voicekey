@@ -36,7 +36,12 @@ export const PTT_PRESETS = [
   { value: 'F14', labelKey: 'hotkey.presets.f14', platform: 'all' },
 ] as const
 
-export type HotkeyValidationMessage = 'missing' | 'conflict' | 'multiple'
+export type HotkeyValidationMessage = 'missing' | 'conflict' | 'multiple' | 'modifierOnly'
+
+export interface HotkeyValidationOptions {
+  /** PTT 按住说话支持单修饰键（如 Alt）；其他快捷键必须包含主键 */
+  allowModifierOnly?: boolean
+}
 
 /**
  * 将 KeyboardEvent 的 key 转换为 Electron Accelerator 格式
@@ -150,10 +155,15 @@ export function isHotkeyConflict(accelerator: string): boolean {
 /**
  * 验证快捷键是否有效
  */
-export function validateHotkey(accelerator: string): {
+export function validateHotkey(
+  accelerator: string,
+  options: HotkeyValidationOptions = {},
+): {
   valid: boolean
   messageKey?: HotkeyValidationMessage
 } {
+  const { allowModifierOnly = true } = options
+
   if (!accelerator) {
     return { valid: false, messageKey: 'missing' }
   }
@@ -169,6 +179,10 @@ export function validateHotkey(accelerator: string): {
 
   if (nonModifiers.length > 1) {
     return { valid: false, messageKey: 'multiple' }
+  }
+
+  if (!allowModifierOnly && nonModifiers.length === 0) {
+    return { valid: false, messageKey: 'modifierOnly' }
   }
 
   return { valid: true }

@@ -81,6 +81,18 @@ export function AudioRecorder() {
     animationFrameRef.current = requestAnimationFrame(sendAudioLevel)
   }
 
+  // Empty chunks are still sent: main tracks chunks by index and waits for the
+  // final marker, so dropping one would leave the session (and HUD) stuck.
+  const sendEmptyChunkMarker = (sessionId: string, chunkIndex: number, isFinal: boolean) => {
+    window.electronAPI.sendAudioChunk({
+      sessionId,
+      chunkIndex,
+      isFinal,
+      mimeType: currentMimeTypeRef.current,
+      buffer: new ArrayBuffer(0),
+    })
+  }
+
   const handleRecorderStop = async () => {
     const sessionId = currentSessionIdRef.current
     const mimeType = currentMimeTypeRef.current
@@ -94,7 +106,10 @@ export function AudioRecorder() {
     const blob = new Blob(chunksRef.current, { type: mimeType })
     chunksRef.current = []
 
-    if (sessionId && blob.size > 0) {
+    if (sessionId) {
+      if (blob.size === 0) {
+        console.warn('[Renderer] Sending empty audio chunk marker')
+      }
       const buffer = await blob.arrayBuffer()
       window.electronAPI.sendAudioChunk({
         sessionId,
@@ -104,7 +119,7 @@ export function AudioRecorder() {
         buffer,
       })
     } else {
-      console.warn('[Renderer] Skipping empty audio chunk')
+      console.warn('[Renderer] Skipping audio chunk without active session')
     }
 
     if (stopMeta.isFinal || isSessionEndingRef.current) {
@@ -134,6 +149,10 @@ export function AudioRecorder() {
     const recorder = mediaRecorderRef.current
     if (!recorder) {
       if (nextStopMeta.isFinal) {
+        const sessionId = currentSessionIdRef.current
+        if (sessionId) {
+          sendEmptyChunkMarker(sessionId, nextStopMeta.chunkIndex, true)
+        }
         releaseResources()
       }
       return
@@ -208,6 +227,16 @@ export function AudioRecorder() {
       isSessionEndingRef.current = false
 
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+
+      // SESSION_STOP may have arrived while getUserMedia was pending (the final
+      // marker was already sent by requestRecorderStop); drop the stream instead
+      // of recording into a dead session and leaving the mic on.
+      if (currentSessionIdRef.current !== payload.sessionId || isSessionEndingRef.current) {
+        console.warn('[Renderer] Session ended while acquiring microphone, discarding stream')
+        stream.getTracks().forEach((track) => track.stop())
+        return
+      }
+
       streamRef.current = stream
 
       const audioContext = new AudioContext()
@@ -237,8 +266,12 @@ export function AudioRecorder() {
       }, GLM_ASR.SESSION_MAX_DURATION_SECONDS * 1000)
     } catch (error) {
       console.error('[Renderer] Failed to start recording:', error)
-      window.electronAPI.sendError(`Failed to access microphone: ${error}`)
-      releaseResources()
+      // Only report/cleanup if this session is still current; a stale failure
+      // must not tear down a newer session's resources.
+      if (currentSessionIdRef.current === payload.sessionId) {
+        window.electronAPI.sendError(`Failed to access microphone: ${error}`)
+        releaseResources()
+      }
     }
   }
 
@@ -251,19 +284,29 @@ export function AudioRecorder() {
     })
   }
 
+  const startRecordingSessionRef = useRef(startRecordingSession)
+  const stopRecordingSessionRef = useRef(stopRecordingSession)
+  const releaseResourcesRef = useRef(releaseResources)
+
+  useEffect(() => {
+    startRecordingSessionRef.current = startRecordingSession
+    stopRecordingSessionRef.current = stopRecordingSession
+    releaseResourcesRef.current = releaseResources
+  })
+
   useEffect(() => {
     const removeStartRecordingListener = window.electronAPI.onStartRecording((payload) => {
-      void startRecordingSession(payload)
+      void startRecordingSessionRef.current(payload)
     })
 
     const removeStopRecordingListener = window.electronAPI.onStopRecording(() => {
-      stopRecordingSession()
+      stopRecordingSessionRef.current()
     })
 
     return () => {
       removeStartRecordingListener?.()
       removeStopRecordingListener?.()
-      releaseResources()
+      releaseResourcesRef.current()
       console.log('[Renderer] Component unmounted, resources released')
     }
   }, [])

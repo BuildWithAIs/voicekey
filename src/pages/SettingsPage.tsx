@@ -381,6 +381,14 @@ export default function SettingsPage() {
         const loadedConfig = await window.electronAPI.getConfig()
         const normalizedConfig: AppConfig = {
           ...loadedConfig,
+          asr: {
+            ...loadedConfig.asr,
+            // Legacy configs may lack apiKeys; guarantee both regions exist.
+            apiKeys: {
+              cn: loadedConfig.asr?.apiKeys?.cn ?? '',
+              intl: loadedConfig.asr?.apiKeys?.intl ?? '',
+            },
+          },
           llmRefine: normalizeLLMRefineConfig(loadedConfig.llmRefine),
           translation: {
             enabled: loadedConfig.translation?.enabled ?? defaultTranslationConfig.enabled,
@@ -420,6 +428,29 @@ export default function SettingsPage() {
       setLocalAsrStatus((prev) => (prev ? { ...prev, downloading: true, progress } : prev))
     })
   }, [])
+
+  // While a download is in flight, poll the real status so the UI recovers
+  // when progress hits 100% or the download finished outside this page
+  // (progress events alone never report completion).
+  useEffect(() => {
+    if (!downloadingLocalAsr) return
+
+    const timer = setInterval(() => {
+      void window.electronAPI
+        .getLocalASRStatus()
+        .then((status) => {
+          if (status.downloading) return
+          setLocalAsrStatus(status)
+          setLocalAsrProgress(status.progress ?? null)
+          setDownloadingLocalAsr(false)
+        })
+        .catch((error) => {
+          console.error('Failed to refresh local ASR status:', error)
+        })
+    }, 2000)
+
+    return () => clearInterval(timer)
+  }, [downloadingLocalAsr])
 
   const clearAutoSaveTimer = () => {
     if (autoSaveTimerRef.current) {
@@ -465,9 +496,9 @@ export default function SettingsPage() {
   }
 
   const getHotkeyErrorMessage = (hotkey: AppConfig['hotkey']): string | null => {
-    const pttValidation = validateHotkey(hotkey.pttKey)
-    const settingsValidation = validateHotkey(hotkey.toggleSettings)
-    const translateValidation = validateHotkey(hotkey.translateKey)
+    const pttValidation = validateHotkey(hotkey.pttKey, { allowModifierOnly: true })
+    const settingsValidation = validateHotkey(hotkey.toggleSettings, { allowModifierOnly: false })
+    const translateValidation = validateHotkey(hotkey.translateKey, { allowModifierOnly: false })
 
     if (!pttValidation.valid || !settingsValidation.valid || !translateValidation.valid) {
       return t('settings.result.hotkeyInvalid')
@@ -597,7 +628,7 @@ export default function SettingsPage() {
 
     clearAutoSaveTimer()
     autoSaveTimerRef.current = setTimeout(() => {
-      void flushAutoSave()
+      void flushAutoSaveRef.current()
     }, AUTO_SAVE_DELAY_MS)
 
     return () => {
@@ -612,7 +643,7 @@ export default function SettingsPage() {
     }
 
     const region = config.asr.region || 'cn'
-    const apiKey = config.asr.apiKeys[region]
+    const apiKey = config.asr.apiKeys?.[region] || ''
 
     if (config.asr.provider === 'glm' && !apiKey) {
       setAsrTestStatus({ type: 'error', message: t('settings.result.apiKeyRequired') })
@@ -736,14 +767,24 @@ export default function SettingsPage() {
     }))
   }
 
+  // Raw value while typing; normalization happens on blur (and again on
+  // save/test via normalizeLLMRefineConfig) so keystrokes are not rewritten.
   const handleRefineConfigChange = (key: 'endpoint' | 'model' | 'apiKey', value: string) => {
-    const nextValue = key === 'endpoint' ? normalizeRefineBaseUrl(value) : value
-
     setConfig((prev) => ({
       ...prev,
       llmRefine: {
         ...prev.llmRefine,
-        [key]: nextValue,
+        [key]: value,
+      },
+    }))
+  }
+
+  const handleRefineEndpointBlur = () => {
+    setConfig((prev) => ({
+      ...prev,
+      llmRefine: {
+        ...prev.llmRefine,
+        endpoint: normalizeRefineBaseUrl(prev.llmRefine.endpoint),
       },
     }))
   }
@@ -1111,8 +1152,9 @@ export default function SettingsPage() {
               <Input
                 id="refineEndpoint"
                 type="text"
-                value={normalizedLLMRefineConfig.endpoint}
+                value={config.llmRefine.endpoint}
                 onChange={(e) => handleRefineConfigChange('endpoint', e.target.value)}
+                onBlur={handleRefineEndpointBlur}
                 placeholder={t('settings.refineEndpointPlaceholder')}
                 className="no-drag font-mono"
               />

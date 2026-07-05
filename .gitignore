@@ -36,6 +36,8 @@ website/dist/
 # Agent / 设计工具产物（本地工具，不入产品仓库）
 .agents/
 .claude/
+.codex/
+.codex-remote-attachments/
 designs/
 skills-lock.json
 systemprompt.txt

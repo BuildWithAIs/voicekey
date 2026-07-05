@@ -1,7 +1,6 @@
 ---
 /**
- * BaseLayout - 基础页面布局
- * 所有页面共用的 HTML 骨架
+ * BaseLayout - shared HTML shell for the marketing site.
  */
 
 interface Props {
@@ -19,50 +18,56 @@ const {
 } = Astro.props
 
 const siteName = 'Voice Key'
-const siteUrl = 'https://buildwithaIs.github.io/voicekey'
-// 生成 canonical URL（优先使用 Astro 提供的运行时变量）
+const fallbackSite = 'https://buildwithais.github.io'
+const rawBasePath = import.meta.env.BASE_URL ?? '/'
+const basePath = rawBasePath.endsWith('/') ? rawBasePath.slice(0, -1) : rawBasePath
+const siteRoot = Astro.site ?? new URL(fallbackSite)
+const siteUrl = new URL(`${basePath || '/'}/`, siteRoot).toString().replace(/\/$/u, '')
+
 const canonicalURL = (() => {
   try {
-    return new URL(Astro.url.pathname, Astro.site).toString()
-  } catch (e) {
+    return new URL(Astro.url.pathname, siteRoot).toString()
+  } catch {
     return siteUrl
   }
 })()
-// 多语言 Hreflang 链接生成（构建在子路径 base 下时保持健壮）
+
+const withBasePath = (pagePath: string) => {
+  const normalizedPath = pagePath === '/' ? '' : pagePath
+  return `${basePath}${normalizedPath}` || '/'
+}
+
 const hreflangUrls = (() => {
   try {
-    const baseEnv = import.meta.env.BASE_URL ?? '/'
-    const normBase = baseEnv.endsWith('/') ? baseEnv.slice(0, -1) : baseEnv
-
     let cleanPath = Astro.url.pathname ?? '/'
-    // 去除 base 前缀（如果存在）
-    if (normBase !== '/' && cleanPath.startsWith(normBase)) {
-      cleanPath = cleanPath.slice(normBase.length) || '/'
+    if (basePath && basePath !== '/' && cleanPath.startsWith(basePath)) {
+      cleanPath = cleanPath.slice(basePath.length) || '/'
     }
-    if (!cleanPath.startsWith('/')) cleanPath = '/' + cleanPath
+    if (!cleanPath.startsWith('/')) cleanPath = `/${cleanPath}`
 
-    // 移除语言前缀（这里只处理 /zh/ 前缀，en 为默认不带 /en/）
-    const pathWithoutLang = cleanPath === '/zh' ? '/' : (cleanPath.startsWith('/zh/') ? cleanPath.slice(3) : cleanPath)
+    const pathWithoutLang =
+      cleanPath === '/zh' ? '/' : cleanPath.startsWith('/zh/') ? cleanPath.slice(3) : cleanPath
 
-    const enPath = `${normBase}${pathWithoutLang === '/' ? '' : pathWithoutLang}`
-    const zhPath = `${normBase}/zh${pathWithoutLang === '/' ? '' : pathWithoutLang}`
-
-    const enUrl = new URL(enPath, Astro.site).toString()
-    const zhUrl = new URL(zhPath, Astro.site).toString()
-
-    return { enUrl, zhUrl }
-  } catch (e) {
+    return {
+      enUrl: new URL(withBasePath(pathWithoutLang), siteRoot).toString(),
+      zhUrl: new URL(withBasePath(`/zh${pathWithoutLang === '/' ? '' : pathWithoutLang}`), siteRoot)
+        .toString(),
+    }
+  } catch {
     return { enUrl: siteUrl, zhUrl: siteUrl }
   }
 })()
-// 生成用于 OG/Twitter 的绝对图片 URL（使用 siteUrl + ogImage，避免双斜杠）
+
 const ogImageUrl = (() => {
   try {
-    return new URL(ogImage, siteUrl).toString()
-  } catch (e) {
-    return `${siteUrl}${ogImage}`
+    const normalizedImage = ogImage.replace(/^\//u, '')
+    return new URL(normalizedImage, `${siteUrl}/`).toString()
+  } catch {
+    return `${siteUrl}/${ogImage.replace(/^\//u, '')}`
   }
 })()
+
+const assetPath = (fileName: string) => `${basePath}/${fileName.replace(/^\//u, '')}`
 ---
 
 <!doctype html>
@@ -73,35 +78,28 @@ const ogImageUrl = (() => {
     <meta name="description" content={description} />
     <meta name="author" content="BuildWithAIs" />
 
-    <!-- Open Graph -->
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content={siteName} />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <meta property="og:image" content={ogImageUrl} />
-    <meta property="og:url" content={siteUrl} />
+    <meta property="og:url" content={canonicalURL} />
 
-    <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={description} />
     <meta name="twitter:image" content={ogImageUrl} />
 
-    <!-- Canonical -->
     <link rel="canonical" href={canonicalURL} />
-    <!-- Hreflang / 多语言替代 -->
     <link rel="alternate" hreflang="en" href={hreflangUrls.enUrl} />
-    <link rel="alternate" hreflang="zh-Hans" href={hreflangUrls.zhUrl} />
+    <link rel="alternate" hreflang="zh" href={hreflangUrls.zhUrl} />
     <link rel="alternate" hreflang="x-default" href={hreflangUrls.enUrl} />
 
-    <!-- Favicon -->
-    <!-- Favicon -->
-    <link rel="icon" href={`${import.meta.env.BASE_URL}/favicon.ico`} sizes="any" />
-    <link rel="icon" type="image/png" sizes="32x32" href={`${import.meta.env.BASE_URL}/favicon-32x32.png`} />
-    <link rel="icon" type="image/png" sizes="16x16" href={`${import.meta.env.BASE_URL}/favicon-16x16.png`} />
-    <link rel="apple-touch-icon" href={`${import.meta.env.BASE_URL}/apple-touch-icon.png`} />
+    <link rel="icon" href={assetPath('favicon.ico')} sizes="any" />
+    <link rel="icon" type="image/png" sizes="32x32" href={assetPath('favicon-32x32.png')} />
+    <link rel="icon" type="image/png" sizes="16x16" href={assetPath('favicon-16x16.png')} />
+    <link rel="apple-touch-icon" href={assetPath('apple-touch-icon.png')} />
 
-    <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -110,41 +108,41 @@ const ogImageUrl = (() => {
     />
 
     <title>{title}</title>
-    
-    <!-- Theme Initialization (防止 FOUC) -->
+
     <script is:inline>
-      (function() {
+      ;(function () {
         const getTheme = () => {
           try {
             if (typeof localStorage !== 'undefined' && localStorage.getItem('theme')) {
-              return localStorage.getItem('theme');
+              return localStorage.getItem('theme')
             }
           } catch (e) {
-            // localStorage 可能被禁用，忽略错误
+            // localStorage may be unavailable.
           }
-          if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-            return 'dark';
-          }
-          return 'dark'; // 默认暗色
-        };
-        
-        const theme = getTheme();
-        document.documentElement.classList.toggle('dark', theme === 'dark');
-        
+          return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'dark'
+        }
+
+        const theme = getTheme()
+        document.documentElement.classList.toggle('dark', theme === 'dark')
+
         try {
           if (typeof localStorage !== 'undefined') {
-            localStorage.setItem('theme', theme);
+            localStorage.setItem('theme', theme)
           }
         } catch (e) {
-          // 忽略写入错误
+          // Ignore storage write failures.
         }
-      })();
+      })()
     </script>
   </head>
-  <body class="min-h-screen bg-background text-foreground antialiased relative selection:bg-primary/30 selection:text-primary">
-    <!-- Grid Pattern Background -->
-    <div class="fixed inset-0 z-0 h-full w-full bg-background bg-[linear-gradient(to_right,rgba(128,128,128,0.05)_1px,transparent_1px),linear-gradient(to_bottom,rgba(128,128,128,0.05)_1px,transparent_1px)] bg-[size:40px_40px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] pointer-events-none"></div>
-    
+  <body
+    class="min-h-screen bg-background text-foreground antialiased relative selection:bg-primary/30 selection:text-primary"
+  >
+    <div
+      class="fixed inset-0 z-0 h-full w-full bg-background bg-[linear-gradient(to_right,rgba(128,128,128,0.05)_1px,transparent_1px),linear-gradient(to_bottom,rgba(128,128,128,0.05)_1px,transparent_1px)] bg-[size:40px_40px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] pointer-events-none"
+    >
+    </div>
+
     <slot />
   </body>
 </html>

@@ -8,6 +8,7 @@ export {
   handleStartRecording,
   handleStopRecording,
   handleCancelSession,
+  handleBackgroundRendererGone,
 } from './session-manager'
 
 export { initProcessor, handleAudioChunk } from './processor'

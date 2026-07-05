@@ -6,6 +6,7 @@ on:
     branches: [main]
     paths:
       - 'website/**'
+      - 'package.json'
       - '.github/workflows/deploy-website.yml'
 
   # 允许手动触发

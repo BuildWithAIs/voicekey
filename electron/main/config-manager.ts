@@ -203,8 +203,9 @@ export class ConfigManager {
       const currentApiKeys = this.store.get('asr.apiKeys', { cn: '', intl: '' })
       if (!currentApiKeys.cn) {
         this.store.set('asr.apiKeys.cn', asrConfig.apiKey)
-        this.store.delete('asr.apiKey' as never)
       }
+      // Always remove the legacy plaintext key, even when apiKeys.cn already exists.
+      this.store.delete('asr.apiKey' as never)
     }
 
     if (

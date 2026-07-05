@@ -253,7 +253,8 @@
     "validation": {
       "missing": "Please set a hotkey",
       "conflict": "This hotkey is reserved by the system",
-      "multiple": "Hotkey can only include one primary key"
+      "multiple": "Hotkey can only include one primary key",
+      "modifierOnly": "Hotkey must include a non-modifier key"
     },
     "toast": {
       "loadFailed": "Failed to load settings",
@@ -306,6 +307,7 @@
     "emptyDescNone": "When you use voice input, the content is saved here automatically.",
     "emptyDescNoMatch": "Try searching with other keywords",
     "copySuccess": "Copied to clipboard",
+    "copyFailed": "Copy failed",
     "deleteSuccess": "Deleted",
     "deleteFailed": "Delete failed",
     "clearConfirm": "Are you sure you want to clear all history? This action cannot be undone.",

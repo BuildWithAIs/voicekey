@@ -253,7 +253,8 @@
     "validation": {
       "missing": "请设置快捷键",
       "conflict": "该快捷键被系统占用",
-      "multiple": "快捷键只能包含一个主键"
+      "multiple": "快捷键只能包含一个主键",
+      "modifierOnly": "快捷键需要包含一个非修饰键"
     },
     "toast": {
       "loadFailed": "加载设置失败",
@@ -306,6 +307,7 @@
     "emptyDescNone": "当你使用语音输入时，内容会自动保存在这里。",
     "emptyDescNoMatch": "尝试使用其他关键词搜索",
     "copySuccess": "已复制到剪贴板",
+    "copyFailed": "复制失败",
     "deleteSuccess": "已删除",
     "deleteFailed": "删除失败",
     "clearConfirm": "确定要清空所有历史记录吗？此操作不可撤销。",

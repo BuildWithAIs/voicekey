@@ -1,242 +1,164 @@
-# AGENTS.md - Voice Key Development Guide
+# Voice Key Development Guide
 
 ## Overview
 
-Voice Key is an Electron + React + TypeScript desktop application for voice-to-text transcription with text injection. This guide provides commands and conventions for agentic coding agents.
+Voice Key is an Electron + React + TypeScript desktop app for push-to-talk voice
+input, transcription, optional text refinement/translation, history, and text
+injection into the focused application.
 
-## Project Structure
+## Current Structure
 
-```
-voice-key/
-├── electron/                    # Main process (Node.js)
-│   ├── main/                   # Core business logic
-│   │   ├── README.md          # Main process documentation
-│   │   ├── main.ts            # App entry, window mgmt, IPC, PTT orchestration
-│   │   ├── hotkey-manager.ts  # Global shortcuts (globalShortcut API)
-│   │   ├── iohook-manager.ts  # Low-level keyboard hooks (uiohook-napi)
-│   │   ├── asr-provider.ts    # GLM ASR API integration
-│   │   ├── text-injector.ts   # Keyboard simulation (nut-js)
-│   │   └── config-manager.ts  # Config persistence (electron-store)
-│   ├── preload/               # IPC bridge
-│   │   ├── README.md
-│   │   └── preload.ts         # contextBridge API exposure
-│   ├── shared/                # Cross-process code
-│   │   ├── README.md
-│   │   ├── types.ts           # TypeScript types, IPC channels
-│   │   └── constants.ts       # App constants (GLM config, hotkeys)
-│   ├── README.md              # Electron overview
-│   └── electron-env.d.ts
-│
-├── src/                        # Renderer process (React)
-│   ├── components/            # React components
-│   │   ├── ui/               # shadcn/ui component library
-│   │   │   ├── README.md
-│   │   │   ├── button.tsx    # Multi-variant button
-│   │   │   ├── input.tsx     # Text input
-│   │   │   ├── card.tsx      # Card container
-│   │   │   ├── dialog.tsx    # Modal dialog
-│   │   │   ├── select.tsx    # Dropdown select
-│   │   │   └── ...           # 13+ more components
-│   │   ├── README.md
-│   │   └── AudioRecorder.tsx  # Headless audio capture (Web Audio API)
-│   ├── pages/                 # Route pages
-│   │   ├── README.md
-│   │   ├── HomePage.tsx       # Main dashboard (stats, status)
-│   │   ├── SettingsPage.tsx   # Config management UI
-│   │   └── HistoryPage.tsx    # Transcription history (MVP: empty state)
-│   ├── layouts/               # App layouts
-│   │   ├── README.md
-│   │   └── MainLayout.tsx     # Sidebar nav + content area
-│   ├── lib/                   # Utilities
-│   │   ├── README.md
-│   │   └── utils.ts           # cn() class merger
-│   ├── README.md              # Renderer overview
-│   ├── App.tsx                # Root component (hash routing)
-│   ├── main.tsx               # React entry point
-│   ├── index.css              # Global styles (Tailwind + theme vars)
-│   ├── global.d.ts            # Window.electronAPI types
-│   └── vite-env.d.ts
-│
-├── public/                     # Static assets
-│   └── voice-key-logo.svg
-│
-├── docs/                       # Architecture & planning docs
-│   ├── arch/
-│   │   └── architecture-mvp-v3.md
-│   └── mvp-plan.md
-│
-├── package.json               # Dependencies & scripts
-├── tsconfig.json              # TypeScript config
-├── vite.config.ts             # Vite build config
-├── eslint.config.js           # ESLint rules
-├── prettier.config.js         # Prettier formatting
-├── tailwind.config.ts         # Tailwind CSS config
-├── commitlint.config.ts       # Conventional Commits validation
-├── README.md                  # Project overview
-├── CLAUDE.md                  # This file (AI development guide)
-└── LICENSE                    # Elastic License 2.0
+```text
+voicekey/
+  electron/
+    main/
+      audio/          Recording session lifecycle, chunk conversion, ASR pipeline.
+      hotkey/         Hotkey parsing and push-to-talk bindings.
+      ipc/            Config, session, history, log, updater, and overlay IPC handlers.
+      notification/   System notification wrapper.
+      refine/         OpenAI-compatible text refinement and glossary cache.
+      translation/    Selected-text translation workflow.
+      tray/           Tray menu and localized labels.
+      window/         Hidden recorder, settings, and HUD windows.
+      asr-provider.ts Cloud GLM ASR plus local SenseVoice provider routing.
+      config-manager.ts electron-store config and encrypted API key migration.
+      history-manager.ts Transcript history and stats storage.
+      iohook-manager.ts Low-level keyboard hook integration.
+      local-asr-manager.ts On-demand local SenseVoice model download and sherpa runtime.
+      main.ts        App startup, services, windows, tray, IPC, and hotkeys.
+      text-injector.ts nut-js based text injection.
+      updater-manager.ts GitHub Releases update checks.
+    preload/         contextBridge API exposed to renderer windows.
+    shared/          Shared constants, types, i18n resources, and URL helpers.
+  src/
+    components/      React UI, HUD, recorder bridge, charts, logs, and hotkey widgets.
+    components/ui/   shadcn/ui primitives.
+    layouts/         Main app shell.
+    lib/             Renderer utilities, stats, logger, theme, hotkey helpers.
+    pages/           Home, Settings, and History routes.
+    App.tsx          Window-type routing for settings, HUD, and hidden recorder.
+    main.tsx         Renderer entrypoint.
+  website/           Astro static marketing site for GitHub Pages.
+  public/            Desktop app static assets.
+  build/             Installer icons and packaging assets.
 ```
 
-**Key Directories:**
+Key root config files:
 
-- `electron/main/` - Core PTT flow: keyboard hooks → recording → ASR → text injection
-- `electron/preload/` - Secure IPC bridge between main and renderer processes
-- `src/components/ui/` - shadcn/ui library (18 components)
-- `src/pages/` - Three main routes: Home, Settings, History
+- `package.json` / `package-lock.json` - root npm scripts and app dependencies.
+- `vite.config.ts` - React renderer plus Electron main/preload builds.
+- `electron-builder.json5` - packaging config.
+- `eslint.config.mjs`, `prettier.config.mjs`, `commitlint.config.js` - quality tooling.
+- `components.json` - shadcn/ui configuration.
 
-## Documentation Guidelines
+## Documentation Rules
 
-### README.md Files
+Directory `README.md` files are part of the working map for this repo.
 
-Every directory contains a `README.md` that describes its structure and contents. **These READMEs are critical for understanding the codebase.**
+When reading code:
 
-#### When Reading/Searching Code
+1. Read the target directory `README.md` before opening implementation files.
+2. Read parent READMEs if the ownership or flow is unclear.
+3. Use README file descriptions as a map, then verify against live code.
 
-**ALWAYS read the README.md first** before diving into code:
+When changing code:
 
-1. **Start at the target directory** - Open `{directory}/README.md` to understand structure
-2. **Read parent READMEs** - If context is unclear, read parent directory READMEs
-3. **Use README as a map** - File descriptions in README guide you to relevant code
+1. Update the relevant directory README when file purpose, behavior, exports, or
+   directory structure changes materially.
+2. Keep README descriptions concise and current; do not preserve historical plans.
+3. If adding a new directory, add a short README for it.
 
-**Example workflow:**
+## Delegated Coding
 
-- Need to understand ASR integration? Read `electron/main/README.md` → Find `asr-provider.ts` description
-- Looking for UI components? Read `src/components/ui/README.md` → See component categories
-- Exploring IPC? Read `electron/preload/README.md` → Understand exposed APIs
+Use the global `coding-skill` / `reclaude` workflow as a senior engineering
+partner for substantial implementation, debugging, refactoring, test-fixing,
+repository investigation, and code review when it is available and useful.
 
-#### When Writing/Modifying Code
+The current agent remains responsible for scope, technical direction, diff
+inspection, and verification:
 
-**ALWAYS update the README.md** after creating/modifying files:
-
-1. **Update immediately** - Don't defer README updates to "later"
-2. **Keep it current** - README must reflect actual current state, not historical plans
-3. **Be concise** - Use minimal words to describe purpose clearly
-4. **No fluff** - Avoid generic descriptions like "handles X", "manages Y" - be specific
-
-**What to update:**
-
-- **New file?** Add entry with concise description of its role
-- **Modified file?** Update description if purpose/behavior changed significantly
-- **Deleted file?** Remove entry from README
-- **New directory?** Create README.md with structure overview
-
-**Good descriptions:**
-
-- ✅ `asr-provider.ts` - Calls GLM ASR API using axios, handles file upload and transcription
-- ✅ `Button` - Multi-variant button (default, destructive, outline, ghost) with focus states
-
-**Bad descriptions:**
-
-- ❌ `asr-provider.ts` - Handles ASR functionality
-- ❌ `Button` - A button component
-
-## Reclaude Delegation
-
-Use the `reclaude-code` skill as an available senior engineering partner for substantial
-implementation, debugging, refactoring, test-fixing, repository investigation, and code review.
-For non-trivial coding or review work, explicitly consider whether delegating a focused slice to
-`reclaude` would improve quality or speed.
-
-When delegating, the current agent remains responsible for product and technical direction:
-
-1. Define the objective, scope, files/directories, constraints, and verification commands clearly.
-2. Prefer non-interactive `reclaude -p` usage, following the skill's current command guidance.
-3. For implementation work, avoid overlapping edits with `reclaude`; split the task by files,
-   modules, or phases so two agents are not modifying the same file at the same time.
-4. Parallelize only when the work can be cleanly separated, such as one agent investigating or
-   reviewing while the other implements in a different area.
-5. For analysis-only or code-review requests, keep the delegated task read-only unless the user has
-   asked for direct fixes.
-6. After `reclaude` returns, inspect the changed files and diffs yourself, run relevant checks, and
-   reconcile any issues before reporting completion.
+1. Define objective, scope, files/directories, constraints, and verification
+   commands clearly.
+2. Prefer non-interactive `reclaude -p` usage.
+3. Avoid overlapping edits between agents; split by files, modules, or phases.
+4. Keep read-only reviews read-only unless fixes were explicitly requested.
+5. Inspect delegate diffs and run relevant checks before reporting completion.
+6. If the delegation backend is unavailable or rate-limited, continue directly
+   rather than leaving actionable fixes incomplete.
 
 ## Commands
 
-### Development
+Development:
 
 ```bash
-npm run dev           # Start Vite dev server with hot reload
-npm run preview       # Preview production build locally
+npm run dev
+npm run preview
 ```
 
-### Building
+Build:
 
 ```bash
-npm run build         # Full production build (type-check + Vite + Electron builder)
+npm run build
 ```
 
-### Quality Assurance
+Quality:
 
 ```bash
-npm run lint          # Run ESLint on entire codebase
-npm run lint:fix      # Run ESLint with auto-fix
-npm run format        # Format all files with Prettier
-npm run format:check  # Check formatting without modifying files
-npm run type-check    # Run TypeScript compiler type checking (no emit)
-npm run quality       # Run lint + format:check + type-check (all checks)
+npm run lint
+npm run lint:fix
+npm run format
+npm run format:check
+npm run type-check
+npm run quality
 ```
 
-### Single File Commands
+Website:
 
 ```bash
-# Lint specific file/directory
+npm run website:install
+npm run website:dev
+npm run website:build
+npm run website:preview
+```
+
+Single-file examples:
+
+```bash
 npm run lint -- src/App.tsx
 npm run lint -- electron/main/
-
-# Format specific file
 npm run format -- src/App.tsx
-
-# Type-check specific file (compile, no emit)
-npm run tsc --noEmit src/App.tsx
+npm run type-check
 ```
 
-## Code Style Guidelines
+## Code Style
 
-### Formatting (Prettier)
+- Prettier: no semicolons, single quotes, trailing commas, 100-column width,
+  2-space indentation, final newline.
+- TypeScript strict mode is enabled.
+- Avoid `any`; use concrete types or `unknown`.
+- Unused parameters should be prefixed with `_`.
+- Prefer existing module boundaries and helper APIs over new abstractions.
+- Keep main-process ownership of privileged operations: filesystem, config,
+  hotkeys, ASR, refinement, translation, history, updater, and text injection.
+- Validate IPC payloads in the main process before using renderer-provided data.
 
-- **Semicolons**: No (omit)
-- **Quotes**: Single quotes (`'string'`)
-- **Trailing commas**: All (ES5 compatible)
-- **Line width**: 100 characters
-- **Indentation**: 2 spaces (no tabs)
-- **End of file**: Newline
+## UI And Styling
 
-### TypeScript
+- Follow `src/index.css` theme variables.
+- Use existing shadcn/ui primitives and local component patterns.
+- Keep settings and operational UI dense, clear, and task-focused.
+- Avoid marketing-page patterns inside the desktop app shell.
 
-- **Strict mode**: Enabled (`strict: true`)
-- **No `any`**: Use `unknown` or proper types; `any` triggers warning
-- **No unused**: `noUnusedLocals` and `noUnusedParameters` enabled
-  - Prefix unused parameters with `_`: `function foo(_unused: string) {}`
-- **Fallthrough**: No fallthrough cases in switch statements
-- **Explicit types**: Required for function parameters and return types where not obvious
+## Security And Privacy
 
-### Imports
+- Treat renderer data as untrusted at IPC boundaries.
+- Do not log API keys, transcript bodies, or raw audio contents.
+- Keep API keys in main-process config and safeStorage-backed migration paths.
+- Preserve the GitHub Releases URL allowlist for update links.
+- Local ASR model assets stay under `app.getPath('userData')`, not bundled into
+  the installer.
 
-- **Group order**: External → Internal → Relative CSS/styles
-- **Named imports**: `{ useState } from 'react'`
-- **Default imports**: `App from './App'`
-- **No duplicate imports**: Use single import for multiple symbols
-- **CSS imports**: Relative paths, e.g., `import './App.css'`
+## Windows Encoding
 
-### Git & Commits
-
-- **Commits**: Follow Conventional Commits (validated by commitlint)
-- **Husky**: Pre-commit hooks run `eslint --fix` and `prettier --write`
-- **Staged files**: Auto-fixed on commit (lint-staged)
-
-## UI & Styling Guidelines
-
-- **Theme**: Adhere strictly to `src/index.css` theme variables.
-- **Library**: Use `shadcn/ui` components for all UI elements.
-- **Aesthetic**: Maintain a clean, minimal, and professional design.
-
-## System Environment & Encoding
-
-> [!IMPORTANT]
-> **Windows Chinese Character Encoding**
->
-> To prevent garbled text (Mojibake) on Windows:
->
-> 1. **Force UTF-8**: Always use UTF-8 for files and I/O.
-> 2. **Console Output**: Ensure terminals/logs correctly display Chinese characters (avoid GBK mismatches).
-> 3. **Paths**: Verify file operations with Chinese paths.
+Use UTF-8 for files and I/O. PowerShell may display Chinese text as mojibake;
+verify with UTF-8-aware reads before concluding file content is corrupt.

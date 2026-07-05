@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 
 const MAC_SYMBOLS: Record<string, string> = {
@@ -5,7 +6,7 @@ const MAC_SYMBOLS: Record<string, string> = {
   Control: '⌃',
   Alt: '⌥',
   Shift: '⇧',
-  Space: '空格',
+  Space: '␣',
   Enter: '↵',
   Escape: 'Esc',
 }
@@ -27,12 +28,13 @@ interface HotkeyKeysProps {
 
 /** 把 Electron Accelerator 字符串渲染成一组实体键帽。 */
 export function HotkeyKeys({ value, className }: HotkeyKeysProps) {
+  const { t } = useTranslation()
   const isMac = window.electronAPI?.platform === 'darwin'
   const symbols = isMac ? MAC_SYMBOLS : WIN_SYMBOLS
   const parts = (value || '').split('+').filter(Boolean)
 
   if (parts.length === 0) {
-    return <span className="text-muted-foreground text-xs">未设置</span>
+    return <span className="text-muted-foreground text-xs">{t('hotkey.notSet')}</span>
   }
 
   return (

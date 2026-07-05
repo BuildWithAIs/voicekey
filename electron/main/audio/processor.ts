@@ -105,6 +105,17 @@ async function processChunk(
     return
   }
 
+  // Empty chunks are placeholder markers from the renderer (e.g. recorder
+  // produced no data before a final stop); record an empty transcript so the
+  // session can still finalize instead of waiting forever.
+  if (payload.buffer.byteLength === 0) {
+    console.warn(
+      `[Audio:Processor] Chunk ${payload.chunkIndex} for ${payload.sessionId} is empty, recording empty transcript`,
+    )
+    sessionState.resultsByIndex.set(payload.chunkIndex, '')
+    return
+  }
+
   const timestamp = Date.now()
   const inputExtension = resolveAudioExtension(payload.mimeType)
   const tempInputPath = path.join(
@@ -209,6 +220,15 @@ async function finalizeSessionIfReady(sessionState: ChunkSessionState): Promise<
   }
 
   const rawText = mergeTranscriptSegments(orderedTexts)
+
+  if (rawText.trim().length === 0) {
+    console.warn('[Audio:Processor] Final transcript is empty, skipping refine/history/injection')
+    updateSession({ transcription: '', status: 'completed' })
+    hideOverlay()
+    clearSession()
+    return
+  }
+
   let finalText = rawText
 
   const refineService = deps.getRefineService?.() ?? null
@@ -270,6 +290,23 @@ async function finalizeSessionIfReady(sessionState: ChunkSessionState): Promise<
   updateOverlay({ status: 'success' })
   setTimeout(() => hideOverlay(), 800)
   clearSession()
+}
+
+export function hasReceivedFinalChunk(sessionId: string): boolean {
+  return chunkSessions.get(sessionId)?.finalChunkSeen ?? false
+}
+
+// Marks a session's chunk state as failed so in-flight chunk work is discarded,
+// cleans up temp files, and releases the state once nothing is pending.
+export function abortChunkSession(sessionId: string): void {
+  const sessionState = chunkSessions.get(sessionId)
+  if (!sessionState) return
+
+  sessionState.failed = true
+  cleanupAllSessionTempFiles(sessionState)
+  if (sessionState.pendingCount === 0) {
+    chunkSessions.delete(sessionId)
+  }
 }
 
 function failSession(sessionId: string, sessionState: ChunkSessionState, error: unknown): void {

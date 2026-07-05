@@ -13,7 +13,8 @@ Electron 主进程目录，负责窗口管理、IPC、录音编排、ASR/润色�
 - `hotkey-manager.ts` - Electron `globalShortcut` 管理。
 - `iohook-manager.ts` - `uiohook-napi` 键盘监听。
 - `asr-provider.ts` - ASR Provider 入口，按配置调用 GLM API 或本地 SenseVoiceSmall int8。
-- `local-asr-manager.ts` - 本地 SenseVoiceSmall int8 ONNX 模型状态检测、按需下载、SHA-256 校验与 `sherpa-onnx` 进程内中文识别（显式 `zh`）。
+- `local-asr-manager.ts` - 本地 SenseVoiceSmall int8 ONNX 模型状态检测、按需下载（含 30s 空闲超时与流错误清理）、SHA-256 校验与 `sherpa-onnx` worker 线程中文识别（显式 `zh`）。
+- `local-asr-worker.ts` - Worker 线程内创建并缓存 `sherpa-onnx` recognizer，执行模型校验与本地 WAV 转写，避免阻塞主进程。
 - `refine/` - 文本润色模块，使用 OpenAI-compatible Chat Completions 做后处理、动态 prompt 组装、远程术语表缓存刷新与连接校验。
 - `translation/` - 文本翻译模块，通过快捷键复制选中文本 → LLM API 翻译 → 粘贴替换，复用润色 API 配置。
 - `text-injector.ts` - 基于 `@nut-tree-fork/nut-js` 的文本注入，优先保证多行文本的换行保真。

@@ -49,6 +49,11 @@ export type ConfigHandlersDeps = {
 
 let deps: ConfigHandlersDeps
 
+// IPC 载荷可能来自被破坏的渲染进程，先做廉价的形状校验
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+}
+
 /**
  * 初始化配置处理器依赖
  * 必须在 registerConfigHandlers 之前调用
@@ -84,24 +89,29 @@ export function registerConfigHandlers(): void {
         translation?: Partial<TranslationConfig>
       },
     ) => {
+      if (!isPlainObject(config)) {
+        console.error('[IPC:Config] Ignoring malformed CONFIG_SET payload')
+        return
+      }
+
       let shouldReregisterHotkeys = false
 
-      if (config.app) {
+      if (isPlainObject(config.app)) {
         configManager.setAppConfig(config.app)
         if (typeof config.app.autoLaunch === 'boolean') {
           deps.updateAutoLaunchState(config.app.autoLaunch)
         }
-        if (config.app.language) {
+        if (typeof config.app.language === 'string' && config.app.language) {
           await setMainLanguage(config.app.language)
           broadcastLanguageSnapshot()
         }
         deps.refreshLocalizedUi()
       }
-      if (config.asr) {
+      if (isPlainObject(config.asr)) {
         configManager.setASRConfig(config.asr)
         deps.initializeASRProvider()
       }
-      if (config.llmRefine) {
+      if (isPlainObject(config.llmRefine)) {
         const previousRefineConfig = configManager.getLLMRefineConfig()
         configManager.setLLMRefineConfig(config.llmRefine)
         const nextRefineConfig = configManager.getLLMRefineConfig()
@@ -110,11 +120,11 @@ export function registerConfigHandlers(): void {
           void refineService?.refreshRemoteGlossary()
         }
       }
-      if (config.hotkey) {
+      if (isPlainObject(config.hotkey)) {
         configManager.setHotkeyConfig(config.hotkey)
         shouldReregisterHotkeys = true
       }
-      if (config.translation) {
+      if (isPlainObject(config.translation)) {
         const previousTranslationConfig = configManager.getTranslationConfig()
         configManager.setTranslationConfig(config.translation)
         const nextTranslationConfig = configManager.getTranslationConfig()
@@ -135,6 +145,9 @@ export function registerConfigHandlers(): void {
 
   // CONFIG_TEST: 校验 ASR 连接
   ipcMain.handle(IPC_CHANNELS.CONFIG_TEST, async (_event, config?: ASRConfig) => {
+    if (config !== undefined && !isPlainObject(config)) {
+      return false
+    }
     if (config) {
       const tempProvider = new ASRProvider(config)
       return await tempProvider.testConnection()
@@ -155,7 +168,7 @@ export function registerConfigHandlers(): void {
       }
     }
 
-    if (!config) {
+    if (!isPlainObject(config)) {
       return {
         ok: false,
         message: 'Text refinement config is required',

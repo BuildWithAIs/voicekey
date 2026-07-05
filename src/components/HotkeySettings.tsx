@@ -66,7 +66,8 @@ export function HotkeySettings({
     key: 'pttKey' | 'toggleSettings' | 'translateKey',
     nextValue: string,
   ) => {
-    const validation = validateHotkey(nextValue)
+    // PTT 按住说话支持单修饰键；其他快捷键必须包含主键
+    const validation = validateHotkey(nextValue, { allowModifierOnly: key === 'pttKey' })
 
     if (!validation.valid) {
       const message = getValidationMessage(validation.messageKey)
@@ -190,6 +191,7 @@ export function HotkeySettings({
               description={t('hotkey.pttHint')}
               hasError={!!errors.pttKey}
               errorMessage={errors.pttKey}
+              allowModifierOnly
             />
           )}
         </div>

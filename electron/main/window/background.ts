@@ -9,6 +9,29 @@ import path from 'node:path'
 import { VITE_DEV_SERVER_URL, getMainDist, getRendererDist } from '../env'
 
 let backgroundWindow: BrowserWindow | null = null
+let crashHandler: (() => void) | null = null
+let reloadTimer: ReturnType<typeof setTimeout> | null = null
+
+/**
+ * 注册后台渲染进程崩溃/无响应时的回调（用于中止进行中的录音会话）
+ */
+export function setBackgroundWindowCrashHandler(handler: () => void): void {
+  crashHandler = handler
+}
+
+/**
+ * 渲染进程崩溃后延迟重载页面，恢复录音能力
+ */
+function scheduleBackgroundWindowReload(): void {
+  if (reloadTimer) return
+  reloadTimer = setTimeout(() => {
+    reloadTimer = null
+    if (backgroundWindow && !backgroundWindow.isDestroyed()) {
+      console.log('[Window] Reloading backgroundWindow after renderer crash')
+      backgroundWindow.webContents.reload()
+    }
+  }, 1000)
+}
 
 /**
  * 创建后台录音窗口（隐藏）
@@ -53,6 +76,24 @@ export function createBackgroundWindow(): BrowserWindow {
   // 监听页面加载失败
   backgroundWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription) => {
     console.error('[Window] backgroundWindow failed to load:', errorCode, errorDescription)
+  })
+
+  // 渲染进程异常退出：中止会话并重载页面恢复录音能力
+  backgroundWindow.webContents.on('render-process-gone', (_event, details) => {
+    if (details.reason === 'clean-exit') return
+    console.error('[Window] backgroundWindow render process gone:', details.reason)
+    crashHandler?.()
+    scheduleBackgroundWindowReload()
+  })
+
+  // 渲染进程无响应：中止会话，避免 HUD 卡死
+  backgroundWindow.on('unresponsive', () => {
+    console.error('[Window] backgroundWindow became unresponsive')
+    crashHandler?.()
+  })
+
+  backgroundWindow.on('responsive', () => {
+    console.log('[Window] backgroundWindow became responsive again')
   })
 
   // 窗口关闭时清理引用

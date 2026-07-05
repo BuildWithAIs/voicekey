@@ -5,6 +5,7 @@
 import { Image } from 'astro:assets'
 import BaseLayout from '@layouts/BaseLayout.astro'
 import logoImage from '../../assets/logo.png'
+import rootPackage from '../../../../package.json'
 import {
   Download,
   Github,
@@ -21,6 +22,8 @@ import ThemeToggle from '@components/ThemeToggle.astro'
 
 const title = 'Voice Key - 语音转文字，一键输入'
 const description = '按住热键说话，松手即输入到任意应用。Voice Key 是一款跨平台应用（支持 macOS 与 Windows），专注于快速语音转文字转换。'
+
+const latestVersion = `v${rootPackage.version}`
 
 // Feature data
 const features = [
@@ -86,7 +89,7 @@ const features = [
           <span class="relative inline-flex rounded-full h-2 w-2 bg-primary"
           ></span>
         </span>
-        <span class="latest-version-text">v0.1.6</span>
+        <span class="latest-version-text">{latestVersion}</span>
         <span class="w-px h-3 bg-border mx-1"></span>
         <span class="text-foreground">Stable Build</span>
       </div>

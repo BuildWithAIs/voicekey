@@ -218,9 +218,14 @@ export default function HistoryPage() {
   )
 
   const copyToClipboard = React.useCallback(
-    (text: string) => {
-      navigator.clipboard.writeText(text)
-      toast.success(t('history.copySuccess'))
+    async (text: string) => {
+      try {
+        await navigator.clipboard.writeText(text)
+        toast.success(t('history.copySuccess'))
+      } catch (error) {
+        console.error('Failed to copy history text:', error)
+        toast.error(t('history.copyFailed'))
+      }
     },
     [t],
   )

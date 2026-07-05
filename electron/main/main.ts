@@ -31,6 +31,7 @@ import { showNotification } from './notification'
 // 窗口模块
 import {
   createBackgroundWindow,
+  setBackgroundWindowCrashHandler,
   // Settings 模块
   createSettingsWindow,
   getSettingsWindow,
@@ -46,6 +47,7 @@ import {
   handleStopRecording,
   handleAudioChunk,
   handleCancelSession,
+  handleBackgroundRendererGone,
   getCurrentSession,
   setSessionError,
   // Processor
@@ -168,7 +170,8 @@ app.whenReady().then(async () => {
   initializeASRProvider()
   initializeRefineService()
   refreshRemoteGlossaryIfEnabled()
-  // 创建后台窗口
+  // 创建后台窗口（渲染进程崩溃/无响应时中止进行中的录音会话）
+  setBackgroundWindowCrashHandler(handleBackgroundRendererGone)
   createBackgroundWindow()
   // 创建托盘
   createTray()
@@ -222,8 +225,13 @@ app.whenReady().then(async () => {
   // 设置 Dock 图标和应用名称（macOS）
   if (process.platform === 'darwin') {
     app.setName(t('app.name'))
-    const dockIconPath = path.join(process.env.VITE_PUBLIC, 'voice-key-dock-icon.png')
-    app.dock.setIcon(nativeImage.createFromPath(dockIconPath))
+    const dockIconPath = path.join(process.env.VITE_PUBLIC, 'voice-key-icon-1024-v3.png')
+    const dockIcon = nativeImage.createFromPath(dockIconPath)
+    if (!dockIcon.isEmpty()) {
+      app.dock?.setIcon(dockIcon)
+    } else {
+      console.warn('[Main] Dock icon not found, keeping default:', dockIconPath)
+    }
   }
 
   // 启动时窗口策略：

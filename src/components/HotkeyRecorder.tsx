@@ -25,6 +25,8 @@ interface HotkeyRecorderProps {
   hasError?: boolean
   /** 错误信息 */
   errorMessage?: string
+  /** 是否允许单修饰键（仅 PTT 按住说话支持，如单独的 Alt） */
+  allowModifierOnly?: boolean
 }
 
 export function HotkeyRecorder({
@@ -35,6 +37,7 @@ export function HotkeyRecorder({
   disabled = false,
   hasError = false,
   errorMessage,
+  allowModifierOnly = false,
 }: HotkeyRecorderProps) {
   const { t } = useTranslation()
   const [isRecording, setIsRecording] = useState(false)
@@ -70,6 +73,16 @@ export function HotkeyRecorder({
 
       if (isModifierOnly(e.key)) {
         if (pressedKeysRef.current.size === 1 && !hasNonModifierKey(pressedKeysRef.current)) {
+          if (!allowModifierOnly) {
+            toast.error(t('hotkey.toast.invalid'), {
+              description: t('hotkey.validation.modifierOnly'),
+            })
+            setIsRecording(false)
+            pressedKeysRef.current.clear()
+            setPressedKeys(new Set())
+            return
+          }
+
           const accelerator = normalizeKey(e)
           if (accelerator) {
             onChange(accelerator)
@@ -132,7 +145,7 @@ export function HotkeyRecorder({
       window.removeEventListener('mousedown', handleClickOutside)
       window.removeEventListener('blur', handleBlur)
     }
-  }, [disabled, isRecording, onChange, t])
+  }, [allowModifierOnly, disabled, isRecording, onChange, t])
 
   const startRecording = useCallback(() => {
     if (!disabled) {

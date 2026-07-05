@@ -4,8 +4,9 @@ import { createHash } from 'node:crypto'
 import type { IncomingMessage } from 'node:http'
 import https from 'node:https'
 import { createRequire } from 'node:module'
-import { cpus } from 'node:os'
 import path from 'node:path'
+import { fileURLToPath, pathToFileURL } from 'node:url'
+import { Worker } from 'node:worker_threads'
 import { AUDIO_CONFIG, LOCAL_ASR } from '../shared/constants'
 import type { LocalASRDownloadProgress, LocalASRStatus } from '../shared/types'
 
@@ -20,44 +21,32 @@ type LocalASRPaths = {
 
 type ProgressCallback = (progress: LocalASRDownloadProgress) => void
 type LocalASRRunResult = { stdout: string; stderr: string }
-
-type SherpaWave = {
-  samples: Float32Array
-  sampleRate: number
-}
-
-type SherpaResult = {
-  text?: string
-  timestamps?: number[]
-  tokens?: string[]
-}
-
-type SherpaStream = {
-  acceptWaveform(sampleRate: number, samples: Float32Array): void
-  free(): void
-}
-
-type SherpaRecognizer = {
-  createStream(): SherpaStream
-  decode(stream: SherpaStream): void
-  getResult(stream: SherpaStream): SherpaResult
-  free(): void
-}
-
-type SherpaOnnx = {
-  readWave(filePath: string): SherpaWave
-  createOfflineRecognizer(config: unknown): SherpaRecognizer
+type WorkerCommandInput =
+  | { command: 'transcribe'; audioFilePath: string; modelDir: string }
+  | { command: 'verify'; modelDir: string }
+  | { command: 'release' }
+type WorkerCommand = WorkerCommandInput & { id: number }
+type WorkerResponse =
+  | { id: number; ok: true; result?: LocalASRRunResult }
+  | { id: number; ok: false; error: string }
+type WorkerRequest = {
+  resolve: (value: LocalASRRunResult | void) => void
+  reject: (error: Error) => void
 }
 
 const nodeRequire = createRequire(import.meta.url)
 
+// Abort a model download when the socket stays idle this long, so a dead
+// connection cannot leave `activeDownload` pending forever.
+const DOWNLOAD_IDLE_TIMEOUT_MS = 30_000
+
 let activeDownload: Promise<LocalASRStatus> | null = null
 let currentProgress: LocalASRDownloadProgress | undefined
 let lastError: string | undefined
-let cachedSherpa: SherpaOnnx | null = null
-let cachedRecognizer: SherpaRecognizer | null = null
-let cachedRecognizerModelDir: string | null = null
 let recognitionQueue: Promise<void> = Promise.resolve()
+let localASRWorker: Worker | null = null
+let nextWorkerRequestId = 1
+const workerRequests = new Map<number, WorkerRequest>()
 
 export function getLocalASRStatus(): LocalASRStatus {
   const paths = getLocalASRPaths()
@@ -91,18 +80,17 @@ export function ensureLocalASRReady(): LocalASRPaths {
 
 export async function runLocalASR(audioFilePath: string): Promise<LocalASRRunResult> {
   const run = async (): Promise<LocalASRRunResult> => {
-    const sherpaLoadError = getSherpaLoadError()
-    if (sherpaLoadError) {
-      throw new Error(sherpaLoadError)
-    }
-
     const paths = ensureLocalASRReady()
     const modelDir = getReadyModelDir(paths)
     if (!modelDir) {
       throw new Error('Local ASR model is not downloaded yet')
     }
 
-    return transcribeWithSherpa(audioFilePath, modelDir)
+    return callLocalASRWorker<LocalASRRunResult>({
+      command: 'transcribe',
+      audioFilePath,
+      modelDir,
+    })
   }
 
   const nextRun = recognitionQueue.then(run, run)
@@ -131,11 +119,6 @@ export async function downloadLocalASRAssets(
 async function downloadLocalASRAssetsInternal(
   onProgress?: ProgressCallback,
 ): Promise<LocalASRStatus> {
-  const sherpaLoadError = getSherpaLoadError()
-  if (sherpaLoadError) {
-    throw new Error(sherpaLoadError)
-  }
-
   const paths = getLocalASRPaths()
   const readyModelDir = getReadyModelDir(paths)
   if (readyModelDir) {
@@ -147,7 +130,7 @@ async function downloadLocalASRAssetsInternal(
   let downloadedBytes = 0
 
   try {
-    releaseCachedRecognizer()
+    await terminateLocalASRWorker()
     fs.rmSync(stagingDir, { recursive: true, force: true })
     fs.mkdirSync(stagingDir, { recursive: true })
 
@@ -160,7 +143,7 @@ async function downloadLocalASRAssetsInternal(
       )
     }
 
-    verifyLocalASRModel(stagingDir)
+    await verifyLocalASRModel(stagingDir)
     writeModelManifest(path.join(stagingDir, 'model.json'))
 
     fs.rmSync(paths.modelDir, { recursive: true, force: true })
@@ -277,87 +260,101 @@ function getModelFile(name: string): ModelFile {
   return file
 }
 
-function getSherpaLoadError(): string | undefined {
-  try {
-    sherpa()
-    return undefined
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'sherpa-onnx failed to load'
-    return `Local ASR runtime failed to load: ${message}`
-  }
+async function verifyLocalASRModel(modelDir: string): Promise<void> {
+  await callLocalASRWorker<void>({ command: 'verify', modelDir })
 }
 
-function sherpa(): SherpaOnnx {
-  if (!cachedSherpa) {
-    cachedSherpa = nodeRequire('sherpa-onnx') as SherpaOnnx
-  }
-  return cachedSherpa
-}
+function getLocalASRWorker(): Worker {
+  if (localASRWorker) return localASRWorker
 
-function recognizerThreadCount(): number {
-  return Math.max(1, Math.min(4, Math.floor(cpus().length / 2) || 1))
-}
-
-function createRecognizer(modelDir: string): SherpaRecognizer {
-  return sherpa().createOfflineRecognizer({
-    featConfig: { sampleRate: AUDIO_CONFIG.SAMPLE_RATE, featureDim: 80 },
-    modelConfig: {
-      senseVoice: {
-        model: path.join(modelDir, LOCAL_ASR.MODEL_FILE),
-        language: LOCAL_ASR.LANGUAGE,
-        useInverseTextNormalization: 1,
+  const worker = new Worker(getLocalASRWorkerUrl(), {
+    workerData: {
+      sherpaModulePath: nodeRequire.resolve('sherpa-onnx'),
+      audioConfig: {
+        sampleRate: AUDIO_CONFIG.SAMPLE_RATE,
       },
-      tokens: path.join(modelDir, LOCAL_ASR.TOKENS_FILE),
-      numThreads: recognizerThreadCount(),
-      provider: 'cpu',
-      debug: 0,
+      localASR: {
+        modelFile: LOCAL_ASR.MODEL_FILE,
+        tokensFile: LOCAL_ASR.TOKENS_FILE,
+        language: LOCAL_ASR.LANGUAGE,
+      },
     },
+  })
+
+  localASRWorker = worker
+
+  worker.on('message', (response: WorkerResponse) => {
+    const request = workerRequests.get(response.id)
+    if (!request) return
+    workerRequests.delete(response.id)
+
+    if (response.ok) {
+      request.resolve(response.result)
+      return
+    }
+
+    request.reject(new Error(response.error))
+  })
+
+  worker.on('error', (error) => {
+    rejectAllWorkerRequests(error instanceof Error ? error : new Error('Local ASR worker failed'))
+    if (localASRWorker === worker) {
+      localASRWorker = null
+    }
+  })
+
+  worker.on('exit', (code) => {
+    if (localASRWorker === worker) {
+      localASRWorker = null
+    }
+    if (code !== 0) {
+      rejectAllWorkerRequests(new Error(`Local ASR worker exited with code ${code}`))
+    }
+  })
+
+  return worker
+}
+
+function getLocalASRWorkerUrl(): URL {
+  const currentFilePath = fileURLToPath(import.meta.url)
+  return pathToFileURL(path.join(path.dirname(currentFilePath), 'local-asr-worker.mjs'))
+}
+
+function callLocalASRWorker<T extends LocalASRRunResult | void>(
+  command: WorkerCommandInput,
+): Promise<T> {
+  const worker = getLocalASRWorker()
+  const id = nextWorkerRequestId++
+
+  return new Promise<T>((resolve, reject) => {
+    workerRequests.set(id, {
+      resolve: resolve as (value: LocalASRRunResult | void) => void,
+      reject,
+    })
+
+    try {
+      worker.postMessage({ ...command, id } satisfies WorkerCommand)
+    } catch (error) {
+      workerRequests.delete(id)
+      reject(error instanceof Error ? error : new Error('Failed to post local ASR worker request'))
+    }
   })
 }
 
-function getCachedRecognizer(modelDir: string): SherpaRecognizer {
-  if (!cachedRecognizer || cachedRecognizerModelDir !== modelDir) {
-    releaseCachedRecognizer()
-    cachedRecognizer = createRecognizer(modelDir)
-    cachedRecognizerModelDir = modelDir
-  }
+async function terminateLocalASRWorker(): Promise<void> {
+  const worker = localASRWorker
+  if (!worker) return
 
-  return cachedRecognizer
+  localASRWorker = null
+  rejectAllWorkerRequests(new Error('Local ASR worker was restarted'))
+  await worker.terminate()
 }
 
-function releaseCachedRecognizer(): void {
-  cachedRecognizer?.free()
-  cachedRecognizer = null
-  cachedRecognizerModelDir = null
-}
-
-function verifyLocalASRModel(modelDir: string): void {
-  const recognizer = createRecognizer(modelDir)
-  recognizer.free()
-}
-
-function transcribeWithSherpa(audioFilePath: string, modelDir: string): LocalASRRunResult {
-  const wave = sherpa().readWave(audioFilePath)
-  if (!(wave.samples instanceof Float32Array) || wave.samples.length === 0) {
-    return { stdout: '', stderr: 'Local ASR input audio contains no samples' }
+function rejectAllWorkerRequests(error: Error): void {
+  for (const request of workerRequests.values()) {
+    request.reject(error)
   }
-
-  if (wave.sampleRate !== AUDIO_CONFIG.SAMPLE_RATE) {
-    throw new Error(
-      `Local ASR expected ${AUDIO_CONFIG.SAMPLE_RATE}Hz WAV input but received ${wave.sampleRate}Hz`,
-    )
-  }
-
-  const recognizer = getCachedRecognizer(modelDir)
-  const stream = recognizer.createStream()
-  try {
-    stream.acceptWaveform(wave.sampleRate, wave.samples)
-    recognizer.decode(stream)
-    const result = recognizer.getResult(stream)
-    return { stdout: result.text ?? '', stderr: '' }
-  } finally {
-    stream.free()
-  }
+  workerRequests.clear()
 }
 
 function writeModelManifest(manifestPath: string): void {
@@ -446,12 +443,28 @@ function requestDownload(
       return
     }
 
+    let fileStream: fs.WriteStream | null = null
+
+    const failWithCleanup = (error: Error) => {
+      if (fileStream) {
+        fileStream.destroy()
+        fileStream = null
+      }
+      try {
+        fs.rmSync(outputPath, { force: true })
+      } catch {
+        // Staging dir cleanup in the caller removes leftovers.
+      }
+      reject(error)
+    }
+
     const request = https.get(
       parsedUrl,
       {
         headers: {
           'User-Agent': 'VoiceKey',
         },
+        timeout: DOWNLOAD_IDLE_TIMEOUT_MS,
       },
       (response: IncomingMessage) => {
         const statusCode = response.statusCode ?? 0
@@ -474,6 +487,7 @@ function requestDownload(
 
         let receivedBytes = 0
         const file = fs.createWriteStream(outputPath)
+        fileStream = file
 
         response.on('data', (chunk: Buffer) => {
           receivedBytes += chunk.length
@@ -493,20 +507,33 @@ function requestDownload(
           onProgress?.(currentProgress)
         })
 
+        // Without this, a mid-transfer stream error leaves the promise pending
+        // forever ('finish' never fires and pipe() does not forward errors).
+        response.on('error', (error) => {
+          failWithCleanup(new Error(`Download stream failed: ${error.message}`))
+        })
+
         response.pipe(file)
         file.on('finish', () => {
+          fileStream = null
           file.close(() => resolve())
         })
         file.on('error', (error) => {
-          fs.rmSync(outputPath, { force: true })
-          reject(error)
+          failWithCleanup(error)
         })
       },
     )
 
+    request.on('timeout', () => {
+      request.destroy(
+        new Error(
+          `Download timed out after ${DOWNLOAD_IDLE_TIMEOUT_MS / 1000}s without receiving data`,
+        ),
+      )
+    })
+
     request.on('error', (error) => {
-      fs.rmSync(outputPath, { force: true })
-      reject(error)
+      failWithCleanup(error)
     })
   })
 }
