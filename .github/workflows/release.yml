@@ -49,6 +49,7 @@ jobs:
             libx11-dev \
             libxtst-dev \
             libxt-dev \
+            libxrandr-dev \
             libxinerama-dev \
             libx11-xcb-dev \
             libxkbcommon-dev \
