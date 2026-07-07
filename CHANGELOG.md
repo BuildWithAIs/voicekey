@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.18](https://github.com/BuildWithAIs/voicekey/compare/v0.1.17...v0.1.18) (2026-07-07)
+
+### Bug Fixes
+
+- add xrandr headers for uiohook ci builds ([6e6a5e5](https://github.com/BuildWithAIs/voicekey/commit/6e6a5e5b31bde3ce1e801ba4001cc3a10e0ea623))
+- harden recording pipeline and builds ([ce6f379](https://github.com/BuildWithAIs/voicekey/commit/ce6f379d5a03eeafa6c4cc46627e0cededb72cf3))
+- install linux deps for uiohook ci builds ([f1eb7e7](https://github.com/BuildWithAIs/voicekey/commit/f1eb7e701756d4c69ffad262eb29d7392c321d06))
+- stabilize local asr and settings window startup ([d6edf9d](https://github.com/BuildWithAIs/voicekey/commit/d6edf9dc95cff3892dac83fb5bc3d967d81f7a61))
+
 ### [0.1.17](https://github.com/BuildWithAIs/voicekey/compare/v0.1.16...v0.1.17) (2026-06-27)
 
 ### Features
