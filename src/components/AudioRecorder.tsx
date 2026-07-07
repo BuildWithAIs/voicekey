@@ -24,6 +24,40 @@ export function AudioRecorder() {
   const isRecordingRef = useRef(false)
   const isSessionEndingRef = useRef(false)
 
+  const summarizeMediaError = (error: unknown) => {
+    if (error instanceof DOMException) {
+      return `${error.name}: ${error.message}`
+    }
+    if (error instanceof Error) {
+      return error.message
+    }
+    return String(error)
+  }
+
+  const getAudioStream = async (deviceId?: string) => {
+    const normalizedDeviceId = typeof deviceId === 'string' ? deviceId.trim() : ''
+    if (!normalizedDeviceId) {
+      return await navigator.mediaDevices.getUserMedia({ audio: true })
+    }
+
+    try {
+      return await navigator.mediaDevices.getUserMedia({
+        audio: {
+          deviceId: { exact: normalizedDeviceId },
+        },
+      })
+    } catch (error) {
+      console.warn(
+        `[Renderer] Selected microphone unavailable, falling back to system default: ${summarizeMediaError(error)}`,
+      )
+      return await navigator.mediaDevices.getUserMedia({ audio: true })
+    }
+  }
+
+  const hasLiveAudioTrack = () => {
+    return streamRef.current?.getAudioTracks().some((track) => track.readyState === 'live') ?? false
+  }
+
   const clearChunkTimer = () => {
     if (chunkTimerRef.current) {
       clearTimeout(chunkTimerRef.current)
@@ -53,7 +87,10 @@ export function AudioRecorder() {
     }
 
     if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop())
+      streamRef.current.getTracks().forEach((track) => {
+        track.onended = null
+        track.stop()
+      })
       streamRef.current = null
     }
 
@@ -96,12 +133,22 @@ export function AudioRecorder() {
   const handleRecorderStop = async () => {
     const sessionId = currentSessionIdRef.current
     const mimeType = currentMimeTypeRef.current
+    const audioStreamEnded = Boolean(streamRef.current && !hasLiveAudioTrack())
     const stopMeta = stopMetaRef.current ?? {
       chunkIndex: currentChunkIndexRef.current,
-      isFinal: isSessionEndingRef.current,
-      rotateAfterStop: !isSessionEndingRef.current,
+      isFinal: isSessionEndingRef.current || audioStreamEnded,
+      rotateAfterStop: !isSessionEndingRef.current && !audioStreamEnded,
     }
     stopMetaRef.current = null
+
+    if (audioStreamEnded) {
+      stopMeta.isFinal = true
+      stopMeta.rotateAfterStop = false
+      isSessionEndingRef.current = true
+      if (sessionId) {
+        await window.electronAPI.stopSession()
+      }
+    }
 
     const blob = new Blob(chunksRef.current, { type: mimeType })
     chunksRef.current = []
@@ -186,6 +233,18 @@ export function AudioRecorder() {
   const startChunkRecorder = () => {
     const stream = streamRef.current
     if (!stream) return
+    if (!hasLiveAudioTrack()) {
+      const sessionId = currentSessionIdRef.current
+      const chunkIndex = currentChunkIndexRef.current
+      void (async () => {
+        await window.electronAPI.stopSession()
+        if (sessionId) {
+          sendEmptyChunkMarker(sessionId, chunkIndex, true)
+        }
+        releaseResources()
+      })()
+      return
+    }
 
     const mediaRecorder = new MediaRecorder(stream, { mimeType: currentMimeTypeRef.current })
     mediaRecorderRef.current = mediaRecorder
@@ -226,7 +285,7 @@ export function AudioRecorder() {
       isRecordingRef.current = true
       isSessionEndingRef.current = false
 
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const stream = await getAudioStream(payload.microphoneDeviceId)
 
       // SESSION_STOP may have arrived while getUserMedia was pending (the final
       // marker was already sent by requestRecorderStop); drop the stream instead
@@ -236,6 +295,20 @@ export function AudioRecorder() {
         stream.getTracks().forEach((track) => track.stop())
         return
       }
+
+      stream.getAudioTracks().forEach((track) => {
+        track.onended = () => {
+          if (isSessionEndingRef.current || currentSessionIdRef.current !== payload.sessionId)
+            return
+          console.warn('[Renderer] Microphone stream ended during recording')
+          requestRecorderStop({
+            chunkIndex: currentChunkIndexRef.current,
+            isFinal: true,
+            rotateAfterStop: false,
+          })
+          void window.electronAPI.stopSession()
+        }
+      })
 
       streamRef.current = stream
 

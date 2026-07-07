@@ -1,5 +1,12 @@
 # main/
 
+## Microphone Selection
+
+The selected microphone is stored by `config-manager.ts` as part of ASR config.
+`audio/session-manager.ts` reads that value when a recording session starts and
+forwards the device ID to the hidden recording renderer. An empty value keeps the
+existing system-default microphone behavior.
+
 Electron 主进程目录，负责窗口管理、IPC、录音编排、ASR/润色调用与文本注入。
 
 ## 文件列表

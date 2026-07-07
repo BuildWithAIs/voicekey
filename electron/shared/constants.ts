@@ -320,6 +320,12 @@ export const AUDIO_CONFIG = {
   BIT_DEPTH: 16,
 } as const
 
+export const MICROPHONE_INPUT = {
+  SYSTEM_DEFAULT_ID: '__system-default__',
+  DEVICE_ID_MAX_LENGTH: 256,
+  DEVICE_LABEL_MAX_LENGTH: 128,
+} as const
+
 export const LOW_VOLUME_GAIN_DB = 10
 
 export const HISTORY_RETENTION_DAYS = 90

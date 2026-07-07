@@ -20,6 +20,8 @@ export interface ASRConfig {
     intl: string
   }
   lowVolumeMode?: boolean
+  microphoneDeviceId?: string
+  microphoneDeviceLabel?: string
 
   // Deprecated: for backward compatibility during migration
   apiKey?: string
@@ -125,6 +127,7 @@ export interface RefineConnectionResult {
 
 export interface RecordingStartPayload {
   sessionId: string
+  microphoneDeviceId?: string
 }
 
 export interface AudioChunkPayload {

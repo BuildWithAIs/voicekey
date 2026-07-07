@@ -10,7 +10,7 @@ import {
   TranslationConfig,
 } from '../shared/types'
 import { normalizeRefineBaseUrl } from '../shared/refine-url'
-import { DEFAULT_HOTKEYS, LLM_REFINE, TRANSLATION } from '../shared/constants'
+import { DEFAULT_HOTKEYS, LLM_REFINE, MICROPHONE_INPUT, TRANSLATION } from '../shared/constants'
 
 const ENCRYPTED_PREFIX = 'enc:'
 
@@ -69,6 +69,8 @@ const defaultConfig: AppConfig = {
       intl: '',
     },
     lowVolumeMode: true,
+    microphoneDeviceId: '',
+    microphoneDeviceLabel: '',
     endpoint: '',
     language: 'auto',
   },
@@ -154,6 +156,10 @@ function migrateLLMRefineConfig(config: unknown): LLMRefineConfig | null {
 
 function normalizeASRProvider(provider: unknown): ASRProviderType {
   return provider === 'local-sensevoice' ? 'local-sensevoice' : 'glm'
+}
+
+function normalizeConfigString(value: unknown, maxLength: number): string {
+  return typeof value === 'string' ? value.trim().slice(0, maxLength) : ''
 }
 
 export class ConfigManager {
@@ -275,6 +281,14 @@ export class ConfigManager {
         ...(storedConfig.apiKeys ?? {}),
       },
     }
+    config.microphoneDeviceId = normalizeConfigString(
+      config.microphoneDeviceId,
+      MICROPHONE_INPUT.DEVICE_ID_MAX_LENGTH,
+    )
+    config.microphoneDeviceLabel = normalizeConfigString(
+      config.microphoneDeviceLabel,
+      MICROPHONE_INPUT.DEVICE_LABEL_MAX_LENGTH,
+    )
     config.apiKeys = {
       cn: this.decryptKey(config.apiKeys.cn),
       intl: this.decryptKey(config.apiKeys.intl),
@@ -294,6 +308,14 @@ export class ConfigManager {
       ...current,
       ...config,
       provider: normalizeASRProvider(config.provider ?? current.provider),
+      microphoneDeviceId: normalizeConfigString(
+        config.microphoneDeviceId ?? current.microphoneDeviceId,
+        MICROPHONE_INPUT.DEVICE_ID_MAX_LENGTH,
+      ),
+      microphoneDeviceLabel: normalizeConfigString(
+        config.microphoneDeviceLabel ?? current.microphoneDeviceLabel,
+        MICROPHONE_INPUT.DEVICE_LABEL_MAX_LENGTH,
+      ),
       apiKeys: {
         ...current.apiKeys,
         ...(config.apiKeys ?? {}),

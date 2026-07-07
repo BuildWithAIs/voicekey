@@ -2,6 +2,7 @@ import { IPC_CHANNELS, type RecordingStartPayload, type VoiceSession } from '../
 import { showOverlay, hideOverlay, updateOverlay, showErrorAndHide } from '../window/overlay'
 import { getBackgroundWindow } from '../window/background'
 import { t } from '../i18n'
+import { configManager } from '../config-manager'
 import { abortChunkSession, hasReceivedFinalChunk } from './processor'
 
 // How long after SESSION_STOP the final audio chunk may take to arrive before
@@ -102,7 +103,11 @@ export async function handleStartRecording(): Promise<void> {
       return
     }
 
-    const payload: RecordingStartPayload = { sessionId: currentSession.id }
+    const asrConfig = configManager.getASRConfig()
+    const payload: RecordingStartPayload = {
+      sessionId: currentSession.id,
+      microphoneDeviceId: asrConfig.microphoneDeviceId || undefined,
+    }
     bgWindow.webContents.send(IPC_CHANNELS.SESSION_START, payload)
     const duration = Date.now() - startTimestamp
     console.log(`[Audio:Session] Recording start completed in ${duration}ms`)

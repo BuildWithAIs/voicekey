@@ -1,5 +1,12 @@
 # components/
 
+## Microphone Selection
+
+`AudioRecorder.tsx` accepts an optional microphone device ID from
+`RecordingStartPayload`, records from that device when available, falls back to
+the system default when unavailable, and asks main to stop if the stream ends
+mid-session.
+
 React 组件目录，包含应用级组件与 `ui/` 组件库。
 
 ## 子目录

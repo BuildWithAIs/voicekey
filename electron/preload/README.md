@@ -1,5 +1,10 @@
 # preload/
 
+## Microphone Selection
+
+`RecordingStartPayload` may include `microphoneDeviceId`; the hidden recorder
+uses it as a capture hint while preload keeps the same listener API.
+
 Electron 预加载脚本目录，作为主进程与渲染进程之间的安全桥梁。
 
 ## 文件列表

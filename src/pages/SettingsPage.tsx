@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useRef, useState } from 'react'
+import { ReactNode, useCallback, useEffect, useRef, useState } from 'react'
 import {
   CheckCircle2,
   XCircle,
@@ -23,6 +23,7 @@ import {
   LOG_FILE_MAX_SIZE_MB,
   LOG_RETENTION_DAYS,
   LLM_REFINE,
+  MICROPHONE_INPUT,
   TRANSLATION,
   TARGET_LANGUAGES,
 } from '@electron/shared/constants'
@@ -54,6 +55,12 @@ import { cn } from '@/lib/utils'
 import { validateHotkey } from '@/lib/hotkey-utils'
 
 const AUTO_SAVE_DELAY_MS = 700
+const NO_MICROPHONE_SELECT_VALUE = '__no-microphones__'
+
+type AudioInputDevice = {
+  deviceId: string
+  label: string
+}
 
 const defaultLLMRefineConfig: LLMRefineConfig = {
   enabled: LLM_REFINE.ENABLED,
@@ -125,6 +132,8 @@ function isAsrConfigDirty(current: AppConfig['asr'], original: AppConfig['asr'])
     current.endpoint !== original.endpoint ||
     current.language !== original.language ||
     (current.lowVolumeMode ?? true) !== (original.lowVolumeMode ?? true) ||
+    (current.microphoneDeviceId ?? '') !== (original.microphoneDeviceId ?? '') ||
+    (current.microphoneDeviceLabel ?? '') !== (original.microphoneDeviceLabel ?? '') ||
     current.apiKeys.cn !== original.apiKeys.cn ||
     current.apiKeys.intl !== original.apiKeys.intl
   )
@@ -328,6 +337,8 @@ export default function SettingsPage() {
         intl: '',
       },
       lowVolumeMode: true,
+      microphoneDeviceId: '',
+      microphoneDeviceLabel: '',
       endpoint: '',
       language: 'auto',
     },
@@ -355,6 +366,9 @@ export default function SettingsPage() {
   const [localAsrStatus, setLocalAsrStatus] = useState<LocalASRStatus | null>(null)
   const [localAsrProgress, setLocalAsrProgress] = useState<LocalASRDownloadProgress | null>(null)
   const [downloadingLocalAsr, setDownloadingLocalAsr] = useState(false)
+  const [microphoneDevices, setMicrophoneDevices] = useState<AudioInputDevice[]>([])
+  const [loadingMicrophones, setLoadingMicrophones] = useState(false)
+  const [microphoneError, setMicrophoneError] = useState<string | null>(null)
   const hasLoadedConfig = useRef(false)
   const hasLoadedUpdateStatus = useRef(false)
   const latestConfigRef = useRef(config)
@@ -388,6 +402,8 @@ export default function SettingsPage() {
               cn: loadedConfig.asr?.apiKeys?.cn ?? '',
               intl: loadedConfig.asr?.apiKeys?.intl ?? '',
             },
+            microphoneDeviceId: loadedConfig.asr?.microphoneDeviceId ?? '',
+            microphoneDeviceLabel: loadedConfig.asr?.microphoneDeviceLabel ?? '',
           },
           llmRefine: normalizeLLMRefineConfig(loadedConfig.llmRefine),
           translation: {
@@ -451,6 +467,85 @@ export default function SettingsPage() {
 
     return () => clearInterval(timer)
   }, [downloadingLocalAsr])
+
+  const loadMicrophoneDevices = useCallback(async () => {
+    if (!navigator.mediaDevices?.enumerateDevices) {
+      setMicrophoneDevices([])
+      setMicrophoneError(t('settings.microphone.unsupported'))
+      return
+    }
+
+    setLoadingMicrophones(true)
+    setMicrophoneError(null)
+
+    try {
+      let devices = await navigator.mediaDevices.enumerateDevices()
+      let rawAudioInputs = devices.filter((device) => device.kind === 'audioinput')
+      let audioInputs = rawAudioInputs.filter(
+        (device) =>
+          device.deviceId && device.deviceId !== 'default' && device.deviceId !== 'communications',
+      )
+
+      if (
+        rawAudioInputs.length > 0 &&
+        (audioInputs.length === 0 || audioInputs.every((device) => !device.label))
+      ) {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+          stream.getTracks().forEach((track) => track.stop())
+          devices = await navigator.mediaDevices.enumerateDevices()
+          rawAudioInputs = devices.filter((device) => device.kind === 'audioinput')
+          audioInputs = rawAudioInputs.filter(
+            (device) =>
+              device.deviceId &&
+              device.deviceId !== 'default' &&
+              device.deviceId !== 'communications',
+          )
+        } catch {
+          setMicrophoneError(t('settings.microphone.permissionHelp'))
+        }
+      }
+
+      const seenDeviceIds = new Set<string>()
+      const nextDevices = audioInputs.reduce<AudioInputDevice[]>((result, device) => {
+        if (seenDeviceIds.has(device.deviceId)) return result
+        seenDeviceIds.add(device.deviceId)
+        result.push({
+          deviceId: device.deviceId,
+          label:
+            device.label ||
+            t('settings.microphone.deviceFallback', {
+              index: result.length + 1,
+            }),
+        })
+        return result
+      }, [])
+
+      setMicrophoneDevices(nextDevices)
+    } catch (error) {
+      console.error('Failed to enumerate microphone devices:', error)
+      setMicrophoneDevices([])
+      setMicrophoneError(t('settings.microphone.detectFailed'))
+    } finally {
+      setLoadingMicrophones(false)
+    }
+  }, [t])
+
+  useEffect(() => {
+    void loadMicrophoneDevices()
+
+    const mediaDevices = navigator.mediaDevices
+    if (!mediaDevices?.addEventListener) return
+
+    const handleDeviceChange = () => {
+      void loadMicrophoneDevices()
+    }
+
+    mediaDevices.addEventListener('devicechange', handleDeviceChange)
+    return () => {
+      mediaDevices.removeEventListener('devicechange', handleDeviceChange)
+    }
+  }, [loadMicrophoneDevices])
 
   const clearAutoSaveTimer = () => {
     if (autoSaveTimerRef.current) {
@@ -767,6 +862,32 @@ export default function SettingsPage() {
     }))
   }
 
+  const handleMicrophoneChange = (value: string) => {
+    if (value === NO_MICROPHONE_SELECT_VALUE) return
+
+    if (value === MICROPHONE_INPUT.SYSTEM_DEFAULT_ID) {
+      setConfig((prev) => ({
+        ...prev,
+        asr: {
+          ...prev.asr,
+          microphoneDeviceId: '',
+          microphoneDeviceLabel: '',
+        },
+      }))
+      return
+    }
+
+    const device = microphoneDevices.find((item) => item.deviceId === value)
+    setConfig((prev) => ({
+      ...prev,
+      asr: {
+        ...prev.asr,
+        microphoneDeviceId: value,
+        microphoneDeviceLabel: device?.label ?? prev.asr.microphoneDeviceLabel ?? '',
+      },
+    }))
+  }
+
   // Raw value while typing; normalization happens on blur (and again on
   // save/test via normalizeLLMRefineConfig) so keystrokes are not rewritten.
   const handleRefineConfigChange = (key: 'endpoint' | 'model' | 'apiKey', value: string) => {
@@ -792,6 +913,14 @@ export default function SettingsPage() {
   const currentRegion = config.asr.region || 'cn'
   const currentApiKey = config.asr.apiKeys?.[currentRegion] || ''
   const isLocalAsr = config.asr.provider === 'local-sensevoice'
+  const selectedMicrophoneDeviceId = config.asr.microphoneDeviceId?.trim() ?? ''
+  const selectedMicrophoneValue = selectedMicrophoneDeviceId || MICROPHONE_INPUT.SYSTEM_DEFAULT_ID
+  const selectedMicrophone = microphoneDevices.find(
+    (device) => device.deviceId === selectedMicrophoneDeviceId,
+  )
+  const selectedMicrophoneUnavailable = Boolean(selectedMicrophoneDeviceId && !selectedMicrophone)
+  const selectedMicrophoneLabel =
+    config.asr.microphoneDeviceLabel?.trim() || t('settings.microphone.unknownDevice')
   const localAsrReady = Boolean(localAsrStatus?.ready)
   const localAsrSupported = localAsrStatus?.supported ?? true
   const canTestAsr = isLocalAsr ? localAsrReady : Boolean(currentApiKey)
@@ -968,6 +1097,68 @@ export default function SettingsPage() {
                   { value: 'glm', label: t('settings.asrProviderGlm') },
                 ]}
               />
+            </div>
+
+            <div className="mt-4 space-y-2">
+              <Label htmlFor="microphoneDevice">{t('settings.microphone.label')}</Label>
+              <div className="flex items-center gap-2">
+                <Select value={selectedMicrophoneValue} onValueChange={handleMicrophoneChange}>
+                  <SelectTrigger
+                    id="microphoneDevice"
+                    className="no-drag min-w-0 flex-1 cursor-pointer"
+                  >
+                    <SelectValue placeholder={t('settings.microphone.placeholder')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={MICROPHONE_INPUT.SYSTEM_DEFAULT_ID}>
+                      {t('settings.microphone.systemDefault')}
+                    </SelectItem>
+                    {microphoneDevices.map((device) => (
+                      <SelectItem key={device.deviceId} value={device.deviceId}>
+                        {device.label}
+                      </SelectItem>
+                    ))}
+                    {selectedMicrophoneUnavailable ? (
+                      <SelectItem value={selectedMicrophoneDeviceId}>
+                        {t('settings.microphone.unavailableOption', {
+                          label: selectedMicrophoneLabel,
+                        })}
+                      </SelectItem>
+                    ) : null}
+                    {microphoneDevices.length === 0 ? (
+                      <SelectItem value={NO_MICROPHONE_SELECT_VALUE} disabled>
+                        {t('settings.microphone.noDevices')}
+                      </SelectItem>
+                    ) : null}
+                  </SelectContent>
+                </Select>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => void loadMicrophoneDevices()}
+                  disabled={loadingMicrophones}
+                  className="no-drag shrink-0 cursor-pointer"
+                >
+                  <RefreshCw className={cn('h-4 w-4', loadingMicrophones && 'animate-spin')} />
+                  {loadingMicrophones
+                    ? t('settings.microphone.detecting')
+                    : t('settings.microphone.refresh')}
+                </Button>
+              </div>
+              {microphoneError ? (
+                <p className="text-xs leading-relaxed text-destructive">{microphoneError}</p>
+              ) : (
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  {t('settings.microphone.help')}
+                </p>
+              )}
+              {selectedMicrophoneUnavailable ? (
+                <div className="flex items-start gap-2 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-3 py-2.5 text-xs leading-relaxed text-muted-foreground">
+                  <AlertTriangle className="mt-px h-4 w-4 shrink-0 text-yellow-600 dark:text-yellow-500" />
+                  {t('settings.microphone.unavailableHelp')}
+                </div>
+              ) : null}
             </div>
 
             {isLocalAsr ? (

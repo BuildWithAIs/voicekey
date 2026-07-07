@@ -1,5 +1,12 @@
 # shared/
 
+## Microphone Selection
+
+`ASRConfig` stores the selected microphone device ID and last known label.
+`RecordingStartPayload` carries the device ID from main to the hidden recorder,
+and `MICROPHONE_INPUT` defines the renderer select sentinel plus config string
+length caps.
+
 主进程与渲染进程共享的类型、常量与多语言资源。
 
 ## 文件列表

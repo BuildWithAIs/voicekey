@@ -1,5 +1,11 @@
 # pages/
 
+## Microphone Selection
+
+`SettingsPage.tsx` detects available audio-input devices in the renderer, lets
+the user persist a selected microphone, and keeps the system default as the
+unchanged fallback.
+
 路由页面组件目录。
 
 ## 文件
