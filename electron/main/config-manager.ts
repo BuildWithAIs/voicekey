@@ -9,8 +9,8 @@ import {
   LLMRefineConfig,
   TranslationConfig,
 } from '../shared/types'
-import { normalizeRefineBaseUrl } from '../shared/refine-url'
-import { DEFAULT_HOTKEYS, LLM_REFINE, MICROPHONE_INPUT, TRANSLATION } from '../shared/constants'
+import { defaultLLMRefineConfig, normalizeLLMRefineConfig } from '../shared/llm-config'
+import { DEFAULT_HOTKEYS, MICROPHONE_INPUT, TRANSLATION } from '../shared/constants'
 
 const ENCRYPTED_PREFIX = 'enc:'
 
@@ -20,35 +20,6 @@ interface ConfigSchema {
   llmRefine: LLMRefineConfig
   hotkey: HotkeyConfig
   translation: TranslationConfig
-}
-
-const defaultLLMRefineConfig: LLMRefineConfig = {
-  enabled: LLM_REFINE.ENABLED,
-  endpoint: LLM_REFINE.ENDPOINT,
-  model: LLM_REFINE.MODEL,
-  apiKey: LLM_REFINE.API_KEY,
-  translateOutput: LLM_REFINE.TRANSLATE_OUTPUT,
-}
-
-// Reads the "translate refined output" flag, accepting legacy field names from older configs.
-function readTranslateOutputFlag(config?: Record<string, unknown>): boolean {
-  if (!config) {
-    return defaultLLMRefineConfig.translateOutput
-  }
-
-  if (typeof config.translateOutput === 'boolean') {
-    return config.translateOutput
-  }
-
-  if (typeof config.translateToEnglish === 'boolean') {
-    return config.translateToEnglish
-  }
-
-  if (typeof config.translateChineseToEnglish === 'boolean') {
-    return config.translateChineseToEnglish
-  }
-
-  return defaultLLMRefineConfig.translateOutput
 }
 
 const defaultTranslationConfig: TranslationConfig = {
@@ -83,22 +54,6 @@ const defaultConfig: AppConfig = {
   translation: defaultTranslationConfig,
 }
 
-function normalizeLLMRefineConfig(config?: Partial<LLMRefineConfig>): LLMRefineConfig {
-  const rawConfig =
-    config && typeof config === 'object'
-      ? (config as Partial<LLMRefineConfig> & Record<string, unknown>)
-      : undefined
-
-  return {
-    ...defaultLLMRefineConfig,
-    enabled: typeof config?.enabled === 'boolean' ? config.enabled : defaultLLMRefineConfig.enabled,
-    endpoint: normalizeRefineBaseUrl(config?.endpoint ?? defaultLLMRefineConfig.endpoint),
-    model: config?.model ?? defaultLLMRefineConfig.model,
-    apiKey: config?.apiKey ?? defaultLLMRefineConfig.apiKey,
-    translateOutput: readTranslateOutputFlag(rawConfig),
-  }
-}
-
 function readLegacyOpenAICompatibleField(
   config: Record<string, unknown>,
   key: 'endpoint' | 'model' | 'apiKey',
@@ -123,6 +78,10 @@ function migrateLLMRefineConfig(config: unknown): LLMRefineConfig | null {
 
   const rawConfig = config as Record<string, unknown>
 
+  if ('provider' in rawConfig && rawConfig.provider !== 'openai-compatible') {
+    return normalizeLLMRefineConfig(rawConfig as Partial<LLMRefineConfig>)
+  }
+
   if ('provider' in rawConfig || 'openaiCompatible' in rawConfig) {
     if (rawConfig.provider === 'openai-compatible') {
       return normalizeLLMRefineConfig({
@@ -144,6 +103,11 @@ function migrateLLMRefineConfig(config: unknown): LLMRefineConfig | null {
     'model' in rawConfig ||
     'apiKey' in rawConfig ||
     'enabled' in rawConfig ||
+    'provider' in rawConfig ||
+    'reasoning' in rawConfig ||
+    'deepseek' in rawConfig ||
+    'openrouter' in rawConfig ||
+    'custom' in rawConfig ||
     'translateOutput' in rawConfig ||
     'translateToEnglish' in rawConfig ||
     'translateChineseToEnglish' in rawConfig
@@ -175,6 +139,7 @@ export class ConfigManager {
 
   private encryptKey(plainText: string): string {
     if (!plainText) return plainText
+    if (plainText.startsWith(ENCRYPTED_PREFIX)) return plainText
 
     try {
       if (safeStorage.isEncryptionAvailable()) {
@@ -186,6 +151,46 @@ export class ConfigManager {
     }
 
     return plainText
+  }
+
+  private decryptLLMRefineConfig(config: Partial<LLMRefineConfig>): LLMRefineConfig {
+    const normalized = normalizeLLMRefineConfig(config)
+    return normalizeLLMRefineConfig({
+      ...normalized,
+      apiKey: this.decryptKey(normalized.apiKey),
+      deepseek: {
+        ...normalized.deepseek,
+        apiKey: this.decryptKey(normalized.deepseek.apiKey),
+      },
+      openrouter: {
+        ...normalized.openrouter,
+        apiKey: this.decryptKey(normalized.openrouter.apiKey),
+      },
+      custom: {
+        ...normalized.custom,
+        apiKey: this.decryptKey(normalized.custom.apiKey),
+      },
+    })
+  }
+
+  private encryptLLMRefineConfig(config: Partial<LLMRefineConfig>): LLMRefineConfig {
+    const normalized = normalizeLLMRefineConfig(config)
+    return normalizeLLMRefineConfig({
+      ...normalized,
+      apiKey: this.encryptKey(normalized.apiKey),
+      deepseek: {
+        ...normalized.deepseek,
+        apiKey: this.encryptKey(normalized.deepseek.apiKey),
+      },
+      openrouter: {
+        ...normalized.openrouter,
+        apiKey: this.encryptKey(normalized.openrouter.apiKey),
+      },
+      custom: {
+        ...normalized.custom,
+        apiKey: this.encryptKey(normalized.custom.apiKey),
+      },
+    })
   }
 
   private decryptKey(value: string): string {
@@ -242,13 +247,10 @@ export class ConfigManager {
     }
     this.store.set('asr.apiKeys', apiKeys)
 
-    const llmRefine = normalizeLLMRefineConfig(this.store.get('llmRefine', defaultConfig.llmRefine))
-    if (llmRefine.apiKey && !llmRefine.apiKey.startsWith(ENCRYPTED_PREFIX)) {
-      this.store.set('llmRefine', {
-        ...llmRefine,
-        apiKey: this.encryptKey(llmRefine.apiKey),
-      })
-    }
+    const llmRefine = this.decryptLLMRefineConfig(
+      this.store.get('llmRefine', defaultConfig.llmRefine),
+    )
+    this.store.set('llmRefine', this.encryptLLMRefineConfig(llmRefine))
   }
 
   getConfig(): AppConfig {
@@ -331,20 +333,32 @@ export class ConfigManager {
   }
 
   getLLMRefineConfig(): LLMRefineConfig {
-    const config = normalizeLLMRefineConfig(this.store.get('llmRefine', defaultConfig.llmRefine))
-    return {
-      ...config,
-      apiKey: this.decryptKey(config.apiKey),
-    }
+    return this.decryptLLMRefineConfig(this.store.get('llmRefine', defaultConfig.llmRefine))
   }
 
   setLLMRefineConfig(config: Partial<LLMRefineConfig>): void {
     const current = this.getLLMRefineConfig()
-    const merged = normalizeLLMRefineConfig({ ...current, ...config })
-    this.store.set('llmRefine', {
-      ...merged,
-      apiKey: this.encryptKey(merged.apiKey),
+    const merged = normalizeLLMRefineConfig({
+      ...current,
+      ...config,
+      reasoning: {
+        ...current.reasoning,
+        ...(config.reasoning ?? {}),
+      },
+      deepseek: {
+        ...current.deepseek,
+        ...(config.deepseek ?? {}),
+      },
+      openrouter: {
+        ...current.openrouter,
+        ...(config.openrouter ?? {}),
+      },
+      custom: {
+        ...current.custom,
+        ...(config.custom ?? {}),
+      },
     })
+    this.store.set('llmRefine', this.encryptLLMRefineConfig(merged))
   }
 
   getHotkeyConfig(): HotkeyConfig {

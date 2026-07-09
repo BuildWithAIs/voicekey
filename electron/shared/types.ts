@@ -52,13 +52,63 @@ export interface LocalASRStatus {
   error?: string
 }
 
+export type LLMProvider = 'deepseek' | 'openrouter' | 'custom-compatible'
+
+export type DeepSeekModel = 'deepseek-v4-flash' | 'deepseek-v4-pro'
+
+export type OpenRouterReasoningEffort =
+  | 'minimal'
+  | 'low'
+  | 'medium'
+  | 'high'
+  | 'xhigh'
+  | 'max'
+  | 'none'
+
+export type LLMReasoningLevel = 'off' | 'medium' | 'high'
+
+export interface LLMReasoningConfig {
+  enabled: boolean
+}
+
+export interface DeepSeekConfig {
+  apiKey: string
+  model: string
+}
+
+export interface OpenRouterReasoningCapability {
+  model: string
+  checkedAt: number
+  supportsReasoning: boolean
+  supportedEfforts?: OpenRouterReasoningEffort[]
+  defaultEffort?: OpenRouterReasoningEffort
+  mandatory?: boolean
+}
+
+export interface OpenRouterConfig {
+  apiKey: string
+  model: string
+  reasoningCapability?: OpenRouterReasoningCapability
+}
+
+export interface CustomCompatibleLLMConfig {
+  endpoint: string
+  model: string
+  apiKey: string
+}
+
 export interface LLMRefineConfig {
   enabled: boolean
+  provider: LLMProvider
   endpoint: string
   model: string
   apiKey: string
   /** When true, the refined dictation output is translated into the shared TranslationConfig.targetLanguage. */
   translateOutput: boolean
+  reasoning: LLMReasoningConfig
+  deepseek: DeepSeekConfig
+  openrouter: OpenRouterConfig
+  custom: CustomCompatibleLLMConfig
 }
 
 export interface TranslationConfig {
@@ -123,6 +173,13 @@ export interface LogTailOptions {
 export interface RefineConnectionResult {
   ok: boolean
   message?: string
+  openRouterReasoningCapability?: OpenRouterReasoningCapability
+}
+
+export interface OpenRouterModelCheckResult {
+  ok: boolean
+  message?: string
+  capability?: OpenRouterReasoningCapability
 }
 
 export interface RecordingStartPayload {
@@ -143,6 +200,7 @@ export const IPC_CHANNELS = {
   CONFIG_SET: 'config:set',
   CONFIG_TEST: 'config:test',
   CONFIG_REFINE_TEST: 'config:refine:test',
+  CONFIG_OPENROUTER_MODEL_CHECK: 'config:openrouter-model:check',
   LOCAL_ASR_STATUS: 'local-asr:status',
   LOCAL_ASR_DOWNLOAD: 'local-asr:download',
   LOCAL_ASR_DOWNLOAD_PROGRESS: 'local-asr:download-progress',

@@ -1,11 +1,13 @@
 import { buildRefineSystemPrompt, OPENAI_CHAT } from '../../shared/constants'
 import { buildRefineChatEndpoint, normalizeRefineBaseUrl } from '../../shared/refine-url'
+import { resolveLLMConnection, type ResolvedLLMConnection } from '../../shared/llm-config'
 import type { LLMRefineConfig } from '../../shared/types'
 
 export interface ResolvedRefineRequestConfig {
   endpoint: string
   apiKey: string
   model: string
+  connection: ResolvedLLMConnection
   timeoutMs: number
   systemPrompt: string
 }
@@ -20,10 +22,11 @@ export function resolveRefineRequestConfig(
   refineConfig: LLMRefineConfig,
   options: ResolveRefineRequestConfigOptions = {},
 ): ResolvedRefineRequestConfig | null {
-  const baseUrl = normalizeRefineBaseUrl(refineConfig.endpoint)
+  const connection = resolveLLMConnection(refineConfig)
+  const baseUrl = normalizeRefineBaseUrl(connection.endpoint)
   const endpoint = buildRefineChatEndpoint(baseUrl)
-  const model = refineConfig.model.trim()
-  const apiKey = refineConfig.apiKey.trim()
+  const model = connection.model.trim()
+  const apiKey = connection.apiKey.trim()
 
   if (!baseUrl || !endpoint || !model || !apiKey) {
     return null
@@ -33,6 +36,12 @@ export function resolveRefineRequestConfig(
     endpoint,
     model,
     apiKey,
+    connection: {
+      ...connection,
+      endpoint,
+      model,
+      apiKey,
+    },
     timeoutMs: OPENAI_CHAT.TIMEOUT_MS,
     systemPrompt: buildRefineSystemPrompt({
       glossaryTerms: options.glossaryTerms,

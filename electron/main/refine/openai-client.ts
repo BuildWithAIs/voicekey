@@ -24,6 +24,10 @@ export type OpenAIResponse = {
   }
 }
 
+function stripLeadingThinkBlock(content: string): string {
+  return content.replace(/^\s*<think>[\s\S]*?<\/think>\s*/i, '').trim()
+}
+
 export async function requestChatCompletion(
   endpoint: string,
   apiKey: string,
@@ -71,10 +75,10 @@ export function extractMessageContent(data: OpenAIResponse): string {
   }
 
   if (typeof content === 'string') {
-    return content.trim()
+    return stripLeadingThinkBlock(content)
   }
 
-  return content
+  const text = content
     .map((part) => {
       if (typeof part === 'string') {
         return part
@@ -83,5 +87,6 @@ export function extractMessageContent(data: OpenAIResponse): string {
       return typeof part.text === 'string' ? part.text : ''
     })
     .join('')
-    .trim()
+
+  return stripLeadingThinkBlock(text)
 }

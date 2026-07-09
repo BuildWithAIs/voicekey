@@ -5,8 +5,14 @@ import type { LLMRefineConfig, TranslationConfig } from '../../shared/types'
 import { configManager } from '../config-manager'
 import { showOverlay, updateOverlay, hideOverlay } from '../window/overlay'
 import { requestChatCompletion, extractMessageContent } from '../refine/openai-client'
-import { normalizeRefineBaseUrl, buildRefineChatEndpoint } from '../../shared/refine-url'
-import { OPENAI_CHAT, buildTranslationSystemPrompt } from '../../shared/constants'
+import { buildRefineChatEndpoint, normalizeRefineBaseUrl } from '../../shared/refine-url'
+import { buildTranslationSystemPrompt } from '../../shared/constants'
+import {
+  buildReasoningPayloadFields,
+  getReasoningTimeoutMs,
+  resolveLLMConnection,
+  type ResolvedLLMConnection,
+} from '../../shared/llm-config'
 import { t } from '../i18n'
 
 type ClipboardSnapshot = {
@@ -26,6 +32,7 @@ interface ResolvedTranslationConfig {
   endpoint: string
   model: string
   apiKey: string
+  connection: ResolvedLLMConnection
 }
 
 interface CaptureResult {
@@ -147,16 +154,27 @@ export class Translator {
   // ─── Private: config ─────────────────────────────────────
 
   private resolveConfig(refineConfig: LLMRefineConfig): ResolvedTranslationConfig | null {
-    const baseUrl = normalizeRefineBaseUrl(refineConfig.endpoint)
+    const connection = resolveLLMConnection(refineConfig)
+    const baseUrl = normalizeRefineBaseUrl(connection.endpoint)
     const endpoint = buildRefineChatEndpoint(baseUrl)
-    const model = refineConfig.model.trim()
-    const apiKey = refineConfig.apiKey.trim()
+    const model = connection.model.trim()
+    const apiKey = connection.apiKey.trim()
 
     if (!baseUrl || !endpoint || !model || !apiKey) {
       return null
     }
 
-    return { endpoint, model, apiKey }
+    return {
+      endpoint,
+      model,
+      apiKey,
+      connection: {
+        ...connection,
+        endpoint,
+        model,
+        apiKey,
+      },
+    }
   }
 
   // ─── Private: selected text capture ──────────────────────
@@ -210,12 +228,14 @@ export class Translator {
   ): Promise<string> {
     const systemPrompt = buildTranslationSystemPrompt(targetLanguage)
 
+    const reasoning = buildReasoningPayloadFields(resolved.connection, originalText)
     const payload = {
       model: resolved.model,
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: originalText },
       ],
+      ...reasoning.fields,
     }
 
     console.log('[Translator] Calling LLM API for translation...')
@@ -223,7 +243,7 @@ export class Translator {
       resolved.endpoint,
       resolved.apiKey,
       payload,
-      OPENAI_CHAT.TIMEOUT_MS,
+      getReasoningTimeoutMs(reasoning.level),
     )
 
     return extractMessageContent(response)

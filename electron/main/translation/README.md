@@ -1,6 +1,6 @@
 # Translation Module
 
-- `translator.ts` — Core translation/polishing service: captures selected text via Ctrl+C, calls the LLM API with the built-in native-quality translation prompt resolved to the shared target language, and replaces the selection via plain-text Ctrl+V (clipboard save/restore). No character-by-character deletion — relies on standard GUI behavior where Ctrl+V replaces selected text.
+- `translator.ts` — Core translation/polishing service: captures selected text via Ctrl+C, calls the configured DeepSeek/OpenRouter/custom-compatible LLM API with the built-in native-quality translation prompt and the shared target language, applies the same Provider-aware reasoning policy used by refinement, and replaces the selection via plain-text Ctrl+V (clipboard save/restore). No character-by-character deletion — relies on standard GUI behavior where Ctrl+V replaces selected text.
 
 ## Architecture
 

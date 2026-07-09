@@ -1,5 +1,6 @@
 import axios from 'axios'
 import type { LLMRefineConfig, RefineConnectionResult } from '../../shared/types'
+import { buildReasoningPayloadFields, getReasoningTimeoutMs } from '../../shared/llm-config'
 import {
   extractAxiosErrorMessage,
   extractMessageContent,
@@ -64,6 +65,7 @@ export class RefineService implements TextRefiner {
       throw new Error('Text refinement config is incomplete')
     }
 
+    const reasoning = buildReasoningPayloadFields(resolvedConfig.connection, input)
     const payload = {
       model: resolvedConfig.model,
       messages: [
@@ -76,6 +78,7 @@ export class RefineService implements TextRefiner {
           content: buildTranscriptUserMessage(input),
         },
       ],
+      ...reasoning.fields,
     }
 
     try {
@@ -83,7 +86,7 @@ export class RefineService implements TextRefiner {
         resolvedConfig.endpoint,
         resolvedConfig.apiKey,
         payload,
-        resolvedConfig.timeoutMs,
+        getReasoningTimeoutMs(reasoning.level),
       )
       const refinedText = extractMessageContent(response)
       if (!refinedText) {
@@ -110,6 +113,13 @@ export class RefineService implements TextRefiner {
     }
 
     try {
+      const reasoning = buildReasoningPayloadFields(
+        {
+          ...resolvedConfig.connection,
+          reasoning: { enabled: false },
+        },
+        TEST_CONNECTION_TRANSCRIPT,
+      )
       await requestChatCompletion(
         resolvedConfig.endpoint,
         resolvedConfig.apiKey,
@@ -125,6 +135,7 @@ export class RefineService implements TextRefiner {
               content: buildTranscriptUserMessage(TEST_CONNECTION_TRANSCRIPT),
             },
           ],
+          ...reasoning.fields,
         },
         resolvedConfig.timeoutMs,
       )

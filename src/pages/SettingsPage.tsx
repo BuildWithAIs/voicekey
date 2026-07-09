@@ -22,16 +22,22 @@ import { type LanguageSetting } from '@electron/shared/i18n'
 import {
   LOG_FILE_MAX_SIZE_MB,
   LOG_RETENTION_DAYS,
-  LLM_REFINE,
+  LLM_PROVIDERS,
   MICROPHONE_INPUT,
   TRANSLATION,
   TARGET_LANGUAGES,
 } from '@electron/shared/constants'
 import { normalizeRefineBaseUrl } from '@electron/shared/refine-url'
+import {
+  defaultLLMRefineConfig,
+  normalizeLLMRefineConfig,
+  resolveLLMConnection,
+} from '@electron/shared/llm-config'
 import type {
   AppConfig,
   ASRProviderType,
   LLMRefineConfig,
+  LLMProvider,
   LocalASRDownloadProgress,
   LocalASRStatus,
   TranslationConfig,
@@ -39,7 +45,7 @@ import type {
 } from '@electron/shared/types'
 import { LogViewerDialog } from '@/components/LogViewerDialog'
 import { HotkeySettings } from '@/components/HotkeySettings'
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -62,14 +68,6 @@ type AudioInputDevice = {
   label: string
 }
 
-const defaultLLMRefineConfig: LLMRefineConfig = {
-  enabled: LLM_REFINE.ENABLED,
-  endpoint: LLM_REFINE.ENDPOINT,
-  model: LLM_REFINE.MODEL,
-  apiKey: LLM_REFINE.API_KEY,
-  translateOutput: LLM_REFINE.TRANSLATE_OUTPUT,
-}
-
 const defaultTranslationConfig: TranslationConfig = {
   enabled: TRANSLATION.ENABLED,
   targetLanguage: TRANSLATION.TARGET_LANGUAGE,
@@ -85,40 +83,9 @@ type SaveStatus = {
   message: string
 } | null
 
-function readTranslateOutputFlag(config?: Record<string, unknown>): boolean {
-  if (!config) {
-    return defaultLLMRefineConfig.translateOutput
-  }
-  if (typeof config.translateOutput === 'boolean') {
-    return config.translateOutput
-  }
-  if (typeof config.translateToEnglish === 'boolean') {
-    return config.translateToEnglish
-  }
-  if (typeof config.translateChineseToEnglish === 'boolean') {
-    return config.translateChineseToEnglish
-  }
-  return defaultLLMRefineConfig.translateOutput
-}
-
-function normalizeLLMRefineConfig(config?: Partial<LLMRefineConfig>): LLMRefineConfig {
-  const rawConfig =
-    config && typeof config === 'object'
-      ? (config as Partial<LLMRefineConfig> & Record<string, unknown>)
-      : undefined
-
-  return {
-    ...defaultLLMRefineConfig,
-    enabled: typeof config?.enabled === 'boolean' ? config.enabled : defaultLLMRefineConfig.enabled,
-    endpoint: normalizeRefineBaseUrl(config?.endpoint ?? defaultLLMRefineConfig.endpoint),
-    model: config?.model ?? defaultLLMRefineConfig.model,
-    apiKey: config?.apiKey ?? defaultLLMRefineConfig.apiKey,
-    translateOutput: readTranslateOutputFlag(rawConfig),
-  }
-}
-
 function isRefineConfigComplete(config: LLMRefineConfig): boolean {
-  return Boolean(config.endpoint.trim() && config.model.trim() && config.apiKey.trim())
+  const connection = resolveLLMConnection(config)
+  return Boolean(connection.endpoint.trim() && connection.model.trim() && connection.apiKey.trim())
 }
 
 function isAppPreferencesDirty(current: AppConfig['app'], original: AppConfig['app']): boolean {
@@ -141,11 +108,8 @@ function isAsrConfigDirty(current: AppConfig['asr'], original: AppConfig['asr'])
 
 function isLlmRefineDirty(current: LLMRefineConfig, original: LLMRefineConfig): boolean {
   return (
-    current.enabled !== original.enabled ||
-    current.endpoint !== original.endpoint ||
-    current.model !== original.model ||
-    current.apiKey !== original.apiKey ||
-    current.translateOutput !== original.translateOutput
+    JSON.stringify(normalizeLLMRefineConfig(current)) !==
+    JSON.stringify(normalizeLLMRefineConfig(original))
   )
 }
 
@@ -361,6 +325,8 @@ export default function SettingsPage() {
   const [logDialogOpen, setLogDialogOpen] = useState(false)
   const [testingRefine, setTestingRefine] = useState(false)
   const [refineTestStatus, setRefineTestStatus] = useState<TestStatus>(null)
+  const [checkingOpenRouterModel, setCheckingOpenRouterModel] = useState(false)
+  const [openRouterModelStatus, setOpenRouterModelStatus] = useState<TestStatus>(null)
   const [checkingUpdate, setCheckingUpdate] = useState(false)
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null)
   const [localAsrStatus, setLocalAsrStatus] = useState<LocalASRStatus | null>(null)
@@ -888,26 +854,162 @@ export default function SettingsPage() {
     }))
   }
 
-  // Raw value while typing; normalization happens on blur (and again on
-  // save/test via normalizeLLMRefineConfig) so keystrokes are not rewritten.
-  const handleRefineConfigChange = (key: 'endpoint' | 'model' | 'apiKey', value: string) => {
+  const handleLLMProviderChange = (value: string) => {
+    const provider = value as LLMProvider
+    setConfig((prev) => ({
+      ...prev,
+      llmRefine: normalizeLLMRefineConfig({
+        ...prev.llmRefine,
+        provider,
+      }),
+    }))
+  }
+
+  const handleDeepSeekApiKeyChange = (value: string) => {
+    setConfig((prev) => ({
+      ...prev,
+      llmRefine: normalizeLLMRefineConfig({
+        ...prev.llmRefine,
+        deepseek: {
+          ...prev.llmRefine.deepseek,
+          apiKey: value,
+        },
+      }),
+    }))
+  }
+
+  const handleDeepSeekModelChange = (value: string) => {
+    setConfig((prev) => ({
+      ...prev,
+      llmRefine: normalizeLLMRefineConfig({
+        ...prev.llmRefine,
+        deepseek: {
+          ...prev.llmRefine.deepseek,
+          model: value,
+        },
+      }),
+    }))
+  }
+
+  const handleOpenRouterApiKeyChange = (value: string) => {
+    setConfig((prev) => ({
+      ...prev,
+      llmRefine: normalizeLLMRefineConfig({
+        ...prev.llmRefine,
+        openrouter: {
+          ...prev.llmRefine.openrouter,
+          apiKey: value,
+        },
+      }),
+    }))
+  }
+
+  const handleOpenRouterModelChange = (value: string) => {
+    setOpenRouterModelStatus(null)
+    setConfig((prev) => ({
+      ...prev,
+      llmRefine: normalizeLLMRefineConfig({
+        ...prev.llmRefine,
+        openrouter: {
+          ...prev.llmRefine.openrouter,
+          model: value,
+          reasoningCapability: undefined,
+        },
+      }),
+    }))
+  }
+
+  const handleCustomConfigChange = (key: 'endpoint' | 'model' | 'apiKey', value: string) => {
     setConfig((prev) => ({
       ...prev,
       llmRefine: {
         ...prev.llmRefine,
-        [key]: value,
+        custom: {
+          ...prev.llmRefine.custom,
+          [key]: value,
+        },
       },
     }))
   }
 
-  const handleRefineEndpointBlur = () => {
+  const handleCustomEndpointBlur = () => {
     setConfig((prev) => ({
       ...prev,
-      llmRefine: {
+      llmRefine: normalizeLLMRefineConfig({
         ...prev.llmRefine,
-        endpoint: normalizeRefineBaseUrl(prev.llmRefine.endpoint),
-      },
+        custom: {
+          ...prev.llmRefine.custom,
+          endpoint: normalizeRefineBaseUrl(prev.llmRefine.custom.endpoint),
+        },
+      }),
     }))
+  }
+
+  const handleReasoningEnabledChange = (checked: boolean) => {
+    setConfig((prev) => ({
+      ...prev,
+      llmRefine: normalizeLLMRefineConfig({
+        ...prev.llmRefine,
+        reasoning: {
+          ...prev.llmRefine.reasoning,
+          enabled: checked,
+        },
+      }),
+    }))
+  }
+
+  const handleCheckOpenRouterModel = async () => {
+    const normalizedRefineConfig = normalizeLLMRefineConfig(config.llmRefine)
+    const model = normalizedRefineConfig.openrouter.model.trim()
+
+    if (!model) {
+      setOpenRouterModelStatus({
+        type: 'error',
+        message: t('settings.result.openRouterModelRequired'),
+      })
+      return
+    }
+
+    setCheckingOpenRouterModel(true)
+    setOpenRouterModelStatus(null)
+    try {
+      const result = await window.electronAPI.checkOpenRouterModel(model)
+      if (!result.ok || !result.capability) {
+        setOpenRouterModelStatus({
+          type: 'error',
+          message: t('settings.result.openRouterModelCheckFailed', {
+            message: result.message ?? t('common.unknownError'),
+          }),
+        })
+        return
+      }
+
+      setConfig((prev) => ({
+        ...prev,
+        llmRefine: normalizeLLMRefineConfig({
+          ...prev.llmRefine,
+          openrouter: {
+            ...prev.llmRefine.openrouter,
+            model: result.capability?.model ?? model,
+            reasoningCapability: result.capability,
+          },
+        }),
+      }))
+      setOpenRouterModelStatus({
+        type: result.capability.supportsReasoning ? 'success' : 'error',
+        message: result.capability.supportsReasoning
+          ? t('settings.result.openRouterReasoningSupported')
+          : t('settings.result.openRouterReasoningUnsupported'),
+      })
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : t('common.unknownError')
+      setOpenRouterModelStatus({
+        type: 'error',
+        message: t('settings.result.openRouterModelCheckFailed', { message: errorMessage }),
+      })
+    } finally {
+      setCheckingOpenRouterModel(false)
+    }
   }
 
   const currentRegion = config.asr.region || 'cn'
@@ -925,6 +1027,32 @@ export default function SettingsPage() {
   const localAsrSupported = localAsrStatus?.supported ?? true
   const canTestAsr = isLocalAsr ? localAsrReady : Boolean(currentApiKey)
   const normalizedLLMRefineConfig = normalizeLLMRefineConfig(config.llmRefine)
+  const activeLLMConnection = resolveLLMConnection(normalizedLLMRefineConfig)
+  const currentLLMProvider = normalizedLLMRefineConfig.provider
+  const isCustomLLMProvider = currentLLMProvider === 'custom-compatible'
+  const isDeepSeekProvider = currentLLMProvider === 'deepseek'
+  const isOpenRouterProvider = currentLLMProvider === 'openrouter'
+  const openRouterReasoningCapability = normalizedLLMRefineConfig.openrouter.reasoningCapability
+  const openRouterReasoningSupported = Boolean(openRouterReasoningCapability?.supportsReasoning)
+  const builtInDeepSeekModels: string[] = [...LLM_PROVIDERS.DEEPSEEK_MODELS]
+  const deepSeekModelOptions = builtInDeepSeekModels.includes(
+    normalizedLLMRefineConfig.deepseek.model,
+  )
+    ? builtInDeepSeekModels
+    : [...builtInDeepSeekModels, normalizedLLMRefineConfig.deepseek.model]
+  const deepSeekReasoningSupported =
+    !isDeepSeekProvider || builtInDeepSeekModels.includes(normalizedLLMRefineConfig.deepseek.model)
+  const reasoningAvailable =
+    !isCustomLLMProvider &&
+    deepSeekReasoningSupported &&
+    (!isOpenRouterProvider || openRouterReasoningSupported)
+  const llmProviderOptions = [
+    { value: 'deepseek', label: 'DeepSeek' },
+    { value: 'openrouter', label: 'OpenRouter' },
+    ...(isCustomLLMProvider
+      ? [{ value: 'custom-compatible', label: t('settings.llmProviderCustom') }]
+      : []),
+  ]
   const llmRefineEnabled = normalizedLLMRefineConfig.enabled
   const translateOutput = normalizedLLMRefineConfig.translateOutput
   const canTestRefine = isRefineConfigComplete(normalizedLLMRefineConfig)
@@ -1337,41 +1465,121 @@ export default function SettingsPage() {
             </p>
 
             <div className="space-y-2">
-              <Label htmlFor="refineEndpoint">
-                {t('settings.refineEndpoint')} <span className="text-primary">*</span>
-              </Label>
-              <Input
-                id="refineEndpoint"
-                type="text"
-                value={config.llmRefine.endpoint}
-                onChange={(e) => handleRefineConfigChange('endpoint', e.target.value)}
-                onBlur={handleRefineEndpointBlur}
-                placeholder={t('settings.refineEndpointPlaceholder')}
-                className="no-drag font-mono"
+              <Label>{t('settings.llmProvider')}</Label>
+              <Segmented
+                value={currentLLMProvider}
+                onChange={handleLLMProviderChange}
+                options={llmProviderOptions}
               />
-              <p className="text-xs text-muted-foreground">{t('settings.refineEndpointHelp')}</p>
+              <p className="text-xs text-muted-foreground">
+                {t('settings.llmProviderHelp', { endpoint: activeLLMConnection.endpoint })}
+              </p>
             </div>
 
-            <div className="mt-4 space-y-2">
-              <Label htmlFor="refineModel">
-                {t('settings.refineModel')} <span className="text-primary">*</span>
-              </Label>
-              <Input
-                id="refineModel"
-                type="text"
-                value={normalizedLLMRefineConfig.model}
-                onChange={(e) => handleRefineConfigChange('model', e.target.value)}
-                placeholder={t('settings.refineModelPlaceholder')}
-                className="no-drag font-mono"
-              />
-              <Alert className="border-primary/30 bg-accent/40 [&>svg]:text-primary">
-                <Sparkles className="h-4 w-4" />
-                <AlertTitle>{t('settings.refineModelTipTitle')}</AlertTitle>
-                <AlertDescription className="text-foreground/80">
-                  {t('settings.refineModelHelp')}
-                </AlertDescription>
-              </Alert>
-            </div>
+            {currentLLMProvider === 'deepseek' && (
+              <div className="mt-4 space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="deepSeekModel">
+                    {t('settings.refineModel')} <span className="text-primary">*</span>
+                  </Label>
+                  <Select
+                    value={normalizedLLMRefineConfig.deepseek.model}
+                    onValueChange={handleDeepSeekModelChange}
+                  >
+                    <SelectTrigger id="deepSeekModel" className="no-drag w-full cursor-pointer">
+                      <SelectValue placeholder={LLM_PROVIDERS.DEFAULT_DEEPSEEK_MODEL} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {deepSeekModelOptions.map((model) => (
+                        <SelectItem key={model} value={model}>
+                          {model}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    {t('settings.deepSeekReasoningHelp')}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {currentLLMProvider === 'openrouter' && (
+              <div className="mt-4 space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="openRouterModel">
+                    {t('settings.refineModel')} <span className="text-primary">*</span>
+                  </Label>
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <Input
+                      id="openRouterModel"
+                      type="text"
+                      value={normalizedLLMRefineConfig.openrouter.model}
+                      onChange={(e) => handleOpenRouterModelChange(e.target.value)}
+                      placeholder={t('settings.openRouterModelPlaceholder')}
+                      className="no-drag min-w-0 flex-1 font-mono"
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleCheckOpenRouterModel}
+                      disabled={checkingOpenRouterModel}
+                      className="no-drag cursor-pointer"
+                    >
+                      <RefreshCw
+                        className={cn('h-4 w-4', checkingOpenRouterModel ? 'animate-spin' : '')}
+                      />
+                      {checkingOpenRouterModel
+                        ? t('settings.checkingModel')
+                        : t('settings.checkModelCapability')}
+                    </Button>
+                  </div>
+                  <InlineFeedback status={openRouterModelStatus} testId="openrouter-model-status" />
+                  <p className="text-xs text-muted-foreground">
+                    {t('settings.openRouterModelHelp')}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {isCustomLLMProvider && (
+              <div className="mt-4 space-y-4">
+                <Alert className="border-yellow-500/30 bg-yellow-500/10 [&>svg]:text-yellow-600 dark:[&>svg]:text-yellow-500">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertDescription>
+                    {t('settings.customProviderReasoningWarning')}
+                  </AlertDescription>
+                </Alert>
+                <div className="space-y-2">
+                  <Label htmlFor="customRefineEndpoint">
+                    {t('settings.refineEndpoint')} <span className="text-primary">*</span>
+                  </Label>
+                  <Input
+                    id="customRefineEndpoint"
+                    type="text"
+                    value={config.llmRefine.custom.endpoint}
+                    onChange={(e) => handleCustomConfigChange('endpoint', e.target.value)}
+                    onBlur={handleCustomEndpointBlur}
+                    placeholder={t('settings.refineEndpointPlaceholder')}
+                    className="no-drag font-mono"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="customRefineModel">
+                    {t('settings.refineModel')} <span className="text-primary">*</span>
+                  </Label>
+                  <Input
+                    id="customRefineModel"
+                    type="text"
+                    value={config.llmRefine.custom.model}
+                    onChange={(e) => handleCustomConfigChange('model', e.target.value)}
+                    placeholder={t('settings.refineModelPlaceholder')}
+                    className="no-drag font-mono"
+                  />
+                </div>
+              </div>
+            )}
 
             <div className="mt-4 space-y-2">
               <Label htmlFor="refineApiKey">
@@ -1381,9 +1589,23 @@ export default function SettingsPage() {
                 <Input
                   id="refineApiKey"
                   type={showRefineApiKey ? 'text' : 'password'}
-                  value={normalizedLLMRefineConfig.apiKey}
-                  onChange={(e) => handleRefineConfigChange('apiKey', e.target.value)}
-                  placeholder={t('settings.refineApiKeyPlaceholder')}
+                  value={activeLLMConnection.apiKey}
+                  onChange={(e) => {
+                    if (currentLLMProvider === 'deepseek') {
+                      handleDeepSeekApiKeyChange(e.target.value)
+                    } else if (currentLLMProvider === 'openrouter') {
+                      handleOpenRouterApiKeyChange(e.target.value)
+                    } else {
+                      handleCustomConfigChange('apiKey', e.target.value)
+                    }
+                  }}
+                  placeholder={t(
+                    currentLLMProvider === 'openrouter'
+                      ? 'settings.openRouterApiKeyPlaceholder'
+                      : currentLLMProvider === 'deepseek'
+                        ? 'settings.deepSeekApiKeyPlaceholder'
+                        : 'settings.refineApiKeyPlaceholder',
+                  )}
                   className="no-drag pr-10 font-mono"
                 />
                 <button
@@ -1397,6 +1619,32 @@ export default function SettingsPage() {
                   {showRefineApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
+            </div>
+
+            <div className="mt-5 border-t pt-5">
+              <ToggleRow
+                title={t('settings.reasoningAuto')}
+                desc={t('settings.reasoningAutoHelp')}
+                checked={normalizedLLMRefineConfig.reasoning.enabled && reasoningAvailable}
+                disabled={!reasoningAvailable}
+                onChange={handleReasoningEnabledChange}
+              />
+              {currentLLMProvider === 'openrouter' && !openRouterReasoningSupported && (
+                <Alert className="mt-4 border-yellow-500/30 bg-yellow-500/10 [&>svg]:text-yellow-600 dark:[&>svg]:text-yellow-500">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertDescription>
+                    {openRouterReasoningCapability
+                      ? t('settings.openRouterReasoningUnsupported')
+                      : t('settings.openRouterReasoningUnchecked')}
+                  </AlertDescription>
+                </Alert>
+              )}
+              {currentLLMProvider === 'deepseek' && !deepSeekReasoningSupported && (
+                <Alert className="mt-4 border-yellow-500/30 bg-yellow-500/10 [&>svg]:text-yellow-600 dark:[&>svg]:text-yellow-500">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertDescription>{t('settings.deepSeekReasoningUnsupported')}</AlertDescription>
+                </Alert>
+              )}
             </div>
 
             {refineValidationMessage && (

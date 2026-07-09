@@ -212,12 +212,31 @@ export const OPENAI_CHAT = {
   TIMEOUT_MS: 30000,
 } as const
 
+export const LLM_PROVIDERS = {
+  DEEPSEEK_ENDPOINT: 'https://api.deepseek.com',
+  OPENROUTER_ENDPOINT: 'https://openrouter.ai/api/v1',
+  DEEPSEEK_MODELS: ['deepseek-v4-flash', 'deepseek-v4-pro'],
+  DEFAULT_DEEPSEEK_MODEL: 'deepseek-v4-flash',
+} as const
+
+export const LLM_REASONING = {
+  ENABLED: true,
+  OFF_MAX_CHARACTERS: 10,
+  MEDIUM_MAX_CHARACTERS: 30,
+  TIMEOUT_MS: {
+    off: OPENAI_CHAT.TIMEOUT_MS,
+    medium: 60000,
+    high: 90000,
+  },
+} as const
+
 export const LLM_REFINE = {
   ENABLED: false,
   ENDPOINT: '',
   MODEL: '',
   API_KEY: '',
   TRANSLATE_OUTPUT: false,
+  PROVIDER: 'deepseek',
 } as const
 
 export const TRANSLATION = {
