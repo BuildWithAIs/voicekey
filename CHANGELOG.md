@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.20](https://github.com/BuildWithAIs/voicekey/compare/v0.1.19...v0.1.20) (2026-07-11)
+
+### Features
+
+- add provider-aware reasoning config ([0a0ab32](https://github.com/BuildWithAIs/voicekey/commit/0a0ab321c23ac69f55f1e5d24f05b3de41382be8))
+
+### Bug Fixes
+
+- release idle local ASR worker ([15afaa0](https://github.com/BuildWithAIs/voicekey/commit/15afaa0638dcc9427e1b3a3ef8a96a87f2d19bf8))
+
 ### [0.1.19](https://github.com/BuildWithAIs/voicekey/compare/v0.1.18...v0.1.19) (2026-07-07)
 
 ### Features
