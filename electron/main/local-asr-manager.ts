@@ -45,6 +45,7 @@ let currentProgress: LocalASRDownloadProgress | undefined
 let lastError: string | undefined
 let recognitionQueue: Promise<void> = Promise.resolve()
 let localASRWorker: Worker | null = null
+let localASRWorkerIdleTimer: NodeJS.Timeout | null = null
 let nextWorkerRequestId = 1
 const workerRequests = new Map<number, WorkerRequest>()
 
@@ -79,18 +80,30 @@ export function ensureLocalASRReady(): LocalASRPaths {
 }
 
 export async function runLocalASR(audioFilePath: string): Promise<LocalASRRunResult> {
-  const run = async (): Promise<LocalASRRunResult> => {
-    const paths = ensureLocalASRReady()
-    const modelDir = getReadyModelDir(paths)
-    if (!modelDir) {
-      throw new Error('Local ASR model is not downloaded yet')
-    }
+  // Count a queued request as activity immediately, even if another chunk is
+  // still ahead of it in the serialized recognition queue.
+  clearLocalASRWorkerIdleTimer()
 
-    return callLocalASRWorker<LocalASRRunResult>({
-      command: 'transcribe',
-      audioFilePath,
-      modelDir,
-    })
+  const run = async (): Promise<LocalASRRunResult> => {
+    // A previous queued run may have scheduled its idle timeout immediately
+    // before this run starts, so clear it again at the execution boundary.
+    clearLocalASRWorkerIdleTimer()
+
+    try {
+      const paths = ensureLocalASRReady()
+      const modelDir = getReadyModelDir(paths)
+      if (!modelDir) {
+        throw new Error('Local ASR model is not downloaded yet')
+      }
+
+      return await callLocalASRWorker<LocalASRRunResult>({
+        command: 'transcribe',
+        audioFilePath,
+        modelDir,
+      })
+    } finally {
+      scheduleLocalASRWorkerIdleTermination()
+    }
   }
 
   const nextRun = recognitionQueue.then(run, run)
@@ -261,7 +274,14 @@ function getModelFile(name: string): ModelFile {
 }
 
 async function verifyLocalASRModel(modelDir: string): Promise<void> {
-  await callLocalASRWorker<void>({ command: 'verify', modelDir })
+  try {
+    await callLocalASRWorker<void>({ command: 'verify', modelDir })
+  } finally {
+    // Model verification expands the worker's WebAssembly memory even though
+    // the temporary recognizer is freed. Terminating the worker is the only
+    // reliable way to return that memory to the operating system.
+    await terminateLocalASRWorker()
+  }
 }
 
 function getLocalASRWorker(): Worker {
@@ -297,16 +317,18 @@ function getLocalASRWorker(): Worker {
   })
 
   worker.on('error', (error) => {
+    if (localASRWorker !== worker) return
+
+    localASRWorker = null
+    clearLocalASRWorkerIdleTimer()
     rejectAllWorkerRequests(error instanceof Error ? error : new Error('Local ASR worker failed'))
-    if (localASRWorker === worker) {
-      localASRWorker = null
-    }
   })
 
   worker.on('exit', (code) => {
-    if (localASRWorker === worker) {
-      localASRWorker = null
-    }
+    if (localASRWorker !== worker) return
+
+    localASRWorker = null
+    clearLocalASRWorkerIdleTimer()
     if (code !== 0) {
       rejectAllWorkerRequests(new Error(`Local ASR worker exited with code ${code}`))
     }
@@ -342,12 +364,40 @@ function callLocalASRWorker<T extends LocalASRRunResult | void>(
 }
 
 async function terminateLocalASRWorker(): Promise<void> {
+  clearLocalASRWorkerIdleTimer()
+
   const worker = localASRWorker
   if (!worker) return
 
   localASRWorker = null
   rejectAllWorkerRequests(new Error('Local ASR worker was restarted'))
   await worker.terminate()
+}
+
+function clearLocalASRWorkerIdleTimer(): void {
+  if (!localASRWorkerIdleTimer) return
+
+  clearTimeout(localASRWorkerIdleTimer)
+  localASRWorkerIdleTimer = null
+}
+
+function scheduleLocalASRWorkerIdleTermination(): void {
+  clearLocalASRWorkerIdleTimer()
+  if (!localASRWorker) return
+
+  localASRWorkerIdleTimer = setTimeout(() => {
+    localASRWorkerIdleTimer = null
+    console.log(
+      `[ASR:Local] Releasing worker after ${LOCAL_ASR.WORKER_IDLE_TIMEOUT_MS / 60_000} minutes of inactivity`,
+    )
+    void terminateLocalASRWorker().catch((error: unknown) => {
+      console.error(
+        '[ASR:Local] Failed to release idle worker:',
+        error instanceof Error ? error.message : error,
+      )
+    })
+  }, LOCAL_ASR.WORKER_IDLE_TIMEOUT_MS)
+  localASRWorkerIdleTimer.unref()
 }
 
 function rejectAllWorkerRequests(error: Error): void {

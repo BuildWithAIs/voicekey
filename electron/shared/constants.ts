@@ -38,6 +38,7 @@ export const LOCAL_ASR = {
   TOKENS_FILE: 'tokens.txt',
   LANGUAGE: 'zh',
   DOWNLOAD_SIZE_BYTES: 239_549_735,
+  WORKER_IDLE_TIMEOUT_MS: 20 * 60 * 1000,
   HEALTH_CHECK_VERSION: 1,
 } as const
 
