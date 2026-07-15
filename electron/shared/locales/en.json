@@ -212,6 +212,7 @@
       "saved": "Changes saved",
       "error": "Couldn't save changes: {{message}}"
     },
+    "legacyEncryptedKeys": "API keys encrypted by an older version with OS credential storage (including macOS Keychain) were found. This version no longer accesses OS credential storage, so those keys cannot be read. The original ciphertext remains on this device; enter each key again to replace it.",
     "result": {
       "saveSuccess": "Settings saved successfully!",
       "saveError": "Failed to save: {{message}}",

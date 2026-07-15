@@ -140,6 +140,10 @@ export interface AppConfig {
   llmRefine: LLMRefineConfig
   hotkey: HotkeyConfig
   translation: TranslationConfig
+  /** Runtime-only status; this field is never persisted by ConfigManager. */
+  secretStorage?: {
+    legacyEncryptedKeys: boolean
+  }
 }
 
 export interface HistoryItem {

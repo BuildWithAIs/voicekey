@@ -212,6 +212,7 @@
       "saved": "更改已保存",
       "error": "保存失败：{{message}}"
     },
+    "legacyEncryptedKeys": "检测到旧版使用系统凭据存储（包括 macOS 钥匙串）加密的 API Key。当前版本不再访问系统凭据存储，因此无法读取这些 Key。原密文会保留在本机，请重新输入 Key 进行替换。",
     "result": {
       "saveSuccess": "设置已保存！",
       "saveError": "保存失败：{{message}}",

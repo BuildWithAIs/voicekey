@@ -129,6 +129,38 @@ export default tseslint.config(
 
       // 主进程可能需要 require
       '@typescript-eslint/no-require-imports': 'off',
+
+      // Voice Key ships without a stable Apple signing identity. Any safeStorage access can
+      // therefore block managed macOS Keychains, so keep OS credential stores out of runtime code.
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: 'electron',
+              importNames: ['safeStorage'],
+              message:
+                'Persist API keys through ConfigManager; do not access OS credential stores.',
+            },
+          ],
+        },
+      ],
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: "MemberExpression[property.name='safeStorage']",
+          message: 'Do not access Electron safeStorage or the macOS Keychain.',
+        },
+        {
+          selector: "MemberExpression[computed=true][property.value='safeStorage']",
+          message: 'Do not access Electron safeStorage or the macOS Keychain.',
+        },
+        {
+          selector:
+            "VariableDeclarator[init.callee.name='require'][init.arguments.0.value='electron'] > ObjectPattern > Property[key.name='safeStorage']",
+          message: 'Do not destructure Electron safeStorage or access the macOS Keychain.',
+        },
+      ],
     },
   },
 

@@ -24,6 +24,7 @@ import {
   LOG_RETENTION_DAYS,
   LLM_PROVIDERS,
   MICROPHONE_INPUT,
+  STORED_SECRET_PLACEHOLDER,
   TRANSLATION,
   TARGET_LANGUAGES,
 } from '@electron/shared/constants'
@@ -59,6 +60,7 @@ import {
 import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
 import { validateHotkey } from '@/lib/hotkey-utils'
+import { applyPersistedSecretState, normalizeRendererConfig } from './settings-config'
 
 const AUTO_SAVE_DELAY_MS = 700
 const NO_MICROPHONE_SELECT_VALUE = '__no-microphones__'
@@ -359,25 +361,7 @@ export default function SettingsPage() {
     const loadConfig = async () => {
       try {
         const loadedConfig = await window.electronAPI.getConfig()
-        const normalizedConfig: AppConfig = {
-          ...loadedConfig,
-          asr: {
-            ...loadedConfig.asr,
-            // Legacy configs may lack apiKeys; guarantee both regions exist.
-            apiKeys: {
-              cn: loadedConfig.asr?.apiKeys?.cn ?? '',
-              intl: loadedConfig.asr?.apiKeys?.intl ?? '',
-            },
-            microphoneDeviceId: loadedConfig.asr?.microphoneDeviceId ?? '',
-            microphoneDeviceLabel: loadedConfig.asr?.microphoneDeviceLabel ?? '',
-          },
-          llmRefine: normalizeLLMRefineConfig(loadedConfig.llmRefine),
-          translation: {
-            enabled: loadedConfig.translation?.enabled ?? defaultTranslationConfig.enabled,
-            targetLanguage:
-              loadedConfig.translation?.targetLanguage || defaultTranslationConfig.targetLanguage,
-          },
-        }
+        const normalizedConfig = normalizeRendererConfig(loadedConfig)
         setConfig(normalizedConfig)
         setOriginalConfig(normalizedConfig)
       } catch (error) {
@@ -645,12 +629,28 @@ export default function SettingsPage() {
 
     try {
       await window.electronAPI.setConfig(patch)
-      setOriginalConfig((prev) => {
-        if (!prev) return prev
-        const merged = mergeConfigPatch(prev, patch)
-        latestOriginalConfigRef.current = merged
-        return merged
-      })
+      try {
+        // Re-read from the main process so newly entered secrets immediately become placeholders
+        // and legacy-encryption status reflects the persisted state.
+        const persistedConfig = normalizeRendererConfig(await window.electronAPI.getConfig())
+        latestOriginalConfigRef.current = persistedConfig
+        setOriginalConfig(persistedConfig)
+        setConfig((current) => {
+          const next = applyPersistedSecretState(current, patch, persistedConfig)
+          latestConfigRef.current = next
+          return next
+        })
+      } catch (reloadError) {
+        // The save already succeeded. Keep the previous behavior as a fallback and let a later
+        // settings load obtain the masked values rather than reporting a false save failure.
+        console.error('Failed to refresh masked config after save:', reloadError)
+        setOriginalConfig((prev) => {
+          if (!prev) return prev
+          const merged = mergeConfigPatch(prev, patch)
+          latestOriginalConfigRef.current = merged
+          return merged
+        })
+      }
 
       if (invalidMessage) {
         setSaveStatus({ state: 'invalid', message: invalidMessage })
@@ -1176,6 +1176,13 @@ export default function SettingsPage() {
         <p className="mt-2 text-sm text-muted-foreground">{t('settings.subtitle')}</p>
       </div>
 
+      {config.secretStorage?.legacyEncryptedKeys ? (
+        <Alert className="mb-5 border-yellow-500/30 bg-yellow-500/10 [&>svg]:text-yellow-600 dark:[&>svg]:text-yellow-500">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription>{t('settings.legacyEncryptedKeys')}</AlertDescription>
+        </Alert>
+      ) : null}
+
       <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_256px]">
         <div className="flex min-w-0 flex-col gap-4">
           {/* 通用 */}
@@ -1378,6 +1385,11 @@ export default function SettingsPage() {
                       type={showAsrApiKey ? 'text' : 'password'}
                       value={currentApiKey}
                       onChange={(e) => handleApiKeyChange(e.target.value)}
+                      onFocus={(event) => {
+                        if (currentApiKey === STORED_SECRET_PLACEHOLDER) {
+                          event.currentTarget.select()
+                        }
+                      }}
                       placeholder={t('settings.apiKeyPlaceholder')}
                       className="no-drag pr-10 font-mono"
                     />
@@ -1597,6 +1609,11 @@ export default function SettingsPage() {
                       handleOpenRouterApiKeyChange(e.target.value)
                     } else {
                       handleCustomConfigChange('apiKey', e.target.value)
+                    }
+                  }}
+                  onFocus={(event) => {
+                    if (activeLLMConnection.apiKey === STORED_SECRET_PLACEHOLDER) {
+                      event.currentTarget.select()
                     }
                   }}
                   placeholder={t(

@@ -1,4 +1,3 @@
-import { safeStorage } from 'electron'
 import Store from 'electron-store'
 import {
   AppConfig,
@@ -10,7 +9,12 @@ import {
   TranslationConfig,
 } from '../shared/types'
 import { defaultLLMRefineConfig, normalizeLLMRefineConfig } from '../shared/llm-config'
-import { DEFAULT_HOTKEYS, MICROPHONE_INPUT, TRANSLATION } from '../shared/constants'
+import {
+  DEFAULT_HOTKEYS,
+  MICROPHONE_INPUT,
+  STORED_SECRET_PLACEHOLDER,
+  TRANSLATION,
+} from '../shared/constants'
 
 const ENCRYPTED_PREFIX = 'enc:'
 
@@ -126,6 +130,26 @@ function normalizeConfigString(value: unknown, maxLength: number): string {
   return typeof value === 'string' ? value.trim().slice(0, maxLength) : ''
 }
 
+function normalizeSecretString(value: unknown): string {
+  return typeof value === 'string' ? value : ''
+}
+
+function isLegacyEncryptedKey(value: string): boolean {
+  return value.startsWith(ENCRYPTED_PREFIX)
+}
+
+function isUsableStoredKey(value: string): boolean {
+  return Boolean(value) && !isLegacyEncryptedKey(value)
+}
+
+function hasStoredKey(value: string): boolean {
+  return Boolean(value)
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+}
+
 export class ConfigManager {
   private store: Store<ConfigSchema>
 
@@ -137,86 +161,96 @@ export class ConfigManager {
     this.migrate()
   }
 
-  private encryptKey(plainText: string): string {
-    if (!plainText) return plainText
-    if (plainText.startsWith(ENCRYPTED_PREFIX)) return plainText
+  private resolveStoredLLMRefineConfig(config: Partial<LLMRefineConfig>): LLMRefineConfig {
+    const normalized = normalizeLLMRefineConfig(config)
+    return normalizeLLMRefineConfig({
+      ...normalized,
+      // The top-level apiKey is a compatibility alias of the active provider.
+      apiKey: '',
+      deepseek: {
+        ...normalized.deepseek,
+        apiKey: this.resolveStoredKey(normalized.deepseek.apiKey),
+      },
+      openrouter: {
+        ...normalized.openrouter,
+        apiKey: this.resolveStoredKey(normalized.openrouter.apiKey),
+      },
+      custom: {
+        ...normalized.custom,
+        apiKey: this.resolveStoredKey(normalized.custom.apiKey),
+      },
+    })
+  }
 
-    try {
-      if (safeStorage.isEncryptionAvailable()) {
-        const encrypted = safeStorage.encryptString(plainText)
-        return ENCRYPTED_PREFIX + encrypted.toString('base64')
-      }
-    } catch (error) {
-      console.error('[ConfigManager] Failed to encrypt API key:', error)
+  private prepareLLMRefineConfigForStorage(
+    config: Partial<LLMRefineConfig>,
+    storedConfig?: Partial<LLMRefineConfig>,
+  ): LLMRefineConfig {
+    const normalized = normalizeLLMRefineConfig(config)
+    const normalizedStored = normalizeLLMRefineConfig(storedConfig ?? config)
+    return normalizeLLMRefineConfig({
+      ...normalized,
+      // normalizeLLMRefineConfig derives this compatibility alias from the active provider.
+      apiKey: '',
+      deepseek: {
+        ...normalized.deepseek,
+        apiKey: this.prepareKeyForStorage(
+          normalized.deepseek.apiKey,
+          normalizedStored.deepseek.apiKey,
+        ),
+      },
+      openrouter: {
+        ...normalized.openrouter,
+        apiKey: this.prepareKeyForStorage(
+          normalized.openrouter.apiKey,
+          normalizedStored.openrouter.apiKey,
+        ),
+      },
+      custom: {
+        ...normalized.custom,
+        apiKey: this.prepareKeyForStorage(normalized.custom.apiKey, normalizedStored.custom.apiKey),
+      },
+    })
+  }
+
+  private resolveStoredKey(value: string): string {
+    // v0.1.9-v0.1.20 stored safeStorage ciphertext with this prefix. This version deliberately
+    // never accesses Keychain, so an old ciphertext stays on disk but cannot be used as an API key.
+    return isLegacyEncryptedKey(value) ? '' : value
+  }
+
+  private prepareKeyForStorage(plainText: string, storedValue: string): string {
+    // CONFIG_GET deliberately sends only this marker to the renderer. Preserve the main-process
+    // value when an unrelated settings autosave echoes the marker back.
+    if (plainText === STORED_SECRET_PLACEHOLDER && storedValue) {
+      return storedValue
+    }
+
+    // Old safeStorage ciphertext is intentionally unreadable without Keychain. Preserve it during
+    // unrelated saves until the user replaces it with a new plaintext key.
+    if (plainText === '' && isLegacyEncryptedKey(storedValue)) {
+      return storedValue
     }
 
     return plainText
   }
 
-  private decryptLLMRefineConfig(config: Partial<LLMRefineConfig>): LLMRefineConfig {
-    const normalized = normalizeLLMRefineConfig(config)
-    return normalizeLLMRefineConfig({
-      ...normalized,
-      apiKey: this.decryptKey(normalized.apiKey),
-      deepseek: {
-        ...normalized.deepseek,
-        apiKey: this.decryptKey(normalized.deepseek.apiKey),
-      },
-      openrouter: {
-        ...normalized.openrouter,
-        apiKey: this.decryptKey(normalized.openrouter.apiKey),
-      },
-      custom: {
-        ...normalized.custom,
-        apiKey: this.decryptKey(normalized.custom.apiKey),
-      },
-    })
-  }
-
-  private encryptLLMRefineConfig(config: Partial<LLMRefineConfig>): LLMRefineConfig {
-    const normalized = normalizeLLMRefineConfig(config)
-    return normalizeLLMRefineConfig({
-      ...normalized,
-      apiKey: this.encryptKey(normalized.apiKey),
-      deepseek: {
-        ...normalized.deepseek,
-        apiKey: this.encryptKey(normalized.deepseek.apiKey),
-      },
-      openrouter: {
-        ...normalized.openrouter,
-        apiKey: this.encryptKey(normalized.openrouter.apiKey),
-      },
-      custom: {
-        ...normalized.custom,
-        apiKey: this.encryptKey(normalized.custom.apiKey),
-      },
-    })
-  }
-
-  private decryptKey(value: string): string {
-    if (!value || !value.startsWith(ENCRYPTED_PREFIX)) {
-      return value
-    }
-
-    try {
-      const base64 = value.slice(ENCRYPTED_PREFIX.length)
-      const buffer = Buffer.from(base64, 'base64')
-      return safeStorage.decryptString(buffer)
-    } catch (error) {
-      console.error('[ConfigManager] Failed to decrypt API key:', error)
-      return ''
-    }
-  }
-
   private migrate(): void {
     const asrConfig = this.store.get('asr') as unknown as Record<string, unknown> | undefined
-    if (asrConfig?.apiKey) {
+    const legacyASRKey = normalizeSecretString(asrConfig?.apiKey)
+    if (legacyASRKey) {
       const currentApiKeys = this.store.get('asr.apiKeys', { cn: '', intl: '' })
-      if (!currentApiKeys.cn) {
-        this.store.set('asr.apiKeys.cn', asrConfig.apiKey)
+      const currentCNKey = normalizeSecretString(currentApiKeys.cn)
+      let migratedCNKey = currentCNKey
+      if (!currentCNKey || (!isUsableStoredKey(currentCNKey) && isUsableStoredKey(legacyASRKey))) {
+        this.store.set('asr.apiKeys.cn', legacyASRKey)
+        migratedCNKey = legacyASRKey
       }
-      // Always remove the legacy plaintext key, even when apiKeys.cn already exists.
-      this.store.delete('asr.apiKey' as never)
+      if (isUsableStoredKey(migratedCNKey)) {
+        // Delete the deprecated duplicate only after a usable key exists in the canonical field.
+        // This fixes v0.1.18's data-loss bug without resurrecting a stale backup after users clear it.
+        this.store.delete('asr.apiKey' as never)
+      }
     }
 
     if (
@@ -230,36 +264,61 @@ export class ConfigManager {
     const llmRefineConfig = this.store.get('llmRefine')
     const migratedLLMRefineConfig = migrateLLMRefineConfig(llmRefineConfig)
     if (migratedLLMRefineConfig) {
+      const legacyLLMKey = isRecord(llmRefineConfig)
+        ? normalizeSecretString(llmRefineConfig.apiKey)
+        : ''
+      const activeProvider = migratedLLMRefineConfig.provider
+      const activeConfig =
+        activeProvider === 'custom-compatible'
+          ? migratedLLMRefineConfig.custom
+          : migratedLLMRefineConfig[activeProvider]
+      if (isUsableStoredKey(legacyLLMKey) && !isUsableStoredKey(activeConfig.apiKey)) {
+        activeConfig.apiKey = legacyLLMKey
+        migratedLLMRefineConfig.apiKey = legacyLLMKey
+      }
       this.store.set('llmRefine', migratedLLMRefineConfig)
     }
   }
 
-  // Must be called after app.whenReady() because safeStorage needs ready on Windows/Linux.
-  migrateApiKeysEncryption(): void {
-    if (!safeStorage.isEncryptionAvailable()) return
-
-    const apiKeys = this.store.get('asr.apiKeys', { cn: '', intl: '' })
-    for (const region of ['cn', 'intl'] as const) {
-      const key = apiKeys[region]
-      if (key && !key.startsWith(ENCRYPTED_PREFIX)) {
-        apiKeys[region] = this.encryptKey(key)
-      }
+  getConfig(): AppConfig {
+    // Renderer configuration never receives plaintext secrets. New keys are stored directly in
+    // electron-store, matching v0.1.8 and earlier, while old enc: values are preserved but unusable.
+    const storedAsr = this.getStoredASRConfig()
+    const asr: ASRConfig = {
+      ...storedAsr,
+      apiKeys: {
+        cn: hasStoredKey(storedAsr.apiKeys.cn) ? STORED_SECRET_PLACEHOLDER : '',
+        intl: hasStoredKey(storedAsr.apiKeys.intl) ? STORED_SECRET_PLACEHOLDER : '',
+      },
     }
-    this.store.set('asr.apiKeys', apiKeys)
-
-    const llmRefine = this.decryptLLMRefineConfig(
+    const storedLLMRefine = normalizeLLMRefineConfig(
       this.store.get('llmRefine', defaultConfig.llmRefine),
     )
-    this.store.set('llmRefine', this.encryptLLMRefineConfig(llmRefine))
-  }
-
-  getConfig(): AppConfig {
+    const llmRefine = normalizeLLMRefineConfig({
+      ...storedLLMRefine,
+      apiKey: '',
+      deepseek: {
+        ...storedLLMRefine.deepseek,
+        apiKey: hasStoredKey(storedLLMRefine.deepseek.apiKey) ? STORED_SECRET_PLACEHOLDER : '',
+      },
+      openrouter: {
+        ...storedLLMRefine.openrouter,
+        apiKey: hasStoredKey(storedLLMRefine.openrouter.apiKey) ? STORED_SECRET_PLACEHOLDER : '',
+      },
+      custom: {
+        ...storedLLMRefine.custom,
+        apiKey: hasStoredKey(storedLLMRefine.custom.apiKey) ? STORED_SECRET_PLACEHOLDER : '',
+      },
+    })
     return {
       app: this.getAppConfig(),
-      asr: this.getASRConfig(),
-      llmRefine: this.getLLMRefineConfig(),
+      asr,
+      llmRefine,
       hotkey: this.getHotkeyConfig(),
       translation: this.getTranslationConfig(),
+      secretStorage: {
+        legacyEncryptedKeys: this.hasLegacyEncryptedKeys(storedAsr, storedLLMRefine),
+      },
     }
   }
 
@@ -273,42 +332,64 @@ export class ConfigManager {
   }
 
   getASRConfig(): ASRConfig {
+    const config = this.getStoredASRConfig()
+    return {
+      ...config,
+      apiKeys: {
+        cn: this.resolveStoredKey(config.apiKeys.cn),
+        intl: this.resolveStoredKey(config.apiKeys.intl),
+      },
+    }
+  }
+
+  private hasLegacyEncryptedKeys(asr: ASRConfig, llmRefine: LLMRefineConfig): boolean {
+    return [
+      asr.apiKeys.cn,
+      asr.apiKeys.intl,
+      llmRefine.deepseek.apiKey,
+      llmRefine.openrouter.apiKey,
+      llmRefine.custom.apiKey,
+    ].some(isLegacyEncryptedKey)
+  }
+
+  private getStoredASRConfig(): ASRConfig {
     const storedConfig = this.store.get('asr', defaultConfig.asr)
     const config: ASRConfig = {
-      ...defaultConfig.asr,
-      ...storedConfig,
       provider: normalizeASRProvider(storedConfig.provider),
+      region: storedConfig.region === 'intl' ? 'intl' : 'cn',
       apiKeys: {
         ...defaultConfig.asr.apiKeys,
         ...(storedConfig.apiKeys ?? {}),
       },
+      lowVolumeMode:
+        typeof storedConfig.lowVolumeMode === 'boolean'
+          ? storedConfig.lowVolumeMode
+          : defaultConfig.asr.lowVolumeMode,
+      microphoneDeviceId: normalizeConfigString(
+        storedConfig.microphoneDeviceId,
+        MICROPHONE_INPUT.DEVICE_ID_MAX_LENGTH,
+      ),
+      microphoneDeviceLabel: normalizeConfigString(
+        storedConfig.microphoneDeviceLabel,
+        MICROPHONE_INPUT.DEVICE_LABEL_MAX_LENGTH,
+      ),
+      endpoint: normalizeSecretString(storedConfig.endpoint),
+      language: normalizeSecretString(storedConfig.language) || defaultConfig.asr.language,
     }
-    config.microphoneDeviceId = normalizeConfigString(
-      config.microphoneDeviceId,
-      MICROPHONE_INPUT.DEVICE_ID_MAX_LENGTH,
-    )
-    config.microphoneDeviceLabel = normalizeConfigString(
-      config.microphoneDeviceLabel,
-      MICROPHONE_INPUT.DEVICE_LABEL_MAX_LENGTH,
-    )
     config.apiKeys = {
-      cn: this.decryptKey(config.apiKeys.cn),
-      intl: this.decryptKey(config.apiKeys.intl),
-    }
-    if (!config.region) {
-      config.region = 'cn'
-    }
-    if (typeof config.lowVolumeMode !== 'boolean') {
-      config.lowVolumeMode = defaultConfig.asr.lowVolumeMode
+      cn: normalizeSecretString(config.apiKeys.cn),
+      intl: normalizeSecretString(config.apiKeys.intl),
     }
     return config
   }
 
   setASRConfig(config: Partial<ASRConfig>): void {
-    const current = this.getASRConfig()
+    const stored = this.getStoredASRConfig()
+    const current = stored
+    const { apiKey: _legacyApiKey, ...configWithoutLegacyKey } = config
     const merged = {
       ...current,
-      ...config,
+      ...configWithoutLegacyKey,
       provider: normalizeASRProvider(config.provider ?? current.provider),
       microphoneDeviceId: normalizeConfigString(
         config.microphoneDeviceId ?? current.microphoneDeviceId,
@@ -325,19 +406,62 @@ export class ConfigManager {
     }
     if (merged.apiKeys) {
       merged.apiKeys = {
-        cn: this.encryptKey(merged.apiKeys.cn),
-        intl: this.encryptKey(merged.apiKeys.intl),
+        cn: this.prepareKeyForStorage(merged.apiKeys.cn, stored.apiKeys?.cn ?? ''),
+        intl: this.prepareKeyForStorage(merged.apiKeys.intl, stored.apiKeys?.intl ?? ''),
       }
     }
-    this.store.set('asr', merged)
+    const rawStored = this.store.get('asr', defaultConfig.asr) as unknown
+    this.store.set('asr', {
+      ...(isRecord(rawStored) ? rawStored : {}),
+      ...merged,
+    })
   }
 
   getLLMRefineConfig(): LLMRefineConfig {
-    return this.decryptLLMRefineConfig(this.store.get('llmRefine', defaultConfig.llmRefine))
+    return this.resolveStoredLLMRefineConfig(this.store.get('llmRefine', defaultConfig.llmRefine))
+  }
+
+  resolveASRConfig(config: Partial<ASRConfig>): ASRConfig {
+    const stored = this.getASRConfig()
+    return {
+      ...stored,
+      ...config,
+      apiKeys: {
+        cn:
+          config.apiKeys?.cn === STORED_SECRET_PLACEHOLDER
+            ? stored.apiKeys.cn
+            : (config.apiKeys?.cn ?? stored.apiKeys.cn),
+        intl:
+          config.apiKeys?.intl === STORED_SECRET_PLACEHOLDER
+            ? stored.apiKeys.intl
+            : (config.apiKeys?.intl ?? stored.apiKeys.intl),
+      },
+    }
+  }
+
+  resolveLLMRefineConfig(config: Partial<LLMRefineConfig>): LLMRefineConfig {
+    const stored = this.getLLMRefineConfig()
+    const merged = normalizeLLMRefineConfig({
+      ...stored,
+      ...config,
+      reasoning: { ...stored.reasoning, ...(config.reasoning ?? {}) },
+      deepseek: { ...stored.deepseek, ...(config.deepseek ?? {}) },
+      openrouter: { ...stored.openrouter, ...(config.openrouter ?? {}) },
+      custom: { ...stored.custom, ...(config.custom ?? {}) },
+    })
+
+    for (const provider of ['deepseek', 'openrouter', 'custom'] as const) {
+      if (merged[provider].apiKey === STORED_SECRET_PLACEHOLDER) {
+        merged[provider].apiKey = stored[provider].apiKey
+      }
+    }
+
+    return normalizeLLMRefineConfig(merged)
   }
 
   setLLMRefineConfig(config: Partial<LLMRefineConfig>): void {
-    const current = this.getLLMRefineConfig()
+    const stored = this.store.get('llmRefine', defaultConfig.llmRefine)
+    const current = normalizeLLMRefineConfig(stored)
     const merged = normalizeLLMRefineConfig({
       ...current,
       ...config,
@@ -358,7 +482,11 @@ export class ConfigManager {
         ...(config.custom ?? {}),
       },
     })
-    this.store.set('llmRefine', this.encryptLLMRefineConfig(merged))
+    this.store.set('llmRefine', this.prepareLLMRefineConfigForStorage(merged, stored))
+  }
+
+  isLLMRefineEnabled(): boolean {
+    return normalizeLLMRefineConfig(this.store.get('llmRefine', defaultConfig.llmRefine)).enabled
   }
 
   getHotkeyConfig(): HotkeyConfig {

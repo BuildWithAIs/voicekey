@@ -6,6 +6,10 @@ type BuildRefineSystemPromptOptions = {
   targetLanguage?: string
 }
 
+// Renderer-safe stand-in for a saved API key. The main process replaces this marker with the
+// stored secret so the renderer never receives plaintext credentials.
+export const STORED_SECRET_PLACEHOLDER = '••••••••••••'
+
 // GLM ASR API defaults and limits
 export const GLM_ASR = {
   ENDPOINT: 'https://open.bigmodel.cn/api/paas/v4/audio/transcriptions',

@@ -68,24 +68,6 @@ When changing code:
 2. Keep README descriptions concise and current; do not preserve historical plans.
 3. If adding a new directory, add a short README for it.
 
-## Delegated Coding
-
-Use the global `coding-skill` / `reclaude` workflow as a senior engineering
-partner for substantial implementation, debugging, refactoring, test-fixing,
-repository investigation, and code review when it is available and useful.
-
-The current agent remains responsible for scope, technical direction, diff
-inspection, and verification:
-
-1. Define objective, scope, files/directories, constraints, and verification
-   commands clearly.
-2. Prefer non-interactive `reclaude -p` usage.
-3. Avoid overlapping edits between agents; split by files, modules, or phases.
-4. Keep read-only reviews read-only unless fixes were explicitly requested.
-5. Inspect delegate diffs and run relevant checks before reporting completion.
-6. If the delegation backend is unavailable or rate-limited, continue directly
-   rather than leaving actionable fixes incomplete.
-
 ## Commands
 
 Development:
@@ -153,7 +135,7 @@ npm run type-check
 
 - Treat renderer data as untrusted at IPC boundaries.
 - Do not log API keys, transcript bodies, or raw audio contents.
-- Keep API keys in main-process config and safeStorage-backed migration paths.
+- Keep API keys in main-process config and never expose plaintext credentials to renderer windows; persistence deliberately avoids OS credential stores so managed macOS Keychains cannot block the app.
 - Preserve the GitHub Releases URL allowlist for update links.
 - Local ASR model assets stay under `app.getPath('userData')`, not bundled into
   the installer.

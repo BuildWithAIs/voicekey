@@ -39,8 +39,8 @@ export type ConfigHandlersDeps = {
   updateAutoLaunchState: (enable: boolean) => void
   /** 刷新本地化 UI（托盘菜单、窗口标题等） */
   refreshLocalizedUi: () => void
-  /** 重新初始化 ASR Provider */
-  initializeASRProvider: () => void
+  /** 使当前 ASR Provider 失效，下次真正识别时再延迟初始化 */
+  invalidateASRProvider: () => void
   /** 重新注册全局快捷键 */
   registerGlobalHotkeys: () => void
   /** 获取当前 ASR Provider 实例 */
@@ -111,13 +111,12 @@ export function registerConfigHandlers(): void {
       }
       if (isPlainObject(config.asr)) {
         configManager.setASRConfig(config.asr)
-        deps.initializeASRProvider()
+        deps.invalidateASRProvider()
       }
       if (isPlainObject(config.llmRefine)) {
-        const previousRefineConfig = configManager.getLLMRefineConfig()
+        const wasRefineEnabled = configManager.isLLMRefineEnabled()
         configManager.setLLMRefineConfig(config.llmRefine)
-        const nextRefineConfig = configManager.getLLMRefineConfig()
-        if (!previousRefineConfig.enabled && nextRefineConfig.enabled) {
+        if (!wasRefineEnabled && configManager.isLLMRefineEnabled()) {
           const refineService = deps.getRefineService()
           void refineService?.refreshRemoteGlossary()
         }
@@ -151,7 +150,7 @@ export function registerConfigHandlers(): void {
       return false
     }
     if (config) {
-      const tempProvider = new ASRProvider(config)
+      const tempProvider = new ASRProvider(configManager.resolveASRConfig(config))
       return await tempProvider.testConnection()
     }
     const asrProvider = deps.getAsrProvider()
@@ -177,7 +176,9 @@ export function registerConfigHandlers(): void {
       }
     }
 
-    return await refineService.testConnection(normalizeLLMRefineConfig(config))
+    return await refineService.testConnection(
+      configManager.resolveLLMRefineConfig(normalizeLLMRefineConfig(config)),
+    )
   })
 
   ipcMain.handle(IPC_CHANNELS.CONFIG_OPENROUTER_MODEL_CHECK, async (_event, model: unknown) => {

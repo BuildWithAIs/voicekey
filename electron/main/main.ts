@@ -106,6 +106,10 @@ function initializeASRProvider() {
   asrProvider = new ASRProvider(config)
 }
 
+function invalidateASRProvider() {
+  asrProvider = null
+}
+
 // 初始化文本润色服务
 function initializeRefineService() {
   refineService = new RefineService({
@@ -115,7 +119,7 @@ function initializeRefineService() {
 }
 
 function refreshRemoteGlossaryIfEnabled(): void {
-  if (!refineService?.isEnabled()) {
+  if (!refineService || !configManager.isLLMRefineEnabled()) {
     return
   }
 
@@ -141,7 +145,6 @@ app.whenReady().then(async () => {
   }
 
   // 初始化
-  configManager.migrateApiKeysEncryption()
   const appConfig = configManager.getAppConfig()
   await initMainI18n(appConfig.language)
 
@@ -166,8 +169,7 @@ app.whenReady().then(async () => {
   })
   // 设置开机自启
   updateAutoLaunchState(appConfig.autoLaunch ?? false)
-  // 初始化ASR Provider
-  initializeASRProvider()
+  // ASR Provider is initialized on first use so settings changes do not recreate it unnecessarily.
   initializeRefineService()
   refreshRemoteGlossaryIfEnabled()
   // 创建后台窗口（渲染进程崩溃/无响应时中止进行中的录音会话）
@@ -188,7 +190,7 @@ app.whenReady().then(async () => {
     config: {
       updateAutoLaunchState,
       refreshLocalizedUi,
-      initializeASRProvider,
+      invalidateASRProvider,
       registerGlobalHotkeys: registerHotkeys,
       getAsrProvider: () => asrProvider,
       getRefineService: () => refineService,
