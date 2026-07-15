@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.21](https://github.com/BuildWithAIs/voicekey/compare/v0.1.20...v0.1.21) (2026-07-15)
+
+### Bug Fixes
+
+- avoid system credential store lockouts ([6d2b32e](https://github.com/BuildWithAIs/voicekey/commit/6d2b32e881a7088da0d97395097326a5b8d10930))
+
 ### [0.1.20](https://github.com/BuildWithAIs/voicekey/compare/v0.1.19...v0.1.20) (2026-07-11)
 
 ### Features
