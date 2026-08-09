@@ -64,6 +64,13 @@ const STARTUP_HIDDEN_ARG = '--startup-hidden'
 function updateAutoLaunchState(enable: boolean) {
   console.log(`[Main] Updating auto-launch state: ${enable}`)
 
+  // Development runs use the generic Electron executable. Registering it as a login item
+  // launches Electron without an app path on the next sign-in, showing its default window.
+  if (!app.isPackaged) {
+    console.log('[Main] Skipping auto-launch registration for an unpackaged app')
+    return
+  }
+
   if (process.platform === 'win32') {
     app.setLoginItemSettings({
       openAtLogin: enable,
