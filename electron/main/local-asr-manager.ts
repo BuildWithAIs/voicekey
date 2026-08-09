@@ -9,6 +9,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { Worker } from 'node:worker_threads'
 import { AUDIO_CONFIG, LOCAL_ASR } from '../shared/constants'
 import type { LocalASRDownloadProgress, LocalASRStatus } from '../shared/types'
+import { downloadFromSources } from './download-sources'
 
 type ModelFile = (typeof LOCAL_ASR.MODEL_FILES)[number]
 
@@ -439,17 +440,43 @@ async function downloadModelFile(
   const tempPath = `${outputPath}.download`
   fs.rmSync(tempPath, { force: true })
 
-  await requestDownload(file.url, tempPath, downloadedBefore, onProgress)
-  await verifyFileSha256(tempPath, file.sha256)
+  const downloadedBytes = await downloadFromSources(
+    file.urls,
+    async (source) => {
+      fs.rmSync(tempPath, { force: true })
+      updateDownloadProgress(downloadedBefore, onProgress)
 
-  const downloadedBytes = fs.statSync(tempPath).size
-  if (downloadedBytes !== file.sizeBytes) {
-    fs.rmSync(tempPath, { force: true })
-    throw new Error(`Downloaded local ASR asset has unexpected size: ${file.name}`)
-  }
+      await requestDownload(source, tempPath, downloadedBefore, onProgress)
+      await verifyFileSha256(tempPath, file.sha256)
+
+      const sourceBytes = fs.statSync(tempPath).size
+      if (sourceBytes !== file.sizeBytes) {
+        fs.rmSync(tempPath, { force: true })
+        throw new Error(`Downloaded local ASR asset has unexpected size: ${file.name}`)
+      }
+
+      return sourceBytes
+    },
+    ({ source, nextSource, error }) => {
+      console.warn(
+        `[ASR:Local] Downloading ${file.name} from ${new URL(source).host} failed; ` +
+          `trying ${new URL(nextSource).host}: ${error.message}`,
+      )
+    },
+  )
 
   fs.renameSync(tempPath, outputPath)
   return downloadedBytes
+}
+
+function updateDownloadProgress(receivedBytes: number, onProgress?: ProgressCallback): void {
+  currentProgress = {
+    phase: 'model',
+    receivedBytes,
+    totalBytes: LOCAL_ASR.DOWNLOAD_SIZE_BYTES,
+    percent: Math.min(100, Math.round((receivedBytes / LOCAL_ASR.DOWNLOAD_SIZE_BYTES) * 100)),
+  }
+  onProgress?.(currentProgress)
 }
 
 function verifyFileSha256(filePath: string, expectedSha256: string): Promise<void> {
@@ -545,16 +572,7 @@ function requestDownload(
             LOCAL_ASR.DOWNLOAD_SIZE_BYTES,
             downloadedBefore + receivedBytes,
           )
-          currentProgress = {
-            phase: 'model',
-            receivedBytes: totalReceivedBytes,
-            totalBytes: LOCAL_ASR.DOWNLOAD_SIZE_BYTES,
-            percent: Math.min(
-              100,
-              Math.round((totalReceivedBytes / LOCAL_ASR.DOWNLOAD_SIZE_BYTES) * 100),
-            ),
-          }
-          onProgress?.(currentProgress)
+          updateDownloadProgress(totalReceivedBytes, onProgress)
         })
 
         // Without this, a mid-transfer stream error leaves the promise pending
