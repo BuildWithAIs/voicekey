@@ -24,7 +24,7 @@ export default defineConfig(({ mode }) => {
           vite: {
             build: {
               outDir: 'dist-electron',
-              emptyOutDir: true,
+              emptyOutDir: false,
               rolldownOptions: {
                 output: {
                   format: 'esm',
