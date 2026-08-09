@@ -114,10 +114,7 @@ export class RefineService implements TextRefiner {
 
     try {
       const reasoning = buildReasoningPayloadFields(
-        {
-          ...resolvedConfig.connection,
-          reasoning: { enabled: false },
-        },
+        resolvedConfig.connection,
         TEST_CONNECTION_TRANSCRIPT,
       )
       await requestChatCompletion(

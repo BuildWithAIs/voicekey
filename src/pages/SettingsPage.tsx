@@ -945,19 +945,6 @@ export default function SettingsPage() {
     }))
   }
 
-  const handleReasoningEnabledChange = (checked: boolean) => {
-    setConfig((prev) => ({
-      ...prev,
-      llmRefine: normalizeLLMRefineConfig({
-        ...prev.llmRefine,
-        reasoning: {
-          ...prev.llmRefine.reasoning,
-          enabled: checked,
-        },
-      }),
-    }))
-  }
-
   const handleCheckOpenRouterModel = async () => {
     const normalizedRefineConfig = normalizeLLMRefineConfig(config.llmRefine)
     const model = normalizedRefineConfig.openrouter.model.trim()
@@ -996,10 +983,8 @@ export default function SettingsPage() {
         }),
       }))
       setOpenRouterModelStatus({
-        type: result.capability.supportsReasoning ? 'success' : 'error',
-        message: result.capability.supportsReasoning
-          ? t('settings.result.openRouterReasoningSupported')
-          : t('settings.result.openRouterReasoningUnsupported'),
+        type: 'success',
+        message: t('settings.result.openRouterCapabilitySaved'),
       })
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : t('common.unknownError')
@@ -1030,22 +1015,12 @@ export default function SettingsPage() {
   const activeLLMConnection = resolveLLMConnection(normalizedLLMRefineConfig)
   const currentLLMProvider = normalizedLLMRefineConfig.provider
   const isCustomLLMProvider = currentLLMProvider === 'custom-compatible'
-  const isDeepSeekProvider = currentLLMProvider === 'deepseek'
-  const isOpenRouterProvider = currentLLMProvider === 'openrouter'
-  const openRouterReasoningCapability = normalizedLLMRefineConfig.openrouter.reasoningCapability
-  const openRouterReasoningSupported = Boolean(openRouterReasoningCapability?.supportsReasoning)
   const builtInDeepSeekModels: string[] = [...LLM_PROVIDERS.DEEPSEEK_MODELS]
   const deepSeekModelOptions = builtInDeepSeekModels.includes(
     normalizedLLMRefineConfig.deepseek.model,
   )
     ? builtInDeepSeekModels
     : [...builtInDeepSeekModels, normalizedLLMRefineConfig.deepseek.model]
-  const deepSeekReasoningSupported =
-    !isDeepSeekProvider || builtInDeepSeekModels.includes(normalizedLLMRefineConfig.deepseek.model)
-  const reasoningAvailable =
-    !isCustomLLMProvider &&
-    deepSeekReasoningSupported &&
-    (!isOpenRouterProvider || openRouterReasoningSupported)
   const llmProviderOptions = [
     { value: 'deepseek', label: 'DeepSeek' },
     { value: 'openrouter', label: 'OpenRouter' },
@@ -1509,9 +1484,6 @@ export default function SettingsPage() {
                       ))}
                     </SelectContent>
                   </Select>
-                  <p className="text-xs text-muted-foreground">
-                    {t('settings.deepSeekReasoningHelp')}
-                  </p>
                 </div>
               </div>
             )}
@@ -1556,12 +1528,6 @@ export default function SettingsPage() {
 
             {isCustomLLMProvider && (
               <div className="mt-4 space-y-4">
-                <Alert className="border-yellow-500/30 bg-yellow-500/10 [&>svg]:text-yellow-600 dark:[&>svg]:text-yellow-500">
-                  <AlertTriangle className="h-4 w-4" />
-                  <AlertDescription>
-                    {t('settings.customProviderReasoningWarning')}
-                  </AlertDescription>
-                </Alert>
                 <div className="space-y-2">
                   <Label htmlFor="customRefineEndpoint">
                     {t('settings.refineEndpoint')} <span className="text-primary">*</span>
@@ -1636,32 +1602,6 @@ export default function SettingsPage() {
                   {showRefineApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
-            </div>
-
-            <div className="mt-5 border-t pt-5">
-              <ToggleRow
-                title={t('settings.reasoningAuto')}
-                desc={t('settings.reasoningAutoHelp')}
-                checked={normalizedLLMRefineConfig.reasoning.enabled && reasoningAvailable}
-                disabled={!reasoningAvailable}
-                onChange={handleReasoningEnabledChange}
-              />
-              {currentLLMProvider === 'openrouter' && !openRouterReasoningSupported && (
-                <Alert className="mt-4 border-yellow-500/30 bg-yellow-500/10 [&>svg]:text-yellow-600 dark:[&>svg]:text-yellow-500">
-                  <AlertTriangle className="h-4 w-4" />
-                  <AlertDescription>
-                    {openRouterReasoningCapability
-                      ? t('settings.openRouterReasoningUnsupported')
-                      : t('settings.openRouterReasoningUnchecked')}
-                  </AlertDescription>
-                </Alert>
-              )}
-              {currentLLMProvider === 'deepseek' && !deepSeekReasoningSupported && (
-                <Alert className="mt-4 border-yellow-500/30 bg-yellow-500/10 [&>svg]:text-yellow-600 dark:[&>svg]:text-yellow-500">
-                  <AlertTriangle className="h-4 w-4" />
-                  <AlertDescription>{t('settings.deepSeekReasoningUnsupported')}</AlertDescription>
-                </Alert>
-              )}
             </div>
 
             {refineValidationMessage && (

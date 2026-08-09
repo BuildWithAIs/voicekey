@@ -67,10 +67,6 @@ export type OpenRouterReasoningEffort =
 
 export type LLMReasoningLevel = 'off' | 'medium' | 'high'
 
-export interface LLMReasoningConfig {
-  enabled: boolean
-}
-
 export interface DeepSeekConfig {
   apiKey: string
   model: string
@@ -105,7 +101,6 @@ export interface LLMRefineConfig {
   apiKey: string
   /** When true, the refined dictation output is translated into the shared TranslationConfig.targetLanguage. */
   translateOutput: boolean
-  reasoning: LLMReasoningConfig
   deepseek: DeepSeekConfig
   openrouter: OpenRouterConfig
   custom: CustomCompatibleLLMConfig

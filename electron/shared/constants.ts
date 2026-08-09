@@ -231,7 +231,6 @@ export const LLM_PROVIDERS = {
 } as const
 
 export const LLM_REASONING = {
-  ENABLED: true,
   OFF_MAX_CHARACTERS: 10,
   MEDIUM_MAX_CHARACTERS: 30,
   TIMEOUT_MS: {

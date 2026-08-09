@@ -4,7 +4,6 @@ import type {
   CustomCompatibleLLMConfig,
   DeepSeekConfig,
   LLMProvider,
-  LLMReasoningConfig,
   LLMReasoningLevel,
   LLMRefineConfig,
   OpenRouterConfig,
@@ -17,7 +16,6 @@ export interface ResolvedLLMConnection {
   endpoint: string
   apiKey: string
   model: string
-  reasoning: LLMReasoningConfig
   openRouterReasoningCapability?: OpenRouterReasoningCapability
 }
 
@@ -30,10 +28,6 @@ const OPENROUTER_REASONING_EFFORTS = [
   'max',
   'none',
 ] as const satisfies readonly OpenRouterReasoningEffort[]
-
-const DEFAULT_REASONING_CONFIG: LLMReasoningConfig = {
-  enabled: LLM_REASONING.ENABLED,
-}
 
 const DEFAULT_DEEPSEEK_CONFIG: DeepSeekConfig = {
   apiKey: LLM_REFINE.API_KEY,
@@ -58,7 +52,6 @@ export const defaultLLMRefineConfig: LLMRefineConfig = {
   model: DEFAULT_DEEPSEEK_CONFIG.model,
   apiKey: LLM_REFINE.API_KEY,
   translateOutput: LLM_REFINE.TRANSLATE_OUTPUT,
-  reasoning: DEFAULT_REASONING_CONFIG,
   deepseek: DEFAULT_DEEPSEEK_CONFIG,
   openrouter: DEFAULT_OPENROUTER_CONFIG,
   custom: DEFAULT_CUSTOM_CONFIG,
@@ -117,16 +110,6 @@ function normalizeProvider(value: unknown, rawConfig?: Record<string, unknown>):
   }
 
   return LLM_REFINE.PROVIDER
-}
-
-function normalizeReasoningConfig(value: unknown, provider: LLMProvider): LLMReasoningConfig {
-  const raw = isRecord(value) ? value : undefined
-  const enabledFallback =
-    provider === 'custom-compatible' ? false : DEFAULT_REASONING_CONFIG.enabled
-
-  return {
-    enabled: readBoolean(raw?.enabled, enabledFallback),
-  }
 }
 
 function normalizeDeepSeekModel(value: unknown): string {
@@ -228,7 +211,6 @@ export function resolveLLMConnection(config: LLMRefineConfig): ResolvedLLMConnec
       endpoint: LLM_PROVIDERS.DEEPSEEK_ENDPOINT,
       model: config.deepseek.model,
       apiKey: config.deepseek.apiKey,
-      reasoning: config.reasoning,
     }
   }
 
@@ -238,7 +220,6 @@ export function resolveLLMConnection(config: LLMRefineConfig): ResolvedLLMConnec
       endpoint: LLM_PROVIDERS.OPENROUTER_ENDPOINT,
       model: config.openrouter.model,
       apiKey: config.openrouter.apiKey,
-      reasoning: config.reasoning,
       openRouterReasoningCapability: config.openrouter.reasoningCapability,
     }
   }
@@ -248,7 +229,6 @@ export function resolveLLMConnection(config: LLMRefineConfig): ResolvedLLMConnec
     endpoint: config.custom.endpoint,
     model: config.custom.model,
     apiKey: config.custom.apiKey,
-    reasoning: { enabled: false },
   }
 }
 
@@ -261,11 +241,9 @@ export function normalizeLLMRefineConfig(config?: Partial<LLMRefineConfig>): LLM
   const deepseek = normalizeDeepSeekConfig(rawConfig?.deepseek, rawConfig, provider)
   const openrouter = normalizeOpenRouterConfig(rawConfig?.openrouter, rawConfig, provider)
   const custom = normalizeCustomConfig(rawConfig?.custom, rawConfig, provider)
-  const reasoning = normalizeReasoningConfig(rawConfig?.reasoning, provider)
   const activeConnection = resolveLLMConnection({
     ...defaultLLMRefineConfig,
     provider,
-    reasoning,
     deepseek,
     openrouter,
     custom,
@@ -279,7 +257,6 @@ export function normalizeLLMRefineConfig(config?: Partial<LLMRefineConfig>): LLM
     model: activeConnection.model,
     apiKey: activeConnection.apiKey,
     translateOutput: readTranslateOutputFlag(rawConfig),
-    reasoning,
     deepseek,
     openrouter,
     custom,
@@ -324,7 +301,7 @@ export function buildReasoningPayloadFields(
   connection: ResolvedLLMConnection,
   text: string,
 ): { level: LLMReasoningLevel; fields: Record<string, unknown> } {
-  const level = connection.reasoning.enabled ? selectReasoningLevel(text) : 'off'
+  const level = selectReasoningLevel(text)
 
   if (connection.provider === 'deepseek') {
     if (!isBuiltInDeepSeekReasoningModel(connection.model)) {

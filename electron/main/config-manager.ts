@@ -444,7 +444,6 @@ export class ConfigManager {
     const merged = normalizeLLMRefineConfig({
       ...stored,
       ...config,
-      reasoning: { ...stored.reasoning, ...(config.reasoning ?? {}) },
       deepseek: { ...stored.deepseek, ...(config.deepseek ?? {}) },
       openrouter: { ...stored.openrouter, ...(config.openrouter ?? {}) },
       custom: { ...stored.custom, ...(config.custom ?? {}) },
@@ -465,10 +464,6 @@ export class ConfigManager {
     const merged = normalizeLLMRefineConfig({
       ...current,
       ...config,
-      reasoning: {
-        ...current.reasoning,
-        ...(config.reasoning ?? {}),
-      },
       deepseek: {
         ...current.deepseek,
         ...(config.deepseek ?? {}),
