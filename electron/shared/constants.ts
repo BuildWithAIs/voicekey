@@ -228,6 +228,22 @@ export const LLM_PROVIDERS = {
   OPENROUTER_ENDPOINT: 'https://openrouter.ai/api/v1',
   DEEPSEEK_MODELS: ['deepseek-v4-flash', 'deepseek-v4-pro'],
   DEFAULT_DEEPSEEK_MODEL: 'deepseek-v4-flash',
+  // Curated stable presets. Every model supports `low`; short requests use the lowest
+  // effort accepted by that model so unsupported `none` values are never sent.
+  OPENROUTER_MODELS: [
+    {
+      id: 'openai/gpt-5.6-luna',
+      label: 'OpenAI · GPT-5.6 Luna',
+      shortTextReasoningEffort: 'none',
+    },
+    { id: 'tencent/hy3', label: 'Tencent · Hy3', shortTextReasoningEffort: 'none' },
+    {
+      id: 'deepseek/deepseek-v4-flash-0731',
+      label: 'DeepSeek · V4 Flash',
+      shortTextReasoningEffort: 'low',
+    },
+  ],
+  DEFAULT_OPENROUTER_MODEL: 'openai/gpt-5.6-luna',
 } as const
 
 export const LLM_REASONING = {

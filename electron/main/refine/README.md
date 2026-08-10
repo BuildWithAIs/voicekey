@@ -9,4 +9,3 @@
 - `glossary-cache.ts` - 以内置术语表初始化内存缓存，按需拉取远程纯文本术语表，做 UTF-8、空行/注释过滤、去重与失败回退。
 - `config-resolver.ts` - 将手动填写的润色 Base URL 归一化后补全为 `/chat/completions` 请求参数，并按润色配置与传入术语表生成最终 system prompt。
 - `openai-client.ts` - OpenAI Chat Completions HTTP client，负责请求发送、错误与消息内容解析。
-- `openrouter-models.ts` - 查询 OpenRouter 模型元数据，确认指定模型是否声明支持 reasoning 及支持的 effort。

@@ -28,7 +28,6 @@ import { hotkeyManager } from '../hotkey-manager'
 import { ioHookManager } from '../iohook-manager'
 import { downloadLocalASRAssets, getLocalASRStatus } from '../local-asr-manager'
 import type { TextRefiner } from '../refine'
-import { checkOpenRouterModel } from '../refine/openrouter-models'
 
 /**
  * 配置处理器外部依赖
@@ -179,17 +178,6 @@ export function registerConfigHandlers(): void {
     return await refineService.testConnection(
       configManager.resolveLLMRefineConfig(normalizeLLMRefineConfig(config)),
     )
-  })
-
-  ipcMain.handle(IPC_CHANNELS.CONFIG_OPENROUTER_MODEL_CHECK, async (_event, model: unknown) => {
-    if (typeof model !== 'string') {
-      return {
-        ok: false,
-        message: 'OpenRouter model is required',
-      }
-    }
-
-    return await checkOpenRouterModel(model)
   })
 
   ipcMain.handle(IPC_CHANNELS.LOCAL_ASR_STATUS, () => {

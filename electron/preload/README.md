@@ -11,7 +11,7 @@ Electron 预加载脚本目录，作为主进程与渲染进程之间的安全�
 
 ### `preload.ts`
 
-通过 `contextBridge` 暴露 `window.electronAPI`，封装配置、OpenRouter 模型能力检查、本地 ASR 模型下载、录音、历史、日志与更新相关 IPC。
+通过 `contextBridge` 暴露 `window.electronAPI`，封装配置、本地 ASR 模型下载、录音、历史、日志与更新相关 IPC。
 
 ## 录音相关 API
 

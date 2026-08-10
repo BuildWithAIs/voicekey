@@ -56,14 +56,8 @@ export type LLMProvider = 'deepseek' | 'openrouter' | 'custom-compatible'
 
 export type DeepSeekModel = 'deepseek-v4-flash' | 'deepseek-v4-pro'
 
-export type OpenRouterReasoningEffort =
-  | 'minimal'
-  | 'low'
-  | 'medium'
-  | 'high'
-  | 'xhigh'
-  | 'max'
-  | 'none'
+export type OpenRouterModel =
+  (typeof import('./constants').LLM_PROVIDERS.OPENROUTER_MODELS)[number]['id']
 
 export type LLMReasoningLevel = 'off' | 'medium' | 'high'
 
@@ -72,19 +66,9 @@ export interface DeepSeekConfig {
   model: string
 }
 
-export interface OpenRouterReasoningCapability {
-  model: string
-  checkedAt: number
-  supportsReasoning: boolean
-  supportedEfforts?: OpenRouterReasoningEffort[]
-  defaultEffort?: OpenRouterReasoningEffort
-  mandatory?: boolean
-}
-
 export interface OpenRouterConfig {
   apiKey: string
-  model: string
-  reasoningCapability?: OpenRouterReasoningCapability
+  model: OpenRouterModel
 }
 
 export interface CustomCompatibleLLMConfig {
@@ -172,13 +156,6 @@ export interface LogTailOptions {
 export interface RefineConnectionResult {
   ok: boolean
   message?: string
-  openRouterReasoningCapability?: OpenRouterReasoningCapability
-}
-
-export interface OpenRouterModelCheckResult {
-  ok: boolean
-  message?: string
-  capability?: OpenRouterReasoningCapability
 }
 
 export interface RecordingStartPayload {
@@ -199,7 +176,6 @@ export const IPC_CHANNELS = {
   CONFIG_SET: 'config:set',
   CONFIG_TEST: 'config:test',
   CONFIG_REFINE_TEST: 'config:refine:test',
-  CONFIG_OPENROUTER_MODEL_CHECK: 'config:openrouter-model:check',
   LOCAL_ASR_STATUS: 'local-asr:status',
   LOCAL_ASR_DOWNLOAD: 'local-asr:download',
   LOCAL_ASR_DOWNLOAD_PROGRESS: 'local-asr:download-progress',

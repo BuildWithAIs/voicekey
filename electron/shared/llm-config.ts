@@ -7,8 +7,7 @@ import type {
   LLMReasoningLevel,
   LLMRefineConfig,
   OpenRouterConfig,
-  OpenRouterReasoningCapability,
-  OpenRouterReasoningEffort,
+  OpenRouterModel,
 } from './types'
 
 export interface ResolvedLLMConnection {
@@ -16,18 +15,7 @@ export interface ResolvedLLMConnection {
   endpoint: string
   apiKey: string
   model: string
-  openRouterReasoningCapability?: OpenRouterReasoningCapability
 }
-
-const OPENROUTER_REASONING_EFFORTS = [
-  'minimal',
-  'low',
-  'medium',
-  'high',
-  'xhigh',
-  'max',
-  'none',
-] as const satisfies readonly OpenRouterReasoningEffort[]
 
 const DEFAULT_DEEPSEEK_CONFIG: DeepSeekConfig = {
   apiKey: LLM_REFINE.API_KEY,
@@ -36,7 +24,7 @@ const DEFAULT_DEEPSEEK_CONFIG: DeepSeekConfig = {
 
 const DEFAULT_OPENROUTER_CONFIG: OpenRouterConfig = {
   apiKey: LLM_REFINE.API_KEY,
-  model: LLM_REFINE.MODEL,
+  model: LLM_PROVIDERS.DEFAULT_OPENROUTER_MODEL,
 }
 
 const DEFAULT_CUSTOM_CONFIG: CustomCompatibleLLMConfig = {
@@ -123,34 +111,17 @@ function isBuiltInDeepSeekReasoningModel(model: string): boolean {
   )
 }
 
-function normalizeOpenRouterReasoningCapability(
-  value: unknown,
-  model: string,
-): OpenRouterReasoningCapability | undefined {
-  if (!isRecord(value)) return undefined
+function findBuiltInOpenRouterModel(model: string) {
+  return LLM_PROVIDERS.OPENROUTER_MODELS.find((option) => option.id === model)
+}
 
-  const capabilityModel = readString(value.model)
-  if (!capabilityModel || capabilityModel !== model) return undefined
+function isBuiltInOpenRouterModel(model: string): model is OpenRouterModel {
+  return findBuiltInOpenRouterModel(model) !== undefined
+}
 
-  const rawSupportedEfforts = Array.isArray(value.supportedEfforts) ? value.supportedEfforts : []
-  const supportedEfforts = rawSupportedEfforts.filter(
-    (effort): effort is OpenRouterReasoningEffort =>
-      OPENROUTER_REASONING_EFFORTS.includes(effort as OpenRouterReasoningEffort),
-  )
-  const defaultEffort = OPENROUTER_REASONING_EFFORTS.includes(
-    value.defaultEffort as OpenRouterReasoningEffort,
-  )
-    ? (value.defaultEffort as OpenRouterReasoningEffort)
-    : undefined
-
-  return {
-    model: capabilityModel,
-    checkedAt: typeof value.checkedAt === 'number' ? value.checkedAt : Date.now(),
-    supportsReasoning: readBoolean(value.supportsReasoning, false),
-    ...(supportedEfforts.length > 0 ? { supportedEfforts } : {}),
-    ...(defaultEffort ? { defaultEffort } : {}),
-    mandatory: readBoolean(value.mandatory, false),
-  }
+function normalizeOpenRouterModel(value: unknown): OpenRouterModel {
+  const model = readString(value).trim()
+  return isBuiltInOpenRouterModel(model) ? model : LLM_PROVIDERS.DEFAULT_OPENROUTER_MODEL
 }
 
 function normalizeDeepSeekConfig(
@@ -176,12 +147,10 @@ function normalizeOpenRouterConfig(
   const raw = isRecord(value) ? value : undefined
   const legacyModel = provider === 'openrouter' ? rawConfig?.model : undefined
   const legacyApiKey = provider === 'openrouter' ? rawConfig?.apiKey : undefined
-  const model = readString(raw?.model, readString(legacyModel, DEFAULT_OPENROUTER_CONFIG.model))
 
   return {
     apiKey: readString(raw?.apiKey, readString(legacyApiKey, DEFAULT_OPENROUTER_CONFIG.apiKey)),
-    model,
-    reasoningCapability: normalizeOpenRouterReasoningCapability(raw?.reasoningCapability, model),
+    model: normalizeOpenRouterModel(raw?.model ?? legacyModel),
   }
 }
 
@@ -220,7 +189,6 @@ export function resolveLLMConnection(config: LLMRefineConfig): ResolvedLLMConnec
       endpoint: LLM_PROVIDERS.OPENROUTER_ENDPOINT,
       model: config.openrouter.model,
       apiKey: config.openrouter.apiKey,
-      openRouterReasoningCapability: config.openrouter.reasoningCapability,
     }
   }
 
@@ -278,25 +246,6 @@ export function getReasoningTimeoutMs(level: LLMReasoningLevel): number {
   return LLM_REASONING.TIMEOUT_MS[level]
 }
 
-function pickOpenRouterEffort(
-  level: Exclude<LLMReasoningLevel, 'off'>,
-  supportedEfforts?: OpenRouterReasoningEffort[],
-): 'medium' | 'high' {
-  if (!supportedEfforts || supportedEfforts.length === 0 || supportedEfforts.includes(level)) {
-    return level
-  }
-
-  if (level === 'medium' && supportedEfforts.includes('high')) {
-    return 'high'
-  }
-
-  if (level === 'high' && supportedEfforts.includes('medium')) {
-    return 'medium'
-  }
-
-  return level
-}
-
 export function buildReasoningPayloadFields(
   connection: ResolvedLLMConnection,
   text: string,
@@ -322,23 +271,16 @@ export function buildReasoningPayloadFields(
   }
 
   if (connection.provider === 'openrouter') {
-    const capability = connection.openRouterReasoningCapability
-    if (!capability?.supportsReasoning) {
+    const model = findBuiltInOpenRouterModel(connection.model)
+    if (!model) {
       return { level: 'off', fields: {} }
-    }
-
-    if (level === 'off') {
-      return {
-        level,
-        fields: capability.mandatory ? { reasoning: { exclude: true } } : {},
-      }
     }
 
     return {
       level,
       fields: {
         reasoning: {
-          effort: pickOpenRouterEffort(level, capability.supportedEfforts),
+          effort: level === 'off' ? model.shortTextReasoningEffort : 'low',
           exclude: true,
         },
       },

@@ -12,7 +12,6 @@ import {
   type LLMRefineConfig,
   type LocalASRDownloadProgress,
   type LocalASRStatus,
-  type OpenRouterModelCheckResult,
   type RefineConnectionResult,
   type RecordingStartPayload,
   type AudioChunkPayload,
@@ -28,7 +27,6 @@ export interface ElectronAPI {
   setConfig: (config: Partial<AppConfig>) => Promise<void>
   testConnection: (config?: ASRConfig) => Promise<boolean>
   testRefineConnection: (config: LLMRefineConfig) => Promise<RefineConnectionResult>
-  checkOpenRouterModel: (model: string) => Promise<OpenRouterModelCheckResult>
   getLocalASRStatus: () => Promise<LocalASRStatus>
   downloadLocalASR: () => Promise<LocalASRStatus>
   onLocalASRDownloadProgress: (callback: (progress: LocalASRDownloadProgress) => void) => () => void
@@ -92,8 +90,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   testConnection: (config?: ASRConfig) => ipcRenderer.invoke(IPC_CHANNELS.CONFIG_TEST, config),
   testRefineConnection: (config: LLMRefineConfig) =>
     ipcRenderer.invoke(IPC_CHANNELS.CONFIG_REFINE_TEST, config),
-  checkOpenRouterModel: (model: string) =>
-    ipcRenderer.invoke(IPC_CHANNELS.CONFIG_OPENROUTER_MODEL_CHECK, model),
   getLocalASRStatus: () => ipcRenderer.invoke(IPC_CHANNELS.LOCAL_ASR_STATUS),
   downloadLocalASR: () => ipcRenderer.invoke(IPC_CHANNELS.LOCAL_ASR_DOWNLOAD),
   onLocalASRDownloadProgress: (callback: (progress: LocalASRDownloadProgress) => void) => {

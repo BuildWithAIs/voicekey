@@ -327,8 +327,6 @@ export default function SettingsPage() {
   const [logDialogOpen, setLogDialogOpen] = useState(false)
   const [testingRefine, setTestingRefine] = useState(false)
   const [refineTestStatus, setRefineTestStatus] = useState<TestStatus>(null)
-  const [checkingOpenRouterModel, setCheckingOpenRouterModel] = useState(false)
-  const [openRouterModelStatus, setOpenRouterModelStatus] = useState<TestStatus>(null)
   const [checkingUpdate, setCheckingUpdate] = useState(false)
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null)
   const [localAsrStatus, setLocalAsrStatus] = useState<LocalASRStatus | null>(null)
@@ -905,15 +903,16 @@ export default function SettingsPage() {
   }
 
   const handleOpenRouterModelChange = (value: string) => {
-    setOpenRouterModelStatus(null)
+    const model = LLM_PROVIDERS.OPENROUTER_MODELS.find((option) => option.id === value)?.id
+    if (!model) return
+
     setConfig((prev) => ({
       ...prev,
       llmRefine: normalizeLLMRefineConfig({
         ...prev.llmRefine,
         openrouter: {
           ...prev.llmRefine.openrouter,
-          model: value,
-          reasoningCapability: undefined,
+          model,
         },
       }),
     }))
@@ -943,58 +942,6 @@ export default function SettingsPage() {
         },
       }),
     }))
-  }
-
-  const handleCheckOpenRouterModel = async () => {
-    const normalizedRefineConfig = normalizeLLMRefineConfig(config.llmRefine)
-    const model = normalizedRefineConfig.openrouter.model.trim()
-
-    if (!model) {
-      setOpenRouterModelStatus({
-        type: 'error',
-        message: t('settings.result.openRouterModelRequired'),
-      })
-      return
-    }
-
-    setCheckingOpenRouterModel(true)
-    setOpenRouterModelStatus(null)
-    try {
-      const result = await window.electronAPI.checkOpenRouterModel(model)
-      if (!result.ok || !result.capability) {
-        setOpenRouterModelStatus({
-          type: 'error',
-          message: t('settings.result.openRouterModelCheckFailed', {
-            message: result.message ?? t('common.unknownError'),
-          }),
-        })
-        return
-      }
-
-      setConfig((prev) => ({
-        ...prev,
-        llmRefine: normalizeLLMRefineConfig({
-          ...prev.llmRefine,
-          openrouter: {
-            ...prev.llmRefine.openrouter,
-            model: result.capability?.model ?? model,
-            reasoningCapability: result.capability,
-          },
-        }),
-      }))
-      setOpenRouterModelStatus({
-        type: 'success',
-        message: t('settings.result.openRouterCapabilitySaved'),
-      })
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : t('common.unknownError')
-      setOpenRouterModelStatus({
-        type: 'error',
-        message: t('settings.result.openRouterModelCheckFailed', { message: errorMessage }),
-      })
-    } finally {
-      setCheckingOpenRouterModel(false)
-    }
   }
 
   const currentRegion = config.asr.region || 'cn'
@@ -1494,34 +1441,21 @@ export default function SettingsPage() {
                   <Label htmlFor="openRouterModel">
                     {t('settings.refineModel')} <span className="text-primary">*</span>
                   </Label>
-                  <div className="flex flex-col gap-2 sm:flex-row">
-                    <Input
-                      id="openRouterModel"
-                      type="text"
-                      value={normalizedLLMRefineConfig.openrouter.model}
-                      onChange={(e) => handleOpenRouterModelChange(e.target.value)}
-                      placeholder={t('settings.openRouterModelPlaceholder')}
-                      className="no-drag min-w-0 flex-1 font-mono"
-                    />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleCheckOpenRouterModel}
-                      disabled={checkingOpenRouterModel}
-                      className="no-drag cursor-pointer"
-                    >
-                      <RefreshCw
-                        className={cn('h-4 w-4', checkingOpenRouterModel ? 'animate-spin' : '')}
-                      />
-                      {checkingOpenRouterModel
-                        ? t('settings.checkingModel')
-                        : t('settings.checkModelCapability')}
-                    </Button>
-                  </div>
-                  <InlineFeedback status={openRouterModelStatus} testId="openrouter-model-status" />
-                  <p className="text-xs text-muted-foreground">
-                    {t('settings.openRouterModelHelp')}
-                  </p>
+                  <Select
+                    value={normalizedLLMRefineConfig.openrouter.model}
+                    onValueChange={handleOpenRouterModelChange}
+                  >
+                    <SelectTrigger id="openRouterModel" className="no-drag w-full cursor-pointer">
+                      <SelectValue placeholder={LLM_PROVIDERS.DEFAULT_OPENROUTER_MODEL} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {LLM_PROVIDERS.OPENROUTER_MODELS.map((model) => (
+                        <SelectItem key={model.id} value={model.id}>
+                          {model.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
             )}

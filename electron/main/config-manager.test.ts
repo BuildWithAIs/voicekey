@@ -73,7 +73,7 @@ vi.mock('electron-store', () => ({
   },
 }))
 
-import { STORED_SECRET_PLACEHOLDER } from '../shared/constants'
+import { LLM_PROVIDERS, STORED_SECRET_PLACEHOLDER } from '../shared/constants'
 import { ConfigManager } from './config-manager'
 
 const encrypted = (value: string): string => `enc:${Buffer.from(value, 'utf8').toString('base64')}`
@@ -174,6 +174,10 @@ describe('ConfigManager API key storage without system Keychain', () => {
     expect(getPath(mocks.lastStoreData, 'llmRefine.deepseek.apiKey')).toBe(llmCipherText)
     expect(getPath(mocks.lastStoreData, 'llmRefine.openrouter.apiKey')).toBe(
       encrypted('openrouter-key'),
+    )
+    expect(rendererConfig.llmRefine.openrouter.model).toBe(LLM_PROVIDERS.DEFAULT_OPENROUTER_MODEL)
+    expect(getPath(mocks.lastStoreData, 'llmRefine.openrouter.model')).toBe(
+      LLM_PROVIDERS.DEFAULT_OPENROUTER_MODEL,
     )
     expect(getPath(mocks.lastStoreData, 'llmRefine.custom.apiKey')).toBe(encrypted('custom-key'))
   })
