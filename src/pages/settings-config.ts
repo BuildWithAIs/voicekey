@@ -2,7 +2,7 @@ import { TRANSLATION } from '@electron/shared/constants'
 import { normalizeLLMRefineConfig, resolveLLMConnection } from '@electron/shared/llm-config'
 import type { AppConfig, LLMRefineConfig } from '@electron/shared/types'
 
-const LLM_CONNECTION_KEYS = ['deepseek', 'openrouter', 'custom'] as const
+const LLM_CONNECTION_KEYS = ['openai', 'deepseek', 'openrouter', 'custom'] as const
 
 export function isRefineConfigComplete(config: LLMRefineConfig): boolean {
   const connection = resolveLLMConnection(config)
@@ -53,6 +53,7 @@ export function applyPersistedSecretState(
     const persistedLLMRefine = normalizeLLMRefineConfig(persistedConfig.llmRefine)
     const nextLLMRefine = {
       ...llmRefine,
+      openai: { ...llmRefine.openai },
       deepseek: { ...llmRefine.deepseek },
       openrouter: { ...llmRefine.openrouter },
       custom: { ...llmRefine.custom },

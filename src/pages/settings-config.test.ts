@@ -56,6 +56,20 @@ describe('settings persisted secret state', () => {
     expect(result.asr.lowVolumeMode).toBe(false)
     expect(result.translation.enabled).toBe(true)
   })
+
+  it('masks a persisted OpenAI key without changing the selected provider', () => {
+    const current = createConfig('', '')
+    current.llmRefine.provider = 'openai'
+    current.llmRefine.openai.apiKey = 'openai-key'
+    const persisted = createConfig('', '')
+    persisted.llmRefine.provider = 'openai'
+    persisted.llmRefine.openai.apiKey = STORED_SECRET_PLACEHOLDER
+
+    const result = applyPersistedSecretState(current, { llmRefine: current.llmRefine }, persisted)
+
+    expect(result.llmRefine.provider).toBe('openai')
+    expect(result.llmRefine.openai.apiKey).toBe(STORED_SECRET_PLACEHOLDER)
+  })
 })
 
 describe('refinement configuration completeness', () => {

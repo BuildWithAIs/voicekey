@@ -8,6 +8,39 @@ import {
 import type { LLMRefineConfig } from './types'
 
 describe('automatic LLM reasoning policy', () => {
+  it('uses the official OpenAI endpoint and fixed GPT-5.6 Luna model', () => {
+    const config = normalizeLLMRefineConfig({
+      provider: 'openai',
+      openai: { apiKey: 'openai-key', model: 'gpt-5.6-luna' },
+    })
+
+    expect(resolveLLMConnection(config)).toEqual({
+      provider: 'openai',
+      endpoint: LLM_PROVIDERS.OPENAI_ENDPOINT,
+      apiKey: 'openai-key',
+      model: LLM_PROVIDERS.DEFAULT_OPENAI_MODEL,
+    })
+    expect(buildReasoningPayloadFields(resolveLLMConnection(config), '短文本')).toEqual({
+      level: 'off',
+      fields: { reasoning_effort: 'none' },
+    })
+    expect(
+      buildReasoningPayloadFields(
+        resolveLLMConnection(config),
+        '这是一段超过三十个字符的长文本，用来确认OpenAI官方接口使用低档推理。',
+      ),
+    ).toEqual({ level: 'high', fields: { reasoning_effort: 'low' } })
+  })
+
+  it('replaces unsupported OpenAI models with GPT-5.6 Luna', () => {
+    const config = normalizeLLMRefineConfig({
+      provider: 'openai',
+      openai: { apiKey: 'openai-key', model: 'gpt-5.6-sol' },
+    } as unknown as Partial<LLMRefineConfig>)
+
+    expect(config.openai.model).toBe(LLM_PROVIDERS.DEFAULT_OPENAI_MODEL)
+  })
+
   it('ignores the removed legacy reasoning switch and enables supported long-text reasoning', () => {
     const legacyConfig = normalizeLLMRefineConfig({
       provider: 'deepseek',
@@ -40,17 +73,24 @@ describe('automatic LLM reasoning policy', () => {
       fields: { thinking: { type: 'disabled' } },
     })
   })
+
+  it('replaces removed DeepSeek models with V4 Flash', () => {
+    const config = normalizeLLMRefineConfig({
+      provider: 'deepseek',
+      deepseek: { apiKey: 'test-key', model: 'deepseek-v4-pro' },
+    } as unknown as Partial<LLMRefineConfig>)
+
+    expect(LLM_PROVIDERS.DEEPSEEK_MODELS).toEqual(['deepseek-v4-flash'])
+    expect(config.deepseek.model).toBe(LLM_PROVIDERS.DEFAULT_DEEPSEEK_MODEL)
+  })
 })
 
 describe('fixed OpenRouter model policy', () => {
-  it('offers two to four models from different vendors', () => {
+  it('removes Hy3 and keeps the two approved models', () => {
     const modelIds = LLM_PROVIDERS.OPENROUTER_MODELS.map((model) => model.id)
-    const vendors = new Set(modelIds.map((model) => model.split('/')[0]))
 
-    expect(modelIds.length).toBeGreaterThanOrEqual(2)
-    expect(modelIds.length).toBeLessThanOrEqual(4)
-    expect(vendors.size).toBe(modelIds.length)
-    expect(modelIds).toContain('deepseek/deepseek-v4-flash-0731')
+    expect(modelIds).toEqual(['openai/gpt-5.6-luna', 'deepseek/deepseek-v4-flash-0731'])
+    expect(modelIds).not.toContain('tencent/hy3')
   })
 
   it('replaces unsupported legacy models with the fixed default', () => {

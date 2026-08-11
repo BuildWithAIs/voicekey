@@ -99,6 +99,7 @@ describe('ConfigManager API key storage without system Keychain', () => {
       llmRefine: {
         enabled: true,
         provider: 'deepseek',
+        openai: { apiKey: 'openai-key', model: LLM_PROVIDERS.DEFAULT_OPENAI_MODEL },
         deepseek: { apiKey: 'llm-key', model: 'deepseek-v4-flash' },
         openrouter: { apiKey: 'openrouter-key', model: LLM_PROVIDERS.DEFAULT_OPENROUTER_MODEL },
         custom: {
@@ -113,11 +114,13 @@ describe('ConfigManager API key storage without system Keychain', () => {
 
     expect(rendererConfig.asr.apiKeys.cn).toBe(STORED_SECRET_PLACEHOLDER)
     expect('apiKey' in rendererConfig.asr).toBe(false)
+    expect(rendererConfig.llmRefine.openai.apiKey).toBe(STORED_SECRET_PLACEHOLDER)
     expect(rendererConfig.llmRefine.deepseek.apiKey).toBe(STORED_SECRET_PLACEHOLDER)
     expect(manager.getASRConfig().apiKeys.cn).toBe('asr-key')
     expect(manager.getLLMRefineConfig().deepseek.apiKey).toBe('llm-key')
     expect(manager.getConfigSecret({ scope: 'asr', region: 'cn' })).toBe('asr-key')
     expect(manager.getConfigSecret({ scope: 'asr', region: 'intl' })).toBe('intl-asr-key')
+    expect(manager.getConfigSecret({ scope: 'llm-refine', provider: 'openai' })).toBe('openai-key')
     expect(manager.getConfigSecret({ scope: 'llm-refine', provider: 'deepseek' })).toBe('llm-key')
     expect(manager.getConfigSecret({ scope: 'llm-refine', provider: 'openrouter' })).toBe(
       'openrouter-key',
@@ -171,6 +174,10 @@ describe('ConfigManager API key storage without system Keychain', () => {
         enabled: true,
         provider: 'deepseek',
         translateOutput: false,
+        openai: {
+          apiKey: encrypted('openai-key'),
+          model: LLM_PROVIDERS.DEFAULT_OPENAI_MODEL,
+        },
         deepseek: { apiKey: llmCipherText, model: 'deepseek-v4-flash' },
         openrouter: { apiKey: encrypted('openrouter-key'), model: 'openai/gpt-4o-mini' },
         custom: {
@@ -188,6 +195,7 @@ describe('ConfigManager API key storage without system Keychain', () => {
     expect(getPath(mocks.lastStoreData, 'asr.apiKeys.cn')).toBe(asrCipherText)
     expect(getPath(mocks.lastStoreData, 'asr.apiKeys.intl')).toBe(encrypted('intl-asr-key'))
     expect(getPath(mocks.lastStoreData, 'llmRefine.deepseek.apiKey')).toBe(llmCipherText)
+    expect(getPath(mocks.lastStoreData, 'llmRefine.openai.apiKey')).toBe(encrypted('openai-key'))
     expect(getPath(mocks.lastStoreData, 'llmRefine.openrouter.apiKey')).toBe(
       encrypted('openrouter-key'),
     )

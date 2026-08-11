@@ -110,6 +110,7 @@ function migrateLLMRefineConfig(config: unknown): LLMRefineConfig | null {
     'enabled' in rawConfig ||
     'provider' in rawConfig ||
     'reasoning' in rawConfig ||
+    'openai' in rawConfig ||
     'deepseek' in rawConfig ||
     'openrouter' in rawConfig ||
     'custom' in rawConfig ||
@@ -164,6 +165,10 @@ export class ConfigManager {
       ...normalized,
       // The top-level apiKey is a compatibility alias of the active provider.
       apiKey: '',
+      openai: {
+        ...normalized.openai,
+        apiKey: this.resolveStoredKey(normalized.openai.apiKey),
+      },
       deepseek: {
         ...normalized.deepseek,
         apiKey: this.resolveStoredKey(normalized.deepseek.apiKey),
@@ -189,6 +194,10 @@ export class ConfigManager {
       ...normalized,
       // normalizeLLMRefineConfig derives this compatibility alias from the active provider.
       apiKey: '',
+      openai: {
+        ...normalized.openai,
+        apiKey: this.prepareKeyForStorage(normalized.openai.apiKey, normalizedStored.openai.apiKey),
+      },
       deepseek: {
         ...normalized.deepseek,
         apiKey: this.prepareKeyForStorage(
@@ -294,6 +303,10 @@ export class ConfigManager {
     const llmRefine = normalizeLLMRefineConfig({
       ...storedLLMRefine,
       apiKey: '',
+      openai: {
+        ...storedLLMRefine.openai,
+        apiKey: isUsableStoredKey(storedLLMRefine.openai.apiKey) ? STORED_SECRET_PLACEHOLDER : '',
+      },
       deepseek: {
         ...storedLLMRefine.deepseek,
         apiKey: isUsableStoredKey(storedLLMRefine.deepseek.apiKey) ? STORED_SECRET_PLACEHOLDER : '',
@@ -442,12 +455,13 @@ export class ConfigManager {
     const merged = normalizeLLMRefineConfig({
       ...stored,
       ...config,
+      openai: { ...stored.openai, ...(config.openai ?? {}) },
       deepseek: { ...stored.deepseek, ...(config.deepseek ?? {}) },
       openrouter: { ...stored.openrouter, ...(config.openrouter ?? {}) },
       custom: { ...stored.custom, ...(config.custom ?? {}) },
     })
 
-    for (const provider of ['deepseek', 'openrouter', 'custom'] as const) {
+    for (const provider of ['openai', 'deepseek', 'openrouter', 'custom'] as const) {
       if (merged[provider].apiKey === STORED_SECRET_PLACEHOLDER) {
         merged[provider].apiKey = stored[provider].apiKey
       }
@@ -462,6 +476,10 @@ export class ConfigManager {
     const merged = normalizeLLMRefineConfig({
       ...current,
       ...config,
+      openai: {
+        ...current.openai,
+        ...(config.openai ?? {}),
+      },
       deepseek: {
         ...current.deepseek,
         ...(config.deepseek ?? {}),

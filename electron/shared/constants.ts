@@ -224,9 +224,11 @@ export const OPENAI_CHAT = {
 } as const
 
 export const LLM_PROVIDERS = {
+  OPENAI_ENDPOINT: 'https://api.openai.com/v1',
+  DEFAULT_OPENAI_MODEL: 'gpt-5.6-luna',
   DEEPSEEK_ENDPOINT: 'https://api.deepseek.com',
   OPENROUTER_ENDPOINT: 'https://openrouter.ai/api/v1',
-  DEEPSEEK_MODELS: ['deepseek-v4-flash', 'deepseek-v4-pro'],
+  DEEPSEEK_MODELS: ['deepseek-v4-flash'],
   DEFAULT_DEEPSEEK_MODEL: 'deepseek-v4-flash',
   // Curated stable presets. Every model supports `low`; short requests use the lowest
   // effort accepted by that model so unsupported `none` values are never sent.
@@ -236,7 +238,6 @@ export const LLM_PROVIDERS = {
       label: 'OpenAI · GPT-5.6 Luna',
       shortTextReasoningEffort: 'none',
     },
-    { id: 'tencent/hy3', label: 'Tencent · Hy3', shortTextReasoningEffort: 'none' },
     {
       id: 'deepseek/deepseek-v4-flash-0731',
       label: 'DeepSeek · V4 Flash',

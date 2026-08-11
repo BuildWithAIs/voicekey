@@ -6,6 +6,7 @@ import type {
   LLMProvider,
   LLMReasoningLevel,
   LLMRefineConfig,
+  OpenAIConfig,
   OpenRouterConfig,
   OpenRouterModel,
 } from './types'
@@ -20,6 +21,11 @@ export interface ResolvedLLMConnection {
 const DEFAULT_DEEPSEEK_CONFIG: DeepSeekConfig = {
   apiKey: LLM_REFINE.API_KEY,
   model: LLM_PROVIDERS.DEFAULT_DEEPSEEK_MODEL,
+}
+
+const DEFAULT_OPENAI_CONFIG: OpenAIConfig = {
+  apiKey: LLM_REFINE.API_KEY,
+  model: LLM_PROVIDERS.DEFAULT_OPENAI_MODEL,
 }
 
 const DEFAULT_OPENROUTER_CONFIG: OpenRouterConfig = {
@@ -40,6 +46,7 @@ export const defaultLLMRefineConfig: LLMRefineConfig = {
   model: DEFAULT_DEEPSEEK_CONFIG.model,
   apiKey: LLM_REFINE.API_KEY,
   translateOutput: LLM_REFINE.TRANSLATE_OUTPUT,
+  openai: DEFAULT_OPENAI_CONFIG,
   deepseek: DEFAULT_DEEPSEEK_CONFIG,
   openrouter: DEFAULT_OPENROUTER_CONFIG,
   custom: DEFAULT_CUSTOM_CONFIG,
@@ -78,12 +85,21 @@ function readTranslateOutputFlag(config?: Record<string, unknown>): boolean {
 }
 
 function normalizeProvider(value: unknown, rawConfig?: Record<string, unknown>): LLMProvider {
-  if (value === 'deepseek' || value === 'openrouter' || value === 'custom-compatible') {
+  if (
+    value === 'openai' ||
+    value === 'deepseek' ||
+    value === 'openrouter' ||
+    value === 'custom-compatible'
+  ) {
     return value
   }
 
   const endpoint = normalizeRefineBaseUrl(readString(rawConfig?.endpoint))
   const lowerEndpoint = endpoint.toLowerCase()
+
+  if (lowerEndpoint.includes('api.openai.com')) {
+    return 'openai'
+  }
 
   if (lowerEndpoint.includes('api.deepseek.com')) {
     return 'deepseek'
@@ -100,9 +116,18 @@ function normalizeProvider(value: unknown, rawConfig?: Record<string, unknown>):
   return LLM_REFINE.PROVIDER
 }
 
-function normalizeDeepSeekModel(value: unknown): string {
+function normalizeOpenAIModel(value: unknown): OpenAIConfig['model'] {
   const model = readString(value).trim()
-  return model || LLM_PROVIDERS.DEFAULT_DEEPSEEK_MODEL
+  return model === LLM_PROVIDERS.DEFAULT_OPENAI_MODEL ? model : LLM_PROVIDERS.DEFAULT_OPENAI_MODEL
+}
+
+function normalizeDeepSeekModel(value: unknown): DeepSeekConfig['model'] {
+  const model = readString(value).trim()
+  return LLM_PROVIDERS.DEEPSEEK_MODELS.includes(
+    model as (typeof LLM_PROVIDERS.DEEPSEEK_MODELS)[number],
+  )
+    ? (model as DeepSeekConfig['model'])
+    : LLM_PROVIDERS.DEFAULT_DEEPSEEK_MODEL
 }
 
 function isBuiltInDeepSeekReasoningModel(model: string): boolean {
@@ -136,6 +161,21 @@ function normalizeDeepSeekConfig(
   return {
     apiKey: readString(raw?.apiKey, readString(legacyApiKey, DEFAULT_DEEPSEEK_CONFIG.apiKey)),
     model: normalizeDeepSeekModel(raw?.model ?? legacyModel ?? DEFAULT_DEEPSEEK_CONFIG.model),
+  }
+}
+
+function normalizeOpenAIConfig(
+  value: unknown,
+  rawConfig: Record<string, unknown> | undefined,
+  provider: LLMProvider,
+): OpenAIConfig {
+  const raw = isRecord(value) ? value : undefined
+  const legacyModel = provider === 'openai' ? rawConfig?.model : undefined
+  const legacyApiKey = provider === 'openai' ? rawConfig?.apiKey : undefined
+
+  return {
+    apiKey: readString(raw?.apiKey, readString(legacyApiKey, DEFAULT_OPENAI_CONFIG.apiKey)),
+    model: normalizeOpenAIModel(raw?.model ?? legacyModel),
   }
 }
 
@@ -174,6 +214,15 @@ function normalizeCustomConfig(
 }
 
 export function resolveLLMConnection(config: LLMRefineConfig): ResolvedLLMConnection {
+  if (config.provider === 'openai') {
+    return {
+      provider: 'openai',
+      endpoint: LLM_PROVIDERS.OPENAI_ENDPOINT,
+      model: config.openai.model,
+      apiKey: config.openai.apiKey,
+    }
+  }
+
   if (config.provider === 'deepseek') {
     return {
       provider: 'deepseek',
@@ -206,12 +255,14 @@ export function normalizeLLMRefineConfig(config?: Partial<LLMRefineConfig>): LLM
       ? (config as Partial<LLMRefineConfig> & Record<string, unknown>)
       : undefined
   const provider = normalizeProvider(rawConfig?.provider, rawConfig)
+  const openai = normalizeOpenAIConfig(rawConfig?.openai, rawConfig, provider)
   const deepseek = normalizeDeepSeekConfig(rawConfig?.deepseek, rawConfig, provider)
   const openrouter = normalizeOpenRouterConfig(rawConfig?.openrouter, rawConfig, provider)
   const custom = normalizeCustomConfig(rawConfig?.custom, rawConfig, provider)
   const activeConnection = resolveLLMConnection({
     ...defaultLLMRefineConfig,
     provider,
+    openai,
     deepseek,
     openrouter,
     custom,
@@ -225,6 +276,7 @@ export function normalizeLLMRefineConfig(config?: Partial<LLMRefineConfig>): LLM
     model: activeConnection.model,
     apiKey: activeConnection.apiKey,
     translateOutput: readTranslateOutputFlag(rawConfig),
+    openai,
     deepseek,
     openrouter,
     custom,
@@ -251,6 +303,15 @@ export function buildReasoningPayloadFields(
   text: string,
 ): { level: LLMReasoningLevel; fields: Record<string, unknown> } {
   const level = selectReasoningLevel(text)
+
+  if (connection.provider === 'openai') {
+    return {
+      level,
+      fields: {
+        reasoning_effort: level === 'off' ? 'none' : 'low',
+      },
+    }
+  }
 
   if (connection.provider === 'deepseek') {
     if (!isBuiltInDeepSeekReasoningModel(connection.model)) {

@@ -52,18 +52,25 @@ export interface LocalASRStatus {
   error?: string
 }
 
-export type LLMProvider = 'deepseek' | 'openrouter' | 'custom-compatible'
+export type LLMProvider = 'openai' | 'deepseek' | 'openrouter' | 'custom-compatible'
 
-export type DeepSeekModel = 'deepseek-v4-flash' | 'deepseek-v4-pro'
+export type OpenAIModel = typeof import('./constants').LLM_PROVIDERS.DEFAULT_OPENAI_MODEL
+
+export type DeepSeekModel = (typeof import('./constants').LLM_PROVIDERS.DEEPSEEK_MODELS)[number]
 
 export type OpenRouterModel =
   (typeof import('./constants').LLM_PROVIDERS.OPENROUTER_MODELS)[number]['id']
 
 export type LLMReasoningLevel = 'off' | 'medium' | 'high'
 
+export interface OpenAIConfig {
+  apiKey: string
+  model: OpenAIModel
+}
+
 export interface DeepSeekConfig {
   apiKey: string
-  model: string
+  model: DeepSeekModel
 }
 
 export interface OpenRouterConfig {
@@ -85,6 +92,7 @@ export interface LLMRefineConfig {
   apiKey: string
   /** When true, the refined dictation output is translated into the shared TranslationConfig.targetLanguage. */
   translateOutput: boolean
+  openai: OpenAIConfig
   deepseek: DeepSeekConfig
   openrouter: OpenRouterConfig
   custom: CustomCompatibleLLMConfig

@@ -1016,6 +1016,41 @@ export default function SettingsPage() {
     }))
   }
 
+  const handleOpenAIApiKeyChange = (value: string) => {
+    refineConnectionValidatedRef.current = false
+    disableRefineDependentFeatures()
+    setVisibleSecret((current) =>
+      current?.id === 'llm-refine:openai' ? { id: current.id } : current,
+    )
+    setConfig((prev) => ({
+      ...prev,
+      llmRefine: normalizeLLMRefineConfig({
+        ...prev.llmRefine,
+        openai: {
+          ...prev.llmRefine.openai,
+          apiKey: value,
+        },
+      }),
+    }))
+  }
+
+  const handleOpenAIModelChange = (value: string) => {
+    if (value !== LLM_PROVIDERS.DEFAULT_OPENAI_MODEL) return
+
+    refineConnectionValidatedRef.current = false
+    disableRefineDependentFeatures()
+    setConfig((prev) => ({
+      ...prev,
+      llmRefine: normalizeLLMRefineConfig({
+        ...prev.llmRefine,
+        openai: {
+          ...prev.llmRefine.openai,
+          model: value,
+        },
+      }),
+    }))
+  }
+
   const handleDeepSeekApiKeyChange = (value: string) => {
     refineConnectionValidatedRef.current = false
     disableRefineDependentFeatures()
@@ -1035,6 +1070,9 @@ export default function SettingsPage() {
   }
 
   const handleDeepSeekModelChange = (value: string) => {
+    const model = LLM_PROVIDERS.DEEPSEEK_MODELS.find((option) => option === value)
+    if (!model) return
+
     refineConnectionValidatedRef.current = false
     disableRefineDependentFeatures()
     setConfig((prev) => ({
@@ -1043,7 +1081,7 @@ export default function SettingsPage() {
         ...prev.llmRefine,
         deepseek: {
           ...prev.llmRefine.deepseek,
-          model: value,
+          model,
         },
       }),
     }))
@@ -1187,12 +1225,8 @@ export default function SettingsPage() {
       : activeLLMConnection.apiKey
   const isCustomLLMProvider = currentLLMProvider === 'custom-compatible'
   const builtInDeepSeekModels: string[] = [...LLM_PROVIDERS.DEEPSEEK_MODELS]
-  const deepSeekModelOptions = builtInDeepSeekModels.includes(
-    normalizedLLMRefineConfig.deepseek.model,
-  )
-    ? builtInDeepSeekModels
-    : [...builtInDeepSeekModels, normalizedLLMRefineConfig.deepseek.model]
   const llmProviderOptions = [
+    { value: 'openai', label: 'OpenAI' },
     { value: 'deepseek', label: 'DeepSeek' },
     { value: 'openrouter', label: 'OpenRouter' },
     ...(isCustomLLMProvider
@@ -1670,6 +1704,29 @@ export default function SettingsPage() {
               </p>
             </div>
 
+            {currentLLMProvider === 'openai' && (
+              <div className="mt-4 space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="openAIModel">
+                    {t('settings.refineModel')} <span className="text-primary">*</span>
+                  </Label>
+                  <Select
+                    value={normalizedLLMRefineConfig.openai.model}
+                    onValueChange={handleOpenAIModelChange}
+                  >
+                    <SelectTrigger id="openAIModel" className="no-drag w-full cursor-pointer">
+                      <SelectValue placeholder={LLM_PROVIDERS.DEFAULT_OPENAI_MODEL} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={LLM_PROVIDERS.DEFAULT_OPENAI_MODEL}>
+                        {LLM_PROVIDERS.DEFAULT_OPENAI_MODEL}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
+
             {currentLLMProvider === 'deepseek' && (
               <div className="mt-4 space-y-4">
                 <div className="space-y-2">
@@ -1684,7 +1741,7 @@ export default function SettingsPage() {
                       <SelectValue placeholder={LLM_PROVIDERS.DEFAULT_DEEPSEEK_MODEL} />
                     </SelectTrigger>
                     <SelectContent>
-                      {deepSeekModelOptions.map((model) => (
+                      {builtInDeepSeekModels.map((model) => (
                         <SelectItem key={model} value={model}>
                           {model}
                         </SelectItem>
@@ -1763,7 +1820,9 @@ export default function SettingsPage() {
                   type={isRefineApiKeyVisible ? 'text' : 'password'}
                   value={displayedRefineApiKey}
                   onChange={(e) => {
-                    if (currentLLMProvider === 'deepseek') {
+                    if (currentLLMProvider === 'openai') {
+                      handleOpenAIApiKeyChange(e.target.value)
+                    } else if (currentLLMProvider === 'deepseek') {
                       handleDeepSeekApiKeyChange(e.target.value)
                     } else if (currentLLMProvider === 'openrouter') {
                       handleOpenRouterApiKeyChange(e.target.value)
@@ -1777,11 +1836,13 @@ export default function SettingsPage() {
                     }
                   }}
                   placeholder={t(
-                    currentLLMProvider === 'openrouter'
-                      ? 'settings.openRouterApiKeyPlaceholder'
-                      : currentLLMProvider === 'deepseek'
-                        ? 'settings.deepSeekApiKeyPlaceholder'
-                        : 'settings.refineApiKeyPlaceholder',
+                    currentLLMProvider === 'openai'
+                      ? 'settings.openAIApiKeyPlaceholder'
+                      : currentLLMProvider === 'openrouter'
+                        ? 'settings.openRouterApiKeyPlaceholder'
+                        : currentLLMProvider === 'deepseek'
+                          ? 'settings.deepSeekApiKeyPlaceholder'
+                          : 'settings.refineApiKeyPlaceholder',
                   )}
                   className="no-drag pr-10 font-mono"
                 />

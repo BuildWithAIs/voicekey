@@ -14,7 +14,7 @@ Electron 主进程目录，负责窗口管理、IPC、录音编排、ASR/润色�
 - `main.ts` - 应用入口，初始化窗口、托盘、IPC、服务与录音流程；ASR Provider 首次使用时再初始化，避免设置变化时不必要地重建；仅打包后的应用注册系统开机自启，开发环境不会写入裸 Electron 启动项。
 - `i18n.ts` - 主进程 `i18next` 初始化与语言广播。
 - `env.ts` - 开发/生产环境资源路径解析。
-- `config-manager.ts` - 基于 `electron-store` 的配置持久化，含旧版润色 Base URL 配置到 DeepSeek/OpenRouter/custom-compatible 的迁移与润色输出英文开关迁移；当前版本直接保存 API Key，普通配置读取只返回占位符，设置窗口可通过受限 IPC 按需读取原文；无法读取的旧版 `enc:` 密文不会作为有效 Key 使用。
+- `config-manager.ts` - 基于 `electron-store` 的配置持久化，含旧版润色 Base URL 配置到 OpenAI/DeepSeek/OpenRouter/custom-compatible 的迁移与润色输出英文开关迁移；各 Provider 独立保存 API Key，普通配置读取只返回占位符，设置窗口可通过受限 IPC 按需读取原文；无法读取的旧版 `enc:` 密文不会作为有效 Key 使用。
 - `logger.ts` - `electron-log` 初始化与日志保留策略。
 - `history-manager.ts` - 转录历史存储与统计。
 - `hotkey-manager.ts` - Electron `globalShortcut` 管理。
