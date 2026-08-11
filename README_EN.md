@@ -126,7 +126,7 @@ Since the application is unsigned (we have not yet registered an Apple Developer
 
 ## License <a id="license"></a>
 
-This project is licensed under the [Elastic License 2.0](LICENSE).
+This project is licensed under the [MIT License](LICENSE).
 
 ## Star History <a id="roadmap"></a>
 

@@ -137,7 +137,7 @@ npm run dev
 
 ## 开源协议 <a id="license"></a>
 
-本项目采用 [Elastic License 2.0](LICENSE)。
+本项目采用 [MIT License](LICENSE)。
 
 ## Star History <a id="roadmap"></a>
 
