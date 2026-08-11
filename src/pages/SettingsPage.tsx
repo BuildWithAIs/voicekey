@@ -18,6 +18,7 @@ import {
   HardDrive,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 import { type LanguageSetting } from '@electron/shared/i18n'
 import {
   LOG_FILE_MAX_SIZE_MB,
@@ -37,6 +38,7 @@ import {
 import type {
   AppConfig,
   ASRProviderType,
+  ConfigSecretRequest,
   LLMRefineConfig,
   LLMProvider,
   LocalASRDownloadProgress,
@@ -60,7 +62,11 @@ import {
 import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
 import { validateHotkey } from '@/lib/hotkey-utils'
-import { applyPersistedSecretState, normalizeRendererConfig } from './settings-config'
+import {
+  applyPersistedSecretState,
+  isRefineConfigComplete,
+  normalizeRendererConfig,
+} from './settings-config'
 
 const AUTO_SAVE_DELAY_MS = 700
 const NO_MICROPHONE_SELECT_VALUE = '__no-microphones__'
@@ -84,11 +90,6 @@ type SaveStatus = {
   state: 'saving' | 'success' | 'error' | 'invalid'
   message: string
 } | null
-
-function isRefineConfigComplete(config: LLMRefineConfig): boolean {
-  const connection = resolveLLMConnection(config)
-  return Boolean(connection.endpoint.trim() && connection.model.trim() && connection.apiKey.trim())
-}
 
 function isAppPreferencesDirty(current: AppConfig['app'], original: AppConfig['app']): boolean {
   return (current.autoLaunch ?? false) !== (original.autoLaunch ?? false)
@@ -322,8 +323,8 @@ export default function SettingsPage() {
   const [testingAsr, setTestingAsr] = useState(false)
   const [asrTestStatus, setAsrTestStatus] = useState<TestStatus>(null)
   const [saveStatus, setSaveStatus] = useState<SaveStatus>(null)
-  const [showAsrApiKey, setShowAsrApiKey] = useState(false)
-  const [showRefineApiKey, setShowRefineApiKey] = useState(false)
+  const [visibleSecret, setVisibleSecret] = useState<{ id: string; value?: string } | null>(null)
+  const [revealingSecretId, setRevealingSecretId] = useState<string | null>(null)
   const [logDialogOpen, setLogDialogOpen] = useState(false)
   const [testingRefine, setTestingRefine] = useState(false)
   const [refineTestStatus, setRefineTestStatus] = useState<TestStatus>(null)
@@ -343,6 +344,9 @@ export default function SettingsPage() {
   const isAutoSavingRef = useRef(false)
   const shouldRunAutoSaveAgainRef = useRef(false)
   const flushAutoSaveRef = useRef<() => Promise<void>>(async () => {})
+  const revealRequestIdRef = useRef(0)
+  const refineConnectionValidatedRef = useRef(false)
+  const refineConnectionTestInFlightRef = useRef(false)
 
   useEffect(() => {
     latestConfigRef.current = config
@@ -650,6 +654,10 @@ export default function SettingsPage() {
         })
       }
 
+      setVisibleSecret(null)
+      setRevealingSecretId(null)
+      revealRequestIdRef.current += 1
+
       if (invalidMessage) {
         setSaveStatus({ state: 'invalid', message: invalidMessage })
       } else {
@@ -750,23 +758,81 @@ export default function SettingsPage() {
     }
   }
 
-  const handleTestRefineConnection = async () => {
+  const disableRefineDependentFeatures = () => {
+    setConfig((prev) => {
+      const normalizedRefineConfig = normalizeLLMRefineConfig(prev.llmRefine)
+      if (
+        !normalizedRefineConfig.enabled &&
+        !normalizedRefineConfig.translateOutput &&
+        !prev.translation.enabled
+      ) {
+        return prev
+      }
+
+      return {
+        ...prev,
+        llmRefine: {
+          ...prev.llmRefine,
+          enabled: false,
+          translateOutput: false,
+        },
+        translation: {
+          ...prev.translation,
+          enabled: false,
+        },
+      }
+    })
+  }
+
+  const verifyRefineConnection = async (forFeatureEnable: boolean): Promise<boolean> => {
+    if (refineConnectionTestInFlightRef.current) return false
+
     const normalizedRefineConfig = normalizeLLMRefineConfig(config.llmRefine)
 
     if (!isRefineConfigComplete(normalizedRefineConfig)) {
-      setRefineTestStatus({ type: 'error', message: t('settings.result.refineConfigRequired') })
-      return
+      refineConnectionValidatedRef.current = false
+      const message = t(
+        forFeatureEnable
+          ? 'settings.result.refineConfigBeforeEnable'
+          : 'settings.result.refineConfigRequired',
+      )
+      setRefineTestStatus({ type: 'error', message })
+      disableRefineDependentFeatures()
+      if (forFeatureEnable) {
+        toast.warning(message)
+      }
+      return false
     }
 
+    if (forFeatureEnable && refineConnectionValidatedRef.current) {
+      return true
+    }
+
+    refineConnectionTestInFlightRef.current = true
     setTestingRefine(true)
     setRefineTestStatus(null)
     try {
       const result = await window.electronAPI.testRefineConnection(normalizedRefineConfig)
+      const testedConnection = resolveLLMConnection(normalizedRefineConfig)
+      const currentConnection = resolveLLMConnection(
+        normalizeLLMRefineConfig(latestConfigRef.current.llmRefine),
+      )
+      const connectionChanged =
+        testedConnection.provider !== currentConnection.provider ||
+        testedConnection.endpoint !== currentConnection.endpoint ||
+        testedConnection.model !== currentConnection.model ||
+        (currentConnection.apiKey !== STORED_SECRET_PLACEHOLDER &&
+          testedConnection.apiKey !== currentConnection.apiKey)
+
+      if (connectionChanged) return false
+
       if (result.ok) {
+        refineConnectionValidatedRef.current = true
         setRefineTestStatus({
           type: 'success',
           message: t('settings.result.refineConnectionSuccess'),
         })
+        return true
       } else if (result.message) {
         setRefineTestStatus({
           type: 'error',
@@ -778,19 +844,95 @@ export default function SettingsPage() {
           message: t('settings.result.refineConnectionFailed'),
         })
       }
+      refineConnectionValidatedRef.current = false
+      disableRefineDependentFeatures()
+      if (forFeatureEnable) {
+        toast.error(t('settings.result.refineConnectionBeforeEnableFailed'), {
+          description: result.message,
+        })
+      }
+      return false
     } catch (error) {
+      refineConnectionValidatedRef.current = false
       const errorMessage = error instanceof Error ? error.message : t('common.unknownError')
       setRefineTestStatus({
         type: 'error',
         message: t('settings.result.refineTestFailed', { message: errorMessage }),
       })
+      disableRefineDependentFeatures()
+      if (forFeatureEnable) {
+        toast.error(t('settings.result.refineConnectionBeforeEnableFailed'), {
+          description: errorMessage,
+        })
+      }
+      return false
     } finally {
+      refineConnectionTestInFlightRef.current = false
       setTestingRefine(false)
     }
   }
 
+  const handleTestRefineConnection = () => {
+    void verifyRefineConnection(false)
+  }
+
+  const handleRefineEnabledChange = async (checked: boolean) => {
+    if (!checked) {
+      setConfig((prev) => ({
+        ...prev,
+        llmRefine: { ...prev.llmRefine, enabled: false, translateOutput: false },
+      }))
+      return
+    }
+
+    if (!(await verifyRefineConnection(true))) return
+    setConfig((prev) => ({
+      ...prev,
+      llmRefine: { ...prev.llmRefine, enabled: true },
+    }))
+  }
+
+  const handleTranslationEnabledChange = async (checked: boolean) => {
+    if (!checked) {
+      setConfig((prev) => ({
+        ...prev,
+        translation: { ...prev.translation, enabled: false },
+      }))
+      return
+    }
+
+    if (!(await verifyRefineConnection(true))) return
+    setConfig((prev) => ({
+      ...prev,
+      translation: { ...prev.translation, enabled: true },
+    }))
+  }
+
+  const handleTranslateOutputChange = async (checked: boolean) => {
+    if (!checked) {
+      setConfig((prev) => ({
+        ...prev,
+        llmRefine: { ...prev.llmRefine, translateOutput: false },
+      }))
+      return
+    }
+
+    if (!(await verifyRefineConnection(true))) return
+    if (!latestConfigRef.current.llmRefine.enabled) {
+      toast.warning(t('settings.result.enableRefineBeforeTranslateOutput'))
+      return
+    }
+
+    setConfig((prev) => ({
+      ...prev,
+      llmRefine: { ...prev.llmRefine, translateOutput: true },
+    }))
+  }
+
   const handleApiKeyChange = (value: string) => {
     const region = config.asr.region || 'cn'
+    const secretId = `asr:${region}`
+    setVisibleSecret((current) => (current?.id === secretId ? { id: secretId } : current))
     setConfig((prev) => ({
       ...prev,
       asr: {
@@ -805,6 +947,9 @@ export default function SettingsPage() {
 
   const handleRegionChange = (value: string) => {
     const region = value as 'cn' | 'intl'
+    setVisibleSecret(null)
+    setRevealingSecretId(null)
+    revealRequestIdRef.current += 1
     setConfig((prev) => ({
       ...prev,
       asr: {
@@ -817,6 +962,9 @@ export default function SettingsPage() {
 
   const handleAsrProviderChange = (value: string) => {
     const provider = value as ASRProviderType
+    setVisibleSecret(null)
+    setRevealingSecretId(null)
+    revealRequestIdRef.current += 1
     setConfig((prev) => ({
       ...prev,
       asr: {
@@ -854,6 +1002,11 @@ export default function SettingsPage() {
 
   const handleLLMProviderChange = (value: string) => {
     const provider = value as LLMProvider
+    refineConnectionValidatedRef.current = false
+    disableRefineDependentFeatures()
+    setVisibleSecret(null)
+    setRevealingSecretId(null)
+    revealRequestIdRef.current += 1
     setConfig((prev) => ({
       ...prev,
       llmRefine: normalizeLLMRefineConfig({
@@ -864,6 +1017,11 @@ export default function SettingsPage() {
   }
 
   const handleDeepSeekApiKeyChange = (value: string) => {
+    refineConnectionValidatedRef.current = false
+    disableRefineDependentFeatures()
+    setVisibleSecret((current) =>
+      current?.id === 'llm-refine:deepseek' ? { id: current.id } : current,
+    )
     setConfig((prev) => ({
       ...prev,
       llmRefine: normalizeLLMRefineConfig({
@@ -877,6 +1035,8 @@ export default function SettingsPage() {
   }
 
   const handleDeepSeekModelChange = (value: string) => {
+    refineConnectionValidatedRef.current = false
+    disableRefineDependentFeatures()
     setConfig((prev) => ({
       ...prev,
       llmRefine: normalizeLLMRefineConfig({
@@ -890,6 +1050,11 @@ export default function SettingsPage() {
   }
 
   const handleOpenRouterApiKeyChange = (value: string) => {
+    refineConnectionValidatedRef.current = false
+    disableRefineDependentFeatures()
+    setVisibleSecret((current) =>
+      current?.id === 'llm-refine:openrouter' ? { id: current.id } : current,
+    )
     setConfig((prev) => ({
       ...prev,
       llmRefine: normalizeLLMRefineConfig({
@@ -906,6 +1071,8 @@ export default function SettingsPage() {
     const model = LLM_PROVIDERS.OPENROUTER_MODELS.find((option) => option.id === value)?.id
     if (!model) return
 
+    refineConnectionValidatedRef.current = false
+    disableRefineDependentFeatures()
     setConfig((prev) => ({
       ...prev,
       llmRefine: normalizeLLMRefineConfig({
@@ -919,6 +1086,13 @@ export default function SettingsPage() {
   }
 
   const handleCustomConfigChange = (key: 'endpoint' | 'model' | 'apiKey', value: string) => {
+    refineConnectionValidatedRef.current = false
+    disableRefineDependentFeatures()
+    if (key === 'apiKey') {
+      setVisibleSecret((current) =>
+        current?.id === 'llm-refine:custom-compatible' ? { id: current.id } : current,
+      )
+    }
     setConfig((prev) => ({
       ...prev,
       llmRefine: {
@@ -929,6 +1103,44 @@ export default function SettingsPage() {
         },
       },
     }))
+  }
+
+  const handleSecretVisibilityToggle = async (
+    request: ConfigSecretRequest,
+    secretId: string,
+    currentValue: string,
+  ) => {
+    if (visibleSecret?.id === secretId) {
+      revealRequestIdRef.current += 1
+      setVisibleSecret(null)
+      return
+    }
+
+    if (currentValue !== STORED_SECRET_PLACEHOLDER) {
+      revealRequestIdRef.current += 1
+      setVisibleSecret({ id: secretId })
+      return
+    }
+
+    const requestId = revealRequestIdRef.current + 1
+    revealRequestIdRef.current = requestId
+    setVisibleSecret(null)
+    setRevealingSecretId(secretId)
+    try {
+      const secret = await window.electronAPI.getConfigSecret(request)
+      if (revealRequestIdRef.current !== requestId) return
+      setVisibleSecret({ id: secretId, value: secret })
+    } catch {
+      window.electronAPI.log({
+        level: 'error',
+        message: 'Failed to reveal saved API key',
+        scope: 'settings',
+      })
+    } finally {
+      if (revealRequestIdRef.current === requestId) {
+        setRevealingSecretId(null)
+      }
+    }
   }
 
   const handleCustomEndpointBlur = () => {
@@ -946,6 +1158,12 @@ export default function SettingsPage() {
 
   const currentRegion = config.asr.region || 'cn'
   const currentApiKey = config.asr.apiKeys?.[currentRegion] || ''
+  const asrSecretId = `asr:${currentRegion}`
+  const isAsrApiKeyVisible = visibleSecret?.id === asrSecretId
+  const displayedAsrApiKey =
+    isAsrApiKeyVisible && currentApiKey === STORED_SECRET_PLACEHOLDER
+      ? (visibleSecret.value ?? currentApiKey)
+      : currentApiKey
   const isLocalAsr = config.asr.provider === 'local-sensevoice'
   const selectedMicrophoneDeviceId = config.asr.microphoneDeviceId?.trim() ?? ''
   const selectedMicrophoneValue = selectedMicrophoneDeviceId || MICROPHONE_INPUT.SYSTEM_DEFAULT_ID
@@ -961,6 +1179,12 @@ export default function SettingsPage() {
   const normalizedLLMRefineConfig = normalizeLLMRefineConfig(config.llmRefine)
   const activeLLMConnection = resolveLLMConnection(normalizedLLMRefineConfig)
   const currentLLMProvider = normalizedLLMRefineConfig.provider
+  const refineSecretId = `llm-refine:${currentLLMProvider}`
+  const isRefineApiKeyVisible = visibleSecret?.id === refineSecretId
+  const displayedRefineApiKey =
+    isRefineApiKeyVisible && activeLLMConnection.apiKey === STORED_SECRET_PLACEHOLDER
+      ? (visibleSecret.value ?? activeLLMConnection.apiKey)
+      : activeLLMConnection.apiKey
   const isCustomLLMProvider = currentLLMProvider === 'custom-compatible'
   const builtInDeepSeekModels: string[] = [...LLM_PROVIDERS.DEEPSEEK_MODELS]
   const deepSeekModelOptions = builtInDeepSeekModels.includes(
@@ -994,6 +1218,36 @@ export default function SettingsPage() {
   useEffect(() => {
     setRefineTestStatus(null)
   }, [config.llmRefine])
+
+  useEffect(() => {
+    if (
+      isConfigLoading ||
+      canTestRefine ||
+      (!llmRefineEnabled && !translateOutput && !config.translation.enabled)
+    ) {
+      return
+    }
+
+    refineConnectionValidatedRef.current = false
+    setConfig((prev) => ({
+      ...prev,
+      llmRefine: {
+        ...prev.llmRefine,
+        enabled: false,
+        translateOutput: false,
+      },
+      translation: {
+        ...prev.translation,
+        enabled: false,
+      },
+    }))
+  }, [
+    canTestRefine,
+    config.translation.enabled,
+    isConfigLoading,
+    llmRefineEnabled,
+    translateOutput,
+  ])
 
   useEffect(() => {
     return () => {
@@ -1097,13 +1351,6 @@ export default function SettingsPage() {
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">{t('settings.subtitle')}</p>
       </div>
-
-      {config.secretStorage?.legacyEncryptedKeys ? (
-        <Alert className="mb-5 border-yellow-500/30 bg-yellow-500/10 [&>svg]:text-yellow-600 dark:[&>svg]:text-yellow-500">
-          <AlertTriangle className="h-4 w-4" />
-          <AlertDescription>{t('settings.legacyEncryptedKeys')}</AlertDescription>
-        </Alert>
-      ) : null}
 
       <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_256px]">
         <div className="flex min-w-0 flex-col gap-4">
@@ -1304,8 +1551,8 @@ export default function SettingsPage() {
                   <div className="relative">
                     <Input
                       id="apiKey"
-                      type={showAsrApiKey ? 'text' : 'password'}
-                      value={currentApiKey}
+                      type={isAsrApiKeyVisible ? 'text' : 'password'}
+                      value={displayedAsrApiKey}
                       onChange={(e) => handleApiKeyChange(e.target.value)}
                       onFocus={(event) => {
                         if (currentApiKey === STORED_SECRET_PLACEHOLDER) {
@@ -1317,11 +1564,24 @@ export default function SettingsPage() {
                     />
                     <button
                       type="button"
-                      onClick={() => setShowAsrApiKey((prev) => !prev)}
-                      aria-label={showAsrApiKey ? t('settings.hideKey') : t('settings.showKey')}
+                      onClick={() =>
+                        void handleSecretVisibilityToggle(
+                          { scope: 'asr', region: currentRegion },
+                          asrSecretId,
+                          currentApiKey,
+                        )
+                      }
+                      disabled={revealingSecretId === asrSecretId}
+                      aria-label={
+                        isAsrApiKeyVisible ? t('settings.hideKey') : t('settings.showKey')
+                      }
                       className="no-drag absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-foreground"
                     >
-                      {showAsrApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      {isAsrApiKeyVisible ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
                     </button>
                   </div>
                   <p className="text-xs text-muted-foreground">
@@ -1500,8 +1760,8 @@ export default function SettingsPage() {
               <div className="relative">
                 <Input
                   id="refineApiKey"
-                  type={showRefineApiKey ? 'text' : 'password'}
-                  value={activeLLMConnection.apiKey}
+                  type={isRefineApiKeyVisible ? 'text' : 'password'}
+                  value={displayedRefineApiKey}
                   onChange={(e) => {
                     if (currentLLMProvider === 'deepseek') {
                       handleDeepSeekApiKeyChange(e.target.value)
@@ -1527,13 +1787,26 @@ export default function SettingsPage() {
                 />
                 <button
                   type="button"
-                  onClick={() => setShowRefineApiKey((prev) => !prev)}
+                  onClick={() =>
+                    void handleSecretVisibilityToggle(
+                      { scope: 'llm-refine', provider: currentLLMProvider },
+                      refineSecretId,
+                      activeLLMConnection.apiKey,
+                    )
+                  }
+                  disabled={revealingSecretId === refineSecretId}
                   aria-label={
-                    showRefineApiKey ? t('settings.hideRefineKey') : t('settings.showRefineKey')
+                    isRefineApiKeyVisible
+                      ? t('settings.hideRefineKey')
+                      : t('settings.showRefineKey')
                   }
                   className="no-drag absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-foreground"
                 >
-                  {showRefineApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  {isRefineApiKeyVisible ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
                 </button>
               </div>
             </div>
@@ -1571,12 +1844,8 @@ export default function SettingsPage() {
                 title={t('settings.llmRefineEnabled')}
                 desc={t('settings.llmRefineEnabledHelp')}
                 checked={llmRefineEnabled}
-                onChange={(checked) =>
-                  setConfig((prev) => ({
-                    ...prev,
-                    llmRefine: { ...prev.llmRefine, enabled: checked },
-                  }))
-                }
+                disabled={testingRefine}
+                onChange={(checked) => void handleRefineEnabledChange(checked)}
               />
             </div>
 
@@ -1616,12 +1885,8 @@ export default function SettingsPage() {
                 <ToggleRow
                   title={t('settings.translation.enable')}
                   checked={config.translation.enabled}
-                  onChange={(checked) =>
-                    setConfig((prev) => ({
-                      ...prev,
-                      translation: { ...prev.translation, enabled: checked },
-                    }))
-                  }
+                  disabled={testingRefine}
+                  onChange={(checked) => void handleTranslationEnabledChange(checked)}
                 />
               </div>
 
@@ -1630,22 +1895,10 @@ export default function SettingsPage() {
                   title={t('settings.translateOutput')}
                   desc={t('settings.translateOutputHelp')}
                   checked={translateOutput}
-                  disabled={!llmRefineEnabled}
-                  onChange={(checked) =>
-                    setConfig((prev) => ({
-                      ...prev,
-                      llmRefine: { ...prev.llmRefine, translateOutput: checked },
-                    }))
-                  }
+                  disabled={testingRefine}
+                  onChange={(checked) => void handleTranslateOutputChange(checked)}
                 />
               </div>
-
-              {config.translation.enabled && !canTestRefine && (
-                <Alert className="mt-4 border-yellow-500/30 bg-yellow-500/10 [&>svg]:text-yellow-600 dark:[&>svg]:text-yellow-500">
-                  <AlertTriangle className="h-4 w-4" />
-                  <AlertDescription>{t('settings.translation.refineWarning')}</AlertDescription>
-                </Alert>
-              )}
             </div>
           </SectionCard>
 

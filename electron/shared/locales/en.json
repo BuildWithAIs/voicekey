@@ -201,7 +201,6 @@
       "saved": "Changes saved",
       "error": "Couldn't save changes: {{message}}"
     },
-    "legacyEncryptedKeys": "API keys encrypted by an older version with OS credential storage (including macOS Keychain) were found. This version no longer accesses OS credential storage, so those keys cannot be read. The original ciphertext remains on this device; enter each key again to replace it.",
     "result": {
       "saveSuccess": "Settings saved successfully!",
       "saveError": "Failed to save: {{message}}",
@@ -214,6 +213,9 @@
       "refineConnectionSuccess": "Refinement connection successful!",
       "refineConnectionFailed": "Refinement connection failed.",
       "refineTestFailed": "Refinement test failed: {{message}}",
+      "refineConfigBeforeEnable": "Configure the refinement model and API key before enabling this feature.",
+      "refineConnectionBeforeEnableFailed": "The refinement model connection could not be verified. Check the model and API key, then try again.",
+      "enableRefineBeforeTranslateOutput": "Enable refinement before turning on Translate to target language.",
       "hotkeyInvalid": "Please fix the hotkey settings before saving."
     },
     "saveNotice": "Changes take effect after you click Save Settings (language changes apply immediately).",
@@ -222,7 +224,6 @@
       "description": "Translate selected text anywhere using a hotkey. Uses your LLM Refine API configuration and prioritizes natural native phrasing over literal word order.",
       "enable": "Enable translation hotkey",
       "targetLanguage": "Target language",
-      "refineWarning": "Translation requires a valid LLM Refine configuration (endpoint, model, API key).",
       "languages": {
         "english": "English",
         "chinese": "中文",

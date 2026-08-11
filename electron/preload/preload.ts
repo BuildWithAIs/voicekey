@@ -5,6 +5,7 @@ import {
   type HistoryItem,
   type AppConfig,
   type ASRConfig,
+  type ConfigSecretRequest,
   type UpdateInfo,
   type LogEntryPayload,
   type LogTailOptions,
@@ -25,6 +26,7 @@ export interface ElectronAPI {
   // 配置相关
   getConfig: () => Promise<AppConfig>
   setConfig: (config: Partial<AppConfig>) => Promise<void>
+  getConfigSecret: (request: ConfigSecretRequest) => Promise<string>
   testConnection: (config?: ASRConfig) => Promise<boolean>
   testRefineConnection: (config: LLMRefineConfig) => Promise<RefineConnectionResult>
   getLocalASRStatus: () => Promise<LocalASRStatus>
@@ -87,6 +89,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // 配置相关
   getConfig: () => ipcRenderer.invoke(IPC_CHANNELS.CONFIG_GET),
   setConfig: (config: Partial<AppConfig>) => ipcRenderer.invoke(IPC_CHANNELS.CONFIG_SET, config),
+  getConfigSecret: (request: ConfigSecretRequest) =>
+    ipcRenderer.invoke(IPC_CHANNELS.CONFIG_SECRET_GET, request),
   testConnection: (config?: ASRConfig) => ipcRenderer.invoke(IPC_CHANNELS.CONFIG_TEST, config),
   testRefineConnection: (config: LLMRefineConfig) =>
     ipcRenderer.invoke(IPC_CHANNELS.CONFIG_REFINE_TEST, config),

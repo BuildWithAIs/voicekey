@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { STORED_SECRET_PLACEHOLDER } from '@electron/shared/constants'
 import { defaultLLMRefineConfig } from '@electron/shared/llm-config'
 import type { AppConfig } from '@electron/shared/types'
-import { applyPersistedSecretState } from './settings-config'
+import { applyPersistedSecretState, isRefineConfigComplete } from './settings-config'
 
 function createConfig(asrKey: string, llmKey: string): AppConfig {
   return {
@@ -44,7 +44,6 @@ describe('settings persisted secret state', () => {
     current.asr.lowVolumeMode = false
     current.translation.enabled = true
     const persisted = createConfig(STORED_SECRET_PLACEHOLDER, STORED_SECRET_PLACEHOLDER)
-    persisted.secretStorage = { legacyEncryptedKeys: false }
 
     const result = applyPersistedSecretState(
       current,
@@ -56,6 +55,19 @@ describe('settings persisted secret state', () => {
     expect(result.llmRefine.deepseek.apiKey).toBe('second-llm-key')
     expect(result.asr.lowVolumeMode).toBe(false)
     expect(result.translation.enabled).toBe(true)
-    expect(result.secretStorage?.legacyEncryptedKeys).toBe(false)
+  })
+})
+
+describe('refinement configuration completeness', () => {
+  it('accepts a configured provider connection, including a stored-key placeholder', () => {
+    const config = createConfig('', STORED_SECRET_PLACEHOLDER)
+
+    expect(isRefineConfigComplete(config.llmRefine)).toBe(true)
+  })
+
+  it('rejects a provider connection without an API key', () => {
+    const config = createConfig('', '')
+
+    expect(isRefineConfigComplete(config.llmRefine)).toBe(false)
   })
 })

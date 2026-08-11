@@ -1,8 +1,13 @@
 import { TRANSLATION } from '@electron/shared/constants'
-import { normalizeLLMRefineConfig } from '@electron/shared/llm-config'
-import type { AppConfig } from '@electron/shared/types'
+import { normalizeLLMRefineConfig, resolveLLMConnection } from '@electron/shared/llm-config'
+import type { AppConfig, LLMRefineConfig } from '@electron/shared/types'
 
 const LLM_CONNECTION_KEYS = ['deepseek', 'openrouter', 'custom'] as const
+
+export function isRefineConfigComplete(config: LLMRefineConfig): boolean {
+  const connection = resolveLLMConnection(config)
+  return Boolean(connection.endpoint.trim() && connection.model.trim() && connection.apiKey.trim())
+}
 
 export function normalizeRendererConfig(loadedConfig: AppConfig): AppConfig {
   return {
@@ -68,6 +73,5 @@ export function applyPersistedSecretState(
       apiKeys: asrApiKeys,
     },
     llmRefine,
-    secretStorage: persistedConfig.secretStorage,
   }
 }

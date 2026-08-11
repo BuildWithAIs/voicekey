@@ -201,6 +201,7 @@ app.whenReady().then(async () => {
       registerGlobalHotkeys: registerHotkeys,
       getAsrProvider: () => asrProvider,
       getRefineService: () => refineService,
+      getSettingsWindow,
     },
 
     // session-handlers 依赖

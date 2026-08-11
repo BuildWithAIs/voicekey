@@ -4,6 +4,7 @@ import {
   AppPreferences,
   ASRConfig,
   ASRProviderType,
+  ConfigSecretRequest,
   HotkeyConfig,
   LLMRefineConfig,
   TranslationConfig,
@@ -142,10 +143,6 @@ function isUsableStoredKey(value: string): boolean {
   return Boolean(value) && !isLegacyEncryptedKey(value)
 }
 
-function hasStoredKey(value: string): boolean {
-  return Boolean(value)
-}
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 }
@@ -282,13 +279,13 @@ export class ConfigManager {
 
   getConfig(): AppConfig {
     // Renderer configuration never receives plaintext secrets. New keys are stored directly in
-    // electron-store, matching v0.1.8 and earlier, while old enc: values are preserved but unusable.
+    // electron-store, while old enc: values remain unsupported and appear unconfigured.
     const storedAsr = this.getStoredASRConfig()
     const asr: ASRConfig = {
       ...storedAsr,
       apiKeys: {
-        cn: hasStoredKey(storedAsr.apiKeys.cn) ? STORED_SECRET_PLACEHOLDER : '',
-        intl: hasStoredKey(storedAsr.apiKeys.intl) ? STORED_SECRET_PLACEHOLDER : '',
+        cn: isUsableStoredKey(storedAsr.apiKeys.cn) ? STORED_SECRET_PLACEHOLDER : '',
+        intl: isUsableStoredKey(storedAsr.apiKeys.intl) ? STORED_SECRET_PLACEHOLDER : '',
       },
     }
     const storedLLMRefine = normalizeLLMRefineConfig(
@@ -299,15 +296,17 @@ export class ConfigManager {
       apiKey: '',
       deepseek: {
         ...storedLLMRefine.deepseek,
-        apiKey: hasStoredKey(storedLLMRefine.deepseek.apiKey) ? STORED_SECRET_PLACEHOLDER : '',
+        apiKey: isUsableStoredKey(storedLLMRefine.deepseek.apiKey) ? STORED_SECRET_PLACEHOLDER : '',
       },
       openrouter: {
         ...storedLLMRefine.openrouter,
-        apiKey: hasStoredKey(storedLLMRefine.openrouter.apiKey) ? STORED_SECRET_PLACEHOLDER : '',
+        apiKey: isUsableStoredKey(storedLLMRefine.openrouter.apiKey)
+          ? STORED_SECRET_PLACEHOLDER
+          : '',
       },
       custom: {
         ...storedLLMRefine.custom,
-        apiKey: hasStoredKey(storedLLMRefine.custom.apiKey) ? STORED_SECRET_PLACEHOLDER : '',
+        apiKey: isUsableStoredKey(storedLLMRefine.custom.apiKey) ? STORED_SECRET_PLACEHOLDER : '',
       },
     })
     return {
@@ -316,10 +315,19 @@ export class ConfigManager {
       llmRefine,
       hotkey: this.getHotkeyConfig(),
       translation: this.getTranslationConfig(),
-      secretStorage: {
-        legacyEncryptedKeys: this.hasLegacyEncryptedKeys(storedAsr, storedLLMRefine),
-      },
     }
+  }
+
+  getConfigSecret(request: ConfigSecretRequest): string {
+    if (request.scope === 'asr') {
+      return this.getASRConfig().apiKeys[request.region]
+    }
+
+    const config = this.getLLMRefineConfig()
+    if (request.provider === 'custom-compatible') {
+      return config.custom.apiKey
+    }
+    return config[request.provider].apiKey
   }
 
   getAppConfig(): AppPreferences {
@@ -340,16 +348,6 @@ export class ConfigManager {
         intl: this.resolveStoredKey(config.apiKeys.intl),
       },
     }
-  }
-
-  private hasLegacyEncryptedKeys(asr: ASRConfig, llmRefine: LLMRefineConfig): boolean {
-    return [
-      asr.apiKeys.cn,
-      asr.apiKeys.intl,
-      llmRefine.deepseek.apiKey,
-      llmRefine.openrouter.apiKey,
-      llmRefine.custom.apiKey,
-    ].some(isLegacyEncryptedKey)
   }
 
   private getStoredASRConfig(): ASRConfig {

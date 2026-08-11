@@ -4,6 +4,7 @@
  * 负责处理以下 IPC 通道：
  * - CONFIG_GET: 获取全部配置
  * - CONFIG_SET: 设置配置（支持 app/asr/llmRefine/hotkey/translation 部分更新）
+ * - CONFIG_SECRET_GET: 仅向设置窗口返回指定的已保存 API Key 原文
  * - CONFIG_TEST: 校验 ASR 连接
  * - CONFIG_REFINE_TEST: 校验文本润色连接
  * - LOCAL_ASR_STATUS / LOCAL_ASR_DOWNLOAD: 本地 ASR 模型状态与下载
@@ -11,11 +12,12 @@
  * @module electron/main/ipc/config-handlers
  */
 
-import { ipcMain } from 'electron'
+import { ipcMain, type BrowserWindow } from 'electron'
 import {
   IPC_CHANNELS,
   type AppPreferences,
   type ASRConfig,
+  type ConfigSecretRequest,
   type HotkeyConfig,
   type LLMRefineConfig,
   type TranslationConfig,
@@ -46,6 +48,8 @@ export type ConfigHandlersDeps = {
   getAsrProvider: () => ASRProvider | null
   /** 获取文本润色服务 */
   getRefineService: () => TextRefiner | null
+  /** 获取设置窗口；只有该窗口可以请求显示已保存的明文密钥 */
+  getSettingsWindow: () => BrowserWindow | null
 }
 
 let deps: ConfigHandlersDeps
@@ -53,6 +57,24 @@ let deps: ConfigHandlersDeps
 // IPC 载荷可能来自被破坏的渲染进程，先做廉价的形状校验
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+}
+
+function isConfigSecretRequest(value: unknown): value is ConfigSecretRequest {
+  if (!isPlainObject(value)) return false
+
+  if (value.scope === 'asr') {
+    return value.region === 'cn' || value.region === 'intl'
+  }
+
+  if (value.scope === 'llm-refine') {
+    return (
+      value.provider === 'deepseek' ||
+      value.provider === 'openrouter' ||
+      value.provider === 'custom-compatible'
+    )
+  }
+
+  return false
 }
 
 /**
@@ -70,6 +92,18 @@ export function registerConfigHandlers(): void {
   // CONFIG_GET: 获取全部配置
   ipcMain.handle(IPC_CHANNELS.CONFIG_GET, () => {
     return configManager.getConfig()
+  })
+
+  ipcMain.handle(IPC_CHANNELS.CONFIG_SECRET_GET, (event, request: unknown) => {
+    const settingsWindow = deps.getSettingsWindow()
+    if (!settingsWindow || settingsWindow.webContents !== event.sender) {
+      throw new Error('Saved API keys can only be revealed from the settings window')
+    }
+    if (!isConfigSecretRequest(request)) {
+      throw new Error('Invalid saved API key request')
+    }
+
+    return configManager.getConfigSecret(request)
   })
 
   // APP_LANGUAGE_GET: 获取语言快照

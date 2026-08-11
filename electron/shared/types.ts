@@ -119,11 +119,17 @@ export interface AppConfig {
   llmRefine: LLMRefineConfig
   hotkey: HotkeyConfig
   translation: TranslationConfig
-  /** Runtime-only status; this field is never persisted by ConfigManager. */
-  secretStorage?: {
-    legacyEncryptedKeys: boolean
-  }
 }
+
+export type ConfigSecretRequest =
+  | {
+      scope: 'asr'
+      region: ASRConfig['region']
+    }
+  | {
+      scope: 'llm-refine'
+      provider: LLMProvider
+    }
 
 export interface HistoryItem {
   id: string
@@ -174,6 +180,7 @@ export interface AudioChunkPayload {
 export const IPC_CHANNELS = {
   CONFIG_GET: 'config:get',
   CONFIG_SET: 'config:set',
+  CONFIG_SECRET_GET: 'config:secret:get',
   CONFIG_TEST: 'config:test',
   CONFIG_REFINE_TEST: 'config:refine:test',
   LOCAL_ASR_STATUS: 'local-asr:status',

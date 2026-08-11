@@ -24,7 +24,8 @@ Electron 预加载脚本目录，作为主进程与渲染进程之间的安全�
 
 ## 其他 API
 
-- `getConfig()` / `setConfig()` - 读取和保存应用配置。
+- `getConfig()` / `setConfig()` - 读取和保存应用配置；普通读取中的已保存 API Key 使用占位符。
+- `getConfigSecret(request)` - 设置页点击显示时按 ASR 区域或 LLM Provider 请求当前版本保存的 API Key 原文，主进程会校验请求来源。
 - `testConnection(config)` - ASR 连接校验。
 - `getLocalASRStatus()` / `downloadLocalASR()` / `onLocalASRDownloadProgress(callback)` - 本地 SenseVoiceSmall 模型状态、下载与进度监听。
 - `testRefineConnection(config)` - 文本润色连接校验。

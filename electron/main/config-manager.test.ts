@@ -94,12 +94,18 @@ describe('ConfigManager API key storage without system Keychain', () => {
       asr: {
         provider: 'glm',
         region: 'cn',
-        apiKeys: { cn: 'asr-key', intl: '' },
+        apiKeys: { cn: 'asr-key', intl: 'intl-asr-key' },
       },
       llmRefine: {
         enabled: true,
         provider: 'deepseek',
         deepseek: { apiKey: 'llm-key', model: 'deepseek-v4-flash' },
+        openrouter: { apiKey: 'openrouter-key', model: LLM_PROVIDERS.DEFAULT_OPENROUTER_MODEL },
+        custom: {
+          endpoint: 'https://example.com/v1',
+          apiKey: 'custom-key',
+          model: 'example-model',
+        },
       },
     })
 
@@ -110,6 +116,15 @@ describe('ConfigManager API key storage without system Keychain', () => {
     expect(rendererConfig.llmRefine.deepseek.apiKey).toBe(STORED_SECRET_PLACEHOLDER)
     expect(manager.getASRConfig().apiKeys.cn).toBe('asr-key')
     expect(manager.getLLMRefineConfig().deepseek.apiKey).toBe('llm-key')
+    expect(manager.getConfigSecret({ scope: 'asr', region: 'cn' })).toBe('asr-key')
+    expect(manager.getConfigSecret({ scope: 'asr', region: 'intl' })).toBe('intl-asr-key')
+    expect(manager.getConfigSecret({ scope: 'llm-refine', provider: 'deepseek' })).toBe('llm-key')
+    expect(manager.getConfigSecret({ scope: 'llm-refine', provider: 'openrouter' })).toBe(
+      'openrouter-key',
+    )
+    expect(manager.getConfigSecret({ scope: 'llm-refine', provider: 'custom-compatible' })).toBe(
+      'custom-key',
+    )
   })
 
   it('never treats legacy safeStorage ciphertext as an API key', () => {
@@ -130,11 +145,12 @@ describe('ConfigManager API key storage without system Keychain', () => {
 
     const rendererConfig = manager.getConfig()
 
-    expect(rendererConfig.asr.apiKeys.cn).toBe(STORED_SECRET_PLACEHOLDER)
-    expect(rendererConfig.llmRefine.deepseek.apiKey).toBe(STORED_SECRET_PLACEHOLDER)
-    expect(rendererConfig.secretStorage?.legacyEncryptedKeys).toBe(true)
+    expect(rendererConfig.asr.apiKeys.cn).toBe('')
+    expect(rendererConfig.llmRefine.deepseek.apiKey).toBe('')
     expect(manager.getASRConfig().apiKeys.cn).toBe('')
     expect(manager.getLLMRefineConfig().deepseek.apiKey).toBe('')
+    expect(manager.getConfigSecret({ scope: 'asr', region: 'cn' })).toBe('')
+    expect(manager.getConfigSecret({ scope: 'llm-refine', provider: 'deepseek' })).toBe('')
     expect(manager.resolveASRConfig(rendererConfig.asr).apiKeys.cn).toBe('')
     expect(manager.resolveLLMRefineConfig(rendererConfig.llmRefine).deepseek.apiKey).toBe('')
     expect(getPath(mocks.lastStoreData, 'asr.apiKeys.cn')).toBe(asrCipherText)
@@ -227,7 +243,10 @@ describe('ConfigManager API key storage without system Keychain', () => {
 
     expect(getPath(mocks.lastStoreData, 'asr.apiKeys.cn')).toBe('new-asr-key')
     expect(getPath(mocks.lastStoreData, 'llmRefine.deepseek.apiKey')).toBe('new-llm-key')
-    expect(manager.getConfig().secretStorage?.legacyEncryptedKeys).toBe(false)
+    expect(manager.getConfigSecret({ scope: 'asr', region: 'cn' })).toBe('new-asr-key')
+    expect(manager.getConfigSecret({ scope: 'llm-refine', provider: 'deepseek' })).toBe(
+      'new-llm-key',
+    )
   })
 
   it('recovers a legacy plaintext ASR backup instead of keeping unreadable ciphertext', () => {

@@ -126,7 +126,7 @@
     "llmRefineEnabledHelp": "在注入文本前，对转写结果进行整理、润色和结构化排版。",
     "llmRefineManualHelp": "请填写 Base URL、模型和 API Key 以启用文本润色。",
     "translateOutput": "翻译为目标语言",
-    "translateOutputHelp": "仅在启用润色时生效。开启后，润色结果会翻译为下方设置的目标语言，并优先使用地道自然的目标语言表达。",
+    "translateOutputHelp": "仅在启用润色时生效。开启后，润色结果会翻译为上方设置的目标语言，并优先使用地道自然的目标语言表达。",
     "refineEndpoint": "润色 Base URL",
     "refineEndpointPlaceholder": "https://api.openai.com/v1",
     "refineEndpointHelp": "仅支持填写 Base URL，无需包含 /chat/completions，应用会自动补全请求路径。",
@@ -201,7 +201,6 @@
       "saved": "更改已保存",
       "error": "保存失败：{{message}}"
     },
-    "legacyEncryptedKeys": "检测到旧版使用系统凭据存储（包括 macOS 钥匙串）加密的 API Key。当前版本不再访问系统凭据存储，因此无法读取这些 Key。原密文会保留在本机，请重新输入 Key 进行替换。",
     "result": {
       "saveSuccess": "设置已保存！",
       "saveError": "保存失败：{{message}}",
@@ -214,6 +213,9 @@
       "refineConnectionSuccess": "润色连接成功！",
       "refineConnectionFailed": "润色连接失败。",
       "refineTestFailed": "润色测试失败：{{message}}",
+      "refineConfigBeforeEnable": "请先完成润色模型和 API Key 配置，再启用此功能。",
+      "refineConnectionBeforeEnableFailed": "润色模型连接验证失败，请检查模型和 API Key 后重试。",
+      "enableRefineBeforeTranslateOutput": "请先启用润色，再开启“翻译为目标语言”。",
       "hotkeyInvalid": "请先修复快捷键设置后再保存。"
     },
     "saveNotice": "修改后需要点击“保存设置”才会生效（语言切换会立即生效）。",
@@ -222,7 +224,6 @@
       "description": "选中文本后按快捷键即可翻译。使用您已配置的文本润色 API，并优先避免逐字直译和中文式语序。",
       "enable": "启用翻译快捷键",
       "targetLanguage": "目标语言",
-      "refineWarning": "翻译功能需要有效的文本润色 API 配置（endpoint、model、API key）。",
       "languages": {
         "english": "English",
         "chinese": "中文",
