@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { GLM_ASR } from '@electron/shared/constants'
+import { RECORDING } from '@electron/shared/constants'
 import type { RecordingStartPayload } from '@electron/shared/types'
 
 type StopMeta = {
@@ -227,7 +227,7 @@ export function AudioRecorder() {
           rotateAfterStop: true,
         })
       }
-    }, GLM_ASR.REQUEST_MAX_DURATION_SECONDS * 1000)
+    }, RECORDING.CHUNK_DURATION_SECONDS * 1000)
   }
 
   const startChunkRecorder = () => {
@@ -336,7 +336,7 @@ export function AudioRecorder() {
         if (!isSessionEndingRef.current && currentSessionIdRef.current === payload.sessionId) {
           void window.electronAPI.stopSession()
         }
-      }, GLM_ASR.SESSION_MAX_DURATION_SECONDS * 1000)
+      }, RECORDING.SESSION_MAX_DURATION_SECONDS * 1000)
     } catch (error) {
       console.error('[Renderer] Failed to start recording:', error)
       // Only report/cleanup if this session is still current; a stale failure

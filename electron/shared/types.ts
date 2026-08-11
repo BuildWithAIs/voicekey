@@ -10,24 +10,10 @@ export interface VoiceSession {
   duration?: number
 }
 
-export type ASRProviderType = 'glm' | 'local-sensevoice'
-
 export interface ASRConfig {
-  provider: ASRProviderType
-  region: 'cn' | 'intl'
-  apiKeys: {
-    cn: string
-    intl: string
-  }
   lowVolumeMode?: boolean
   microphoneDeviceId?: string
   microphoneDeviceLabel?: string
-
-  // Deprecated: for backward compatibility during migration
-  apiKey?: string
-
-  endpoint?: string
-  language?: string
 }
 
 export type LocalASRDownloadPhase = 'model'
@@ -129,15 +115,10 @@ export interface AppConfig {
   translation: TranslationConfig
 }
 
-export type ConfigSecretRequest =
-  | {
-      scope: 'asr'
-      region: ASRConfig['region']
-    }
-  | {
-      scope: 'llm-refine'
-      provider: LLMProvider
-    }
+export interface ConfigSecretRequest {
+  scope: 'llm-refine'
+  provider: LLMProvider
+}
 
 export interface HistoryItem {
   id: string
@@ -189,7 +170,6 @@ export const IPC_CHANNELS = {
   CONFIG_GET: 'config:get',
   CONFIG_SET: 'config:set',
   CONFIG_SECRET_GET: 'config:secret:get',
-  CONFIG_TEST: 'config:test',
   CONFIG_REFINE_TEST: 'config:refine:test',
   LOCAL_ASR_STATUS: 'local-asr:status',
   LOCAL_ASR_DOWNLOAD: 'local-asr:download',

@@ -14,10 +14,7 @@ export function normalizeRendererConfig(loadedConfig: AppConfig): AppConfig {
     ...loadedConfig,
     asr: {
       ...loadedConfig.asr,
-      apiKeys: {
-        cn: loadedConfig.asr?.apiKeys?.cn ?? '',
-        intl: loadedConfig.asr?.apiKeys?.intl ?? '',
-      },
+      lowVolumeMode: loadedConfig.asr?.lowVolumeMode ?? true,
       microphoneDeviceId: loadedConfig.asr?.microphoneDeviceId ?? '',
       microphoneDeviceLabel: loadedConfig.asr?.microphoneDeviceLabel ?? '',
     },
@@ -38,15 +35,6 @@ export function applyPersistedSecretState(
   savedPatch: Partial<AppConfig>,
   persistedConfig: AppConfig,
 ): AppConfig {
-  const asrApiKeys = { ...currentConfig.asr.apiKeys }
-  if (savedPatch.asr?.apiKeys) {
-    for (const region of ['cn', 'intl'] as const) {
-      if (asrApiKeys[region] === savedPatch.asr.apiKeys[region]) {
-        asrApiKeys[region] = persistedConfig.asr.apiKeys[region]
-      }
-    }
-  }
-
   let llmRefine = normalizeLLMRefineConfig(currentConfig.llmRefine)
   if (savedPatch.llmRefine) {
     const savedLLMRefine = normalizeLLMRefineConfig(savedPatch.llmRefine)
@@ -69,10 +57,6 @@ export function applyPersistedSecretState(
 
   return {
     ...currentConfig,
-    asr: {
-      ...currentConfig.asr,
-      apiKeys: asrApiKeys,
-    },
     llmRefine,
   }
 }

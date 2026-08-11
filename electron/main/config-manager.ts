@@ -3,7 +3,6 @@ import {
   AppConfig,
   AppPreferences,
   ASRConfig,
-  ASRProviderType,
   ConfigSecretRequest,
   HotkeyConfig,
   LLMRefineConfig,
@@ -38,17 +37,9 @@ const defaultConfig: AppConfig = {
     autoLaunch: false,
   },
   asr: {
-    provider: 'glm',
-    region: 'cn',
-    apiKeys: {
-      cn: '',
-      intl: '',
-    },
     lowVolumeMode: true,
     microphoneDeviceId: '',
     microphoneDeviceLabel: '',
-    endpoint: '',
-    language: 'auto',
   },
   llmRefine: defaultLLMRefineConfig,
   hotkey: {
@@ -124,10 +115,6 @@ function migrateLLMRefineConfig(config: unknown): LLMRefineConfig | null {
   return null
 }
 
-function normalizeASRProvider(provider: unknown): ASRProviderType {
-  return provider === 'local-sensevoice' ? 'local-sensevoice' : 'glm'
-}
-
 function normalizeConfigString(value: unknown, maxLength: number): string {
   return typeof value === 'string' ? value.trim().slice(0, maxLength) : ''
 }
@@ -146,6 +133,22 @@ function isUsableStoredKey(value: string): boolean {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+}
+
+function normalizeASRConfig(config: unknown, defaultLowVolumeMode = true): ASRConfig {
+  const rawConfig = isRecord(config) ? config : {}
+  return {
+    lowVolumeMode:
+      typeof rawConfig.lowVolumeMode === 'boolean' ? rawConfig.lowVolumeMode : defaultLowVolumeMode,
+    microphoneDeviceId: normalizeConfigString(
+      rawConfig.microphoneDeviceId,
+      MICROPHONE_INPUT.DEVICE_ID_MAX_LENGTH,
+    ),
+    microphoneDeviceLabel: normalizeConfigString(
+      rawConfig.microphoneDeviceLabel,
+      MICROPHONE_INPUT.DEVICE_LABEL_MAX_LENGTH,
+    ),
+  }
 }
 
 export class ConfigManager {
@@ -242,29 +245,11 @@ export class ConfigManager {
   }
 
   private migrate(): void {
-    const asrConfig = this.store.get('asr') as unknown as Record<string, unknown> | undefined
-    const legacyASRKey = normalizeSecretString(asrConfig?.apiKey)
-    if (legacyASRKey) {
-      const currentApiKeys = this.store.get('asr.apiKeys', { cn: '', intl: '' })
-      const currentCNKey = normalizeSecretString(currentApiKeys.cn)
-      let migratedCNKey = currentCNKey
-      if (!currentCNKey || (!isUsableStoredKey(currentCNKey) && isUsableStoredKey(legacyASRKey))) {
-        this.store.set('asr.apiKeys.cn', legacyASRKey)
-        migratedCNKey = legacyASRKey
-      }
-      if (isUsableStoredKey(migratedCNKey)) {
-        // Delete the deprecated duplicate only after a usable key exists in the canonical field.
-        // This fixes v0.1.18's data-loss bug without resurrecting a stale backup after users clear it.
-        this.store.delete('asr.apiKey' as never)
-      }
-    }
-
-    if (
-      asrConfig &&
-      typeof asrConfig === 'object' &&
-      !Object.prototype.hasOwnProperty.call(asrConfig, 'lowVolumeMode')
-    ) {
-      this.store.set('asr.lowVolumeMode', false)
+    const asrConfig = this.store.get('asr') as unknown
+    if (isRecord(asrConfig)) {
+      // Old installations had no gain toggle and therefore behaved as if it were disabled.
+      // Rewriting the object also removes obsolete GLM provider, endpoint, and API-key fields.
+      this.store.set('asr', normalizeASRConfig(asrConfig, false))
     }
 
     const llmRefineConfig = this.store.get('llmRefine')
@@ -289,14 +274,6 @@ export class ConfigManager {
   getConfig(): AppConfig {
     // Renderer configuration never receives plaintext secrets. New keys are stored directly in
     // electron-store, while old enc: values remain unsupported and appear unconfigured.
-    const storedAsr = this.getStoredASRConfig()
-    const asr: ASRConfig = {
-      ...storedAsr,
-      apiKeys: {
-        cn: isUsableStoredKey(storedAsr.apiKeys.cn) ? STORED_SECRET_PLACEHOLDER : '',
-        intl: isUsableStoredKey(storedAsr.apiKeys.intl) ? STORED_SECRET_PLACEHOLDER : '',
-      },
-    }
     const storedLLMRefine = normalizeLLMRefineConfig(
       this.store.get('llmRefine', defaultConfig.llmRefine),
     )
@@ -324,7 +301,7 @@ export class ConfigManager {
     })
     return {
       app: this.getAppConfig(),
-      asr,
+      asr: this.getASRConfig(),
       llmRefine,
       hotkey: this.getHotkeyConfig(),
       translation: this.getTranslationConfig(),
@@ -332,10 +309,6 @@ export class ConfigManager {
   }
 
   getConfigSecret(request: ConfigSecretRequest): string {
-    if (request.scope === 'asr') {
-      return this.getASRConfig().apiKeys[request.region]
-    }
-
     const config = this.getLLMRefineConfig()
     if (request.provider === 'custom-compatible') {
       return config.custom.apiKey
@@ -353,55 +326,18 @@ export class ConfigManager {
   }
 
   getASRConfig(): ASRConfig {
-    const config = this.getStoredASRConfig()
-    return {
-      ...config,
-      apiKeys: {
-        cn: this.resolveStoredKey(config.apiKeys.cn),
-        intl: this.resolveStoredKey(config.apiKeys.intl),
-      },
-    }
+    return this.getStoredASRConfig()
   }
 
   private getStoredASRConfig(): ASRConfig {
-    const storedConfig = this.store.get('asr', defaultConfig.asr)
-    const config: ASRConfig = {
-      provider: normalizeASRProvider(storedConfig.provider),
-      region: storedConfig.region === 'intl' ? 'intl' : 'cn',
-      apiKeys: {
-        ...defaultConfig.asr.apiKeys,
-        ...(storedConfig.apiKeys ?? {}),
-      },
-      lowVolumeMode:
-        typeof storedConfig.lowVolumeMode === 'boolean'
-          ? storedConfig.lowVolumeMode
-          : defaultConfig.asr.lowVolumeMode,
-      microphoneDeviceId: normalizeConfigString(
-        storedConfig.microphoneDeviceId,
-        MICROPHONE_INPUT.DEVICE_ID_MAX_LENGTH,
-      ),
-      microphoneDeviceLabel: normalizeConfigString(
-        storedConfig.microphoneDeviceLabel,
-        MICROPHONE_INPUT.DEVICE_LABEL_MAX_LENGTH,
-      ),
-      endpoint: normalizeSecretString(storedConfig.endpoint),
-      language: normalizeSecretString(storedConfig.language) || defaultConfig.asr.language,
-    }
-    config.apiKeys = {
-      cn: normalizeSecretString(config.apiKeys.cn),
-      intl: normalizeSecretString(config.apiKeys.intl),
-    }
-    return config
+    return normalizeASRConfig(this.store.get('asr', defaultConfig.asr))
   }
 
   setASRConfig(config: Partial<ASRConfig>): void {
-    const stored = this.getStoredASRConfig()
-    const current = stored
-    const { apiKey: _legacyApiKey, ...configWithoutLegacyKey } = config
-    const merged = {
-      ...current,
-      ...configWithoutLegacyKey,
-      provider: normalizeASRProvider(config.provider ?? current.provider),
+    const current = this.getStoredASRConfig()
+    this.store.set('asr', {
+      lowVolumeMode:
+        typeof config.lowVolumeMode === 'boolean' ? config.lowVolumeMode : current.lowVolumeMode,
       microphoneDeviceId: normalizeConfigString(
         config.microphoneDeviceId ?? current.microphoneDeviceId,
         MICROPHONE_INPUT.DEVICE_ID_MAX_LENGTH,
@@ -410,44 +346,11 @@ export class ConfigManager {
         config.microphoneDeviceLabel ?? current.microphoneDeviceLabel,
         MICROPHONE_INPUT.DEVICE_LABEL_MAX_LENGTH,
       ),
-      apiKeys: {
-        ...current.apiKeys,
-        ...(config.apiKeys ?? {}),
-      },
-    }
-    if (merged.apiKeys) {
-      merged.apiKeys = {
-        cn: this.prepareKeyForStorage(merged.apiKeys.cn, stored.apiKeys?.cn ?? ''),
-        intl: this.prepareKeyForStorage(merged.apiKeys.intl, stored.apiKeys?.intl ?? ''),
-      }
-    }
-    const rawStored = this.store.get('asr', defaultConfig.asr) as unknown
-    this.store.set('asr', {
-      ...(isRecord(rawStored) ? rawStored : {}),
-      ...merged,
     })
   }
 
   getLLMRefineConfig(): LLMRefineConfig {
     return this.resolveStoredLLMRefineConfig(this.store.get('llmRefine', defaultConfig.llmRefine))
-  }
-
-  resolveASRConfig(config: Partial<ASRConfig>): ASRConfig {
-    const stored = this.getASRConfig()
-    return {
-      ...stored,
-      ...config,
-      apiKeys: {
-        cn:
-          config.apiKeys?.cn === STORED_SECRET_PLACEHOLDER
-            ? stored.apiKeys.cn
-            : (config.apiKeys?.cn ?? stored.apiKeys.cn),
-        intl:
-          config.apiKeys?.intl === STORED_SECRET_PLACEHOLDER
-            ? stored.apiKeys.intl
-            : (config.apiKeys?.intl ?? stored.apiKeys.intl),
-      },
-    }
   }
 
   resolveLLMRefineConfig(config: Partial<LLMRefineConfig>): LLMRefineConfig {
@@ -529,16 +432,6 @@ export class ConfigManager {
 
   reset(): void {
     this.store.clear()
-  }
-
-  isValid(): boolean {
-    const asr = this.getASRConfig()
-    if (asr.provider === 'local-sensevoice') {
-      return true
-    }
-    const region = asr.region || 'cn'
-    const key = asr.apiKeys?.[region]
-    return !!key && key.length > 0
   }
 }
 

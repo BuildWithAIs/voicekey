@@ -10,18 +10,12 @@ type BuildRefineSystemPromptOptions = {
 // stored secret so the renderer never receives plaintext credentials.
 export const STORED_SECRET_PLACEHOLDER = '••••••••••••'
 
-// GLM ASR API defaults and limits
-export const GLM_ASR = {
-  ENDPOINT: 'https://open.bigmodel.cn/api/paas/v4/audio/transcriptions',
-  ENDPOINT_INTL: 'https://api.z.ai/api/paas/v4/audio/transcriptions',
-  MODEL: 'glm-asr-2512',
-  REQUEST_MAX_DURATION_SECONDS: 29,
-  SESSION_MAX_DURATION_SECONDS: 180,
-  MAX_FILE_SIZE: 25 * 1024 * 1024,
+export const RECORDING = {
+  CHUNK_DURATION_SECONDS: 30,
+  SESSION_MAX_DURATION_SECONDS: 5 * 60,
 } as const
 
 export const LOCAL_ASR = {
-  PROVIDER: 'local-sensevoice',
   MODEL_NAME: 'SenseVoiceSmall int8',
   MODEL_VERSION: 'sensevoice-int8-2024-07-17',
   MODEL_FILES: [

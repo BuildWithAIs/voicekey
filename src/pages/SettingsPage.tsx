@@ -37,7 +37,6 @@ import {
 } from '@electron/shared/llm-config'
 import type {
   AppConfig,
-  ASRProviderType,
   ConfigSecretRequest,
   LLMRefineConfig,
   LLMProvider,
@@ -97,15 +96,9 @@ function isAppPreferencesDirty(current: AppConfig['app'], original: AppConfig['a
 
 function isAsrConfigDirty(current: AppConfig['asr'], original: AppConfig['asr']): boolean {
   return (
-    current.provider !== original.provider ||
-    current.region !== original.region ||
-    current.endpoint !== original.endpoint ||
-    current.language !== original.language ||
     (current.lowVolumeMode ?? true) !== (original.lowVolumeMode ?? true) ||
     (current.microphoneDeviceId ?? '') !== (original.microphoneDeviceId ?? '') ||
-    (current.microphoneDeviceLabel ?? '') !== (original.microphoneDeviceLabel ?? '') ||
-    current.apiKeys.cn !== original.apiKeys.cn ||
-    current.apiKeys.intl !== original.apiKeys.intl
+    (current.microphoneDeviceLabel ?? '') !== (original.microphoneDeviceLabel ?? '')
   )
 }
 
@@ -147,15 +140,7 @@ function mergeConfigPatch(config: AppConfig, patch: Partial<AppConfig>): AppConf
   return {
     ...config,
     app: patch.app ? { ...config.app, ...patch.app } : config.app,
-    asr: patch.asr
-      ? {
-          ...config.asr,
-          ...patch.asr,
-          apiKeys: patch.asr.apiKeys
-            ? { ...config.asr.apiKeys, ...patch.asr.apiKeys }
-            : config.asr.apiKeys,
-        }
-      : config.asr,
+    asr: patch.asr ? { ...config.asr, ...patch.asr } : config.asr,
     llmRefine: patch.llmRefine
       ? normalizeLLMRefineConfig({ ...config.llmRefine, ...patch.llmRefine })
       : config.llmRefine,
@@ -297,17 +282,9 @@ export default function SettingsPage() {
       language: 'system',
     },
     asr: {
-      provider: 'glm',
-      region: 'cn',
-      apiKeys: {
-        cn: '',
-        intl: '',
-      },
       lowVolumeMode: true,
       microphoneDeviceId: '',
       microphoneDeviceLabel: '',
-      endpoint: '',
-      language: 'auto',
     },
     llmRefine: defaultLLMRefineConfig,
     hotkey: {
@@ -320,7 +297,6 @@ export default function SettingsPage() {
 
   const [originalConfig, setOriginalConfig] = useState<AppConfig | null>(null)
   const [isConfigLoading, setIsConfigLoading] = useState(true)
-  const [testingAsr, setTestingAsr] = useState(false)
   const [asrTestStatus, setAsrTestStatus] = useState<TestStatus>(null)
   const [saveStatus, setSaveStatus] = useState<SaveStatus>(null)
   const [visibleSecret, setVisibleSecret] = useState<{ id: string; value?: string } | null>(null)
@@ -703,40 +679,6 @@ export default function SettingsPage() {
     }
   }, [config, originalConfig, isConfigLoading])
 
-  const handleTestConnection = async () => {
-    if (config.asr.provider === 'local-sensevoice' && !localAsrStatus?.ready) {
-      setAsrTestStatus({ type: 'error', message: t('settings.result.localModelRequired') })
-      return
-    }
-
-    const region = config.asr.region || 'cn'
-    const apiKey = config.asr.apiKeys?.[region] || ''
-
-    if (config.asr.provider === 'glm' && !apiKey) {
-      setAsrTestStatus({ type: 'error', message: t('settings.result.apiKeyRequired') })
-      return
-    }
-
-    setTestingAsr(true)
-    setAsrTestStatus(null)
-    try {
-      const result = await window.electronAPI.testConnection(config.asr)
-      if (result) {
-        setAsrTestStatus({ type: 'success', message: t('settings.result.connectionSuccess') })
-      } else {
-        setAsrTestStatus({ type: 'error', message: t('settings.result.connectionFailed') })
-      }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : t('common.unknownError')
-      setAsrTestStatus({
-        type: 'error',
-        message: t('settings.result.testFailed', { message: errorMessage }),
-      })
-    } finally {
-      setTestingAsr(false)
-    }
-  }
-
   const handleDownloadLocalASR = async () => {
     setDownloadingLocalAsr(true)
     setAsrTestStatus(null)
@@ -926,51 +868,6 @@ export default function SettingsPage() {
     setConfig((prev) => ({
       ...prev,
       llmRefine: { ...prev.llmRefine, translateOutput: true },
-    }))
-  }
-
-  const handleApiKeyChange = (value: string) => {
-    const region = config.asr.region || 'cn'
-    const secretId = `asr:${region}`
-    setVisibleSecret((current) => (current?.id === secretId ? { id: secretId } : current))
-    setConfig((prev) => ({
-      ...prev,
-      asr: {
-        ...prev.asr,
-        apiKeys: {
-          ...prev.asr.apiKeys,
-          [region]: value,
-        },
-      },
-    }))
-  }
-
-  const handleRegionChange = (value: string) => {
-    const region = value as 'cn' | 'intl'
-    setVisibleSecret(null)
-    setRevealingSecretId(null)
-    revealRequestIdRef.current += 1
-    setConfig((prev) => ({
-      ...prev,
-      asr: {
-        ...prev.asr,
-        region,
-        endpoint: '',
-      },
-    }))
-  }
-
-  const handleAsrProviderChange = (value: string) => {
-    const provider = value as ASRProviderType
-    setVisibleSecret(null)
-    setRevealingSecretId(null)
-    revealRequestIdRef.current += 1
-    setConfig((prev) => ({
-      ...prev,
-      asr: {
-        ...prev.asr,
-        provider,
-      },
     }))
   }
 
@@ -1194,15 +1091,6 @@ export default function SettingsPage() {
     }))
   }
 
-  const currentRegion = config.asr.region || 'cn'
-  const currentApiKey = config.asr.apiKeys?.[currentRegion] || ''
-  const asrSecretId = `asr:${currentRegion}`
-  const isAsrApiKeyVisible = visibleSecret?.id === asrSecretId
-  const displayedAsrApiKey =
-    isAsrApiKeyVisible && currentApiKey === STORED_SECRET_PLACEHOLDER
-      ? (visibleSecret.value ?? currentApiKey)
-      : currentApiKey
-  const isLocalAsr = config.asr.provider === 'local-sensevoice'
   const selectedMicrophoneDeviceId = config.asr.microphoneDeviceId?.trim() ?? ''
   const selectedMicrophoneValue = selectedMicrophoneDeviceId || MICROPHONE_INPUT.SYSTEM_DEFAULT_ID
   const selectedMicrophone = microphoneDevices.find(
@@ -1213,7 +1101,6 @@ export default function SettingsPage() {
     config.asr.microphoneDeviceLabel?.trim() || t('settings.microphone.unknownDevice')
   const localAsrReady = Boolean(localAsrStatus?.ready)
   const localAsrSupported = localAsrStatus?.supported ?? true
-  const canTestAsr = isLocalAsr ? localAsrReady : Boolean(currentApiKey)
   const normalizedLLMRefineConfig = normalizeLLMRefineConfig(config.llmRefine)
   const activeLLMConnection = resolveLLMConnection(normalizedLLMRefineConfig)
   const currentLLMProvider = normalizedLLMRefineConfig.provider
@@ -1348,24 +1235,15 @@ export default function SettingsPage() {
     }
   }
 
-  const asrEndpoint =
-    config.asr.endpoint ||
-    (currentRegion === 'intl'
-      ? 'https://api.z.ai/api/paas/v4/audio/transcriptions'
-      : 'https://open.bigmodel.cn/api/paas/v4/audio/transcriptions')
   const localAsrProgressPercent = localAsrProgress?.percent ?? localAsrStatus?.progress?.percent
   const localAsrProgressPhase = localAsrProgress?.phase ?? localAsrStatus?.progress?.phase
   const localAsrProgressLabel = localAsrProgressPhase
     ? t(`settings.localAsr.phase.${localAsrProgressPhase}`)
     : t('settings.localAsr.downloading')
-  const asrHealthReady = isLocalAsr ? localAsrReady : Boolean(currentApiKey)
-  const asrHealthStatus = isLocalAsr
-    ? localAsrReady
-      ? t('settings.health.asrLocalReady')
-      : t('settings.health.asrLocalMissing')
-    : currentApiKey
-      ? t('settings.health.asrOn')
-      : t('settings.health.asrOff')
+  const asrHealthReady = localAsrReady
+  const asrHealthStatus = localAsrReady
+    ? t('settings.health.asrLocalReady')
+    : t('settings.health.asrLocalMissing')
 
   const translationActive = config.translation.enabled || translateOutput
   const activeTargetLanguage = TARGET_LANGUAGES.find(
@@ -1426,18 +1304,6 @@ export default function SettingsPage() {
             desc={t('settings.descAsr')}
           >
             <div className="space-y-2">
-              <Label>{t('settings.asrProvider')}</Label>
-              <Segmented
-                value={config.asr.provider}
-                onChange={handleAsrProviderChange}
-                options={[
-                  { value: 'local-sensevoice', label: t('settings.asrProviderLocal') },
-                  { value: 'glm', label: t('settings.asrProviderGlm') },
-                ]}
-              />
-            </div>
-
-            <div className="mt-4 space-y-2">
               <Label htmlFor="microphoneDevice">{t('settings.microphone.label')}</Label>
               <div className="flex items-center gap-2">
                 <Select value={selectedMicrophoneValue} onValueChange={handleMicrophoneChange}>
@@ -1499,155 +1365,71 @@ export default function SettingsPage() {
               ) : null}
             </div>
 
-            {isLocalAsr ? (
-              <div className="mt-4 rounded-lg border bg-secondary/30 p-4">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex min-w-0 gap-3">
-                    <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-card text-primary">
-                      <HardDrive className="h-4 w-4" />
-                    </span>
-                    <div className="min-w-0">
-                      <div className="text-[13px] font-semibold text-foreground">
-                        {localAsrStatus?.modelName ?? t('settings.localAsr.modelName')}
-                      </div>
-                      <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                        {t('settings.localAsr.help', {
-                          size: formatBytes(localAsrStatus?.downloadSizeBytes ?? 240 * 1024 * 1024),
-                        })}
-                      </p>
-                      {downloadingLocalAsr ? (
-                        <div className="mt-3">
-                          <div className="mb-1 flex items-center justify-between text-[11px] text-muted-foreground">
-                            <span>{localAsrProgressLabel}</span>
-                            <span>{localAsrProgressPercent ?? 0}%</span>
-                          </div>
-                          <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-                            <div
-                              className="h-full rounded-full bg-primary transition-all"
-                              style={{ width: `${localAsrProgressPercent ?? 0}%` }}
-                            />
-                          </div>
-                        </div>
-                      ) : null}
+            <div className="mt-4 rounded-lg border bg-secondary/30 p-4">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex min-w-0 gap-3">
+                  <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-card text-primary">
+                    <HardDrive className="h-4 w-4" />
+                  </span>
+                  <div className="min-w-0">
+                    <div className="text-[13px] font-semibold text-foreground">
+                      {localAsrStatus?.modelName ?? t('settings.localAsr.modelName')}
                     </div>
-                  </div>
-                  <div className="shrink-0">
-                    {localAsrReady ? (
-                      <span className="inline-flex items-center gap-1.5 rounded-full border border-green-500/30 bg-green-500/10 px-2.5 py-1 text-[11px] font-semibold text-green-600 dark:text-green-500">
-                        <CheckCircle2 className="h-3.5 w-3.5" />
-                        {t('settings.localAsr.ready')}
-                      </span>
-                    ) : (
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={handleDownloadLocalASR}
-                        disabled={!localAsrSupported || downloadingLocalAsr}
-                        className="no-drag cursor-pointer"
-                      >
-                        {downloadingLocalAsr ? (
-                          <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                        ) : (
-                          <Download className="h-4 w-4" />
-                        )}
-                        {downloadingLocalAsr
-                          ? t('settings.localAsr.downloading')
-                          : t('settings.localAsr.download')}
-                      </Button>
-                    )}
+                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                      {t('settings.localAsr.help', {
+                        size: formatBytes(localAsrStatus?.downloadSizeBytes ?? 240 * 1024 * 1024),
+                      })}
+                    </p>
+                    {downloadingLocalAsr ? (
+                      <div className="mt-3">
+                        <div className="mb-1 flex items-center justify-between text-[11px] text-muted-foreground">
+                          <span>{localAsrProgressLabel}</span>
+                          <span>{localAsrProgressPercent ?? 0}%</span>
+                        </div>
+                        <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+                          <div
+                            className="h-full rounded-full bg-primary transition-all"
+                            style={{ width: `${localAsrProgressPercent ?? 0}%` }}
+                          />
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
                 </div>
-                {!localAsrSupported ? (
-                  <Alert variant="destructive" className="mt-4">
-                    <AlertTriangle className="h-4 w-4" />
-                    <AlertDescription>{t('settings.localAsr.unsupported')}</AlertDescription>
-                  </Alert>
-                ) : null}
-              </div>
-            ) : (
-              <>
-                <div className="mt-4 space-y-2">
-                  <Label>{t('settings.region')}</Label>
-                  <Segmented
-                    value={currentRegion}
-                    onChange={handleRegionChange}
-                    options={[
-                      { value: 'cn', label: t('settings.regionChina') },
-                      { value: 'intl', label: t('settings.regionIntl') },
-                    ]}
-                  />
-                </div>
-
-                <div className="mt-4 space-y-2">
-                  <Label htmlFor="apiKey">
-                    {t('settings.apiKey')} <span className="text-primary">*</span>
-                  </Label>
-                  <div className="relative">
-                    <Input
-                      id="apiKey"
-                      type={isAsrApiKeyVisible ? 'text' : 'password'}
-                      value={displayedAsrApiKey}
-                      onChange={(e) => handleApiKeyChange(e.target.value)}
-                      onFocus={(event) => {
-                        if (currentApiKey === STORED_SECRET_PLACEHOLDER) {
-                          event.currentTarget.select()
-                        }
-                      }}
-                      placeholder={t('settings.apiKeyPlaceholder')}
-                      className="no-drag pr-10 font-mono"
-                    />
-                    <button
-                      type="button"
-                      onClick={() =>
-                        void handleSecretVisibilityToggle(
-                          { scope: 'asr', region: currentRegion },
-                          asrSecretId,
-                          currentApiKey,
-                        )
-                      }
-                      disabled={revealingSecretId === asrSecretId}
-                      aria-label={
-                        isAsrApiKeyVisible ? t('settings.hideKey') : t('settings.showKey')
-                      }
-                      className="no-drag absolute inset-y-0 right-0 flex items-center pr-3 text-muted-foreground hover:text-foreground"
+                <div className="shrink-0">
+                  {localAsrReady ? (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-green-500/30 bg-green-500/10 px-2.5 py-1 text-[11px] font-semibold text-green-600 dark:text-green-500">
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      {t('settings.localAsr.ready')}
+                    </span>
+                  ) : (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={handleDownloadLocalASR}
+                      disabled={!localAsrSupported || downloadingLocalAsr}
+                      className="no-drag cursor-pointer"
                     >
-                      {isAsrApiKeyVisible ? (
-                        <EyeOff className="h-4 w-4" />
+                      {downloadingLocalAsr ? (
+                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
                       ) : (
-                        <Eye className="h-4 w-4" />
+                        <Download className="h-4 w-4" />
                       )}
-                    </button>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {t('settings.apiKeyHelp')}{' '}
-                    <a
-                      href={
-                        currentRegion === 'intl'
-                          ? 'https://z.ai/manage-apikey/apikey-list'
-                          : 'https://bigmodel.cn/usercenter/proj-mgmt/apikeys'
-                      }
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="font-semibold text-primary hover:underline"
-                    >
-                      {currentRegion === 'intl' ? 'z.ai' : 'bigmodel.cn'}
-                    </a>
-                  </p>
+                      {downloadingLocalAsr
+                        ? t('settings.localAsr.downloading')
+                        : t('settings.localAsr.download')}
+                    </Button>
+                  )}
                 </div>
-
-                <div className="mt-4 space-y-2">
-                  <Label htmlFor="endpoint">{t('settings.apiEndpoint')}</Label>
-                  <Input
-                    id="endpoint"
-                    type="text"
-                    value={asrEndpoint}
-                    readOnly
-                    disabled
-                    className="no-drag bg-muted font-mono text-muted-foreground"
-                  />
-                </div>
-              </>
-            )}
+              </div>
+              {!localAsrSupported ? (
+                <Alert variant="destructive" className="mt-4">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertDescription>{t('settings.localAsr.unsupported')}</AlertDescription>
+                </Alert>
+              ) : null}
+            </div>
+            <InlineFeedback status={asrTestStatus} testId="asr-test-status" />
 
             <div className="mt-4 flex items-start gap-2 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-3 py-2.5 text-xs leading-relaxed text-muted-foreground">
               <AlertTriangle className="mt-px h-4 w-4 shrink-0 text-yellow-600 dark:text-yellow-500" />
@@ -1663,20 +1445,6 @@ export default function SettingsPage() {
                   setConfig((prev) => ({ ...prev, asr: { ...prev.asr, lowVolumeMode: checked } }))
                 }
               />
-            </div>
-
-            <div className="mt-4 space-y-3 border-t pt-4">
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={handleTestConnection}
-                disabled={testingAsr || !canTestAsr || downloadingLocalAsr}
-                className="no-drag cursor-pointer"
-              >
-                <Plug className="h-4 w-4" />
-                {testingAsr ? t('settings.testingConnection') : t('settings.testConnection')}
-              </Button>
-              <InlineFeedback status={asrTestStatus} testId="asr-test-status" />
             </div>
           </SectionCard>
 

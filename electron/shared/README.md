@@ -2,7 +2,7 @@
 
 ## Microphone Selection
 
-`ASRConfig` stores the selected microphone device ID and last known label.
+`ASRConfig` stores the low-volume toggle, selected microphone device ID, and last known label.
 `RecordingStartPayload` carries the device ID from main to the hidden recorder,
 and `MICROPHONE_INPUT` defines the renderer select sentinel plus config string
 length caps.
@@ -11,8 +11,9 @@ length caps.
 
 ## 文件列表
 
-- `types.ts` - 跨进程类型定义与 IPC 通道常量；包含 ASR provider/本地模型下载状态、语言快照、OpenAI/DeepSeek/OpenRouter Provider-aware LLM 润色配置、固定模型类型、设置窗口 API Key 原文读取请求、支持识别/润色两步 HUD 处理阶段的 Overlay、历史、日志、润色输出英文开关、`RecordingStartPayload` 与 `AudioChunkPayload`。
-- `constants.ts` - GLM ASR / 本地 SenseVoiceSmall int8 ONNX 主备下载源与中文识别语言参数 / OpenAI、DeepSeek 与 OpenRouter LLM Provider 官方端点、默认值及固定模型清单、API Key 渲染进程占位符、内部 reasoning 长度阈值与 timeout、文本润色默认值、内置术语表回退值与远程术语表源配置、refine system prompt 构造（可按配置追加整体输出英文模式，覆盖口水词清理、顺语序、分段编号、重复压缩、任务清单化与中英数字混排）、翻译/润色 system prompt（语音润色翻译与快捷键选中文本翻译共用 native-quality 指令，跨语言翻译、同语言润色，优先地道表达而非逐字直译）、29 秒单请求限制、3 分钟会话限制、默认快捷键、录音参数与日志限制。
+- `types.ts` - 跨进程类型定义与 IPC 通道常量；包含本地 ASR 设置/模型下载状态、语言快照、OpenAI/DeepSeek/OpenRouter Provider-aware LLM 润色配置、固定模型类型、设置窗口 LLM API Key 原文读取请求、支持识别/润色两步 HUD 处理阶段的 Overlay、历史、日志、润色输出英文开关、`RecordingStartPayload` 与 `AudioChunkPayload`。
+- `constants.ts` - 本地 SenseVoiceSmall int8 ONNX 主备下载源与中文识别语言参数 / OpenAI、DeepSeek 与 OpenRouter LLM Provider 官方端点、默认值及固定模型清单、API Key 渲染进程占位符、内部 reasoning 长度阈值与 timeout、文本润色默认值、内置术语表回退值与远程术语表源配置、refine system prompt 构造（可按配置追加整体输出英文模式，覆盖口水词清理、顺语序、分段编号、重复压缩、任务清单化与中英数字混排）、翻译/润色 system prompt（语音润色翻译与快捷键选中文本翻译共用 native-quality 指令，跨语言翻译、同语言润色，优先地道表达而非逐字直译）、30 秒分段与 5 分钟会话限制、默认快捷键、录音参数与日志限制。
+- `constants.test.ts` - 固定 30 秒分段、5 分钟会话及每会话 10 个完整分段的回归测试。
 - `llm-config.ts` - 共享 LLM 配置 normalizer 与迁移工具，将旧版 Base URL/model/API key 识别为 OpenAI、DeepSeek、OpenRouter 或 custom-compatible；OpenAI 固定使用官方 `gpt-5.6-luna`，DeepSeek 固定使用 V4 Flash，OpenRouter 只接受固定模型，并为各 Provider 注入兼容的内部 reasoning 参数。
 - `refine-glossary.txt` - 远程术语表的本地维护源文件，按“每行一个术语”组织，支持 `#` 注释行与 UTF-8 文本上传到 R2。
 - `refine-url.ts` - 文本润色 Base URL 归一化与 `/chat/completions` 请求地址拼装工具。

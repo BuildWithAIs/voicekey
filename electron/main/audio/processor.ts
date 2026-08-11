@@ -10,7 +10,7 @@ import type { TextRefiner } from '../refine'
 import { textInjector } from '../text-injector'
 import { getBackgroundWindow } from '../window/background'
 import { hideOverlay, updateOverlay } from '../window/overlay'
-import { convertToMP3, convertToWAV } from './converter'
+import { convertToWAV } from './converter'
 import { clearSession, getCurrentSession, updateSession } from './session-manager'
 
 type ProcessorDeps = {
@@ -30,8 +30,6 @@ type ChunkSessionState = {
   failed: boolean
   finalized: boolean
 }
-
-const PROMPT_TAIL_MAX_LENGTH = 800
 
 let deps: ProcessorDeps
 const chunkSessions = new Map<string, ChunkSessionState>()
@@ -123,10 +121,9 @@ async function processChunk(
     `voice-key-${payload.sessionId}-${payload.chunkIndex}-${timestamp}.${inputExtension}`,
   )
   const asrConfig = deps.getASRConfig()
-  const outputExtension = asrConfig.provider === 'local-sensevoice' ? 'wav' : 'mp3'
   const tempOutputPath = path.join(
     app.getPath('temp'),
-    `voice-key-${payload.sessionId}-${payload.chunkIndex}-${timestamp}.${outputExtension}`,
+    `voice-key-${payload.sessionId}-${payload.chunkIndex}-${timestamp}.wav`,
   )
   sessionState.tempFiles.add(tempInputPath)
   sessionState.tempFiles.add(tempOutputPath)
@@ -143,24 +140,16 @@ async function processChunk(
     const conversionOptions = {
       gainDb: lowVolumeModeEnabled ? LOW_VOLUME_GAIN_DB : undefined,
     }
-    if (asrConfig.provider === 'local-sensevoice') {
-      await convertToWAV(tempInputPath, tempOutputPath, conversionOptions)
-    } else {
-      await convertToMP3(tempInputPath, tempOutputPath, conversionOptions)
-    }
+    await convertToWAV(tempInputPath, tempOutputPath, conversionOptions)
 
     if (sessionState.failed || !isSessionUsable(payload.sessionId)) {
       return
     }
 
     const asrProvider = getInitializedAsrProvider()
-    const prompt = buildPromptForChunk(sessionState, payload.chunkIndex)
     const requestId = `${payload.sessionId}-chunk-${payload.chunkIndex}`
 
-    const transcription = await asrProvider.transcribe(tempOutputPath, {
-      prompt,
-      requestId,
-    })
+    const transcription = await asrProvider.transcribe(tempOutputPath, { requestId })
 
     if (sessionState.failed || !isSessionUsable(payload.sessionId)) {
       return
@@ -372,25 +361,6 @@ function cleanupTempFiles(sessionState: ChunkSessionState, ...paths: string[]): 
   }
 }
 
-function buildPromptForChunk(
-  sessionState: ChunkSessionState,
-  chunkIndex: number,
-): string | undefined {
-  if (chunkIndex <= 0) return undefined
-
-  const readyTexts: string[] = []
-  for (let index = 0; index < chunkIndex; index += 1) {
-    const text = sessionState.resultsByIndex.get(index)
-    if (!text) {
-      return undefined
-    }
-    readyTexts.push(text)
-  }
-
-  const prompt = mergeTranscriptSegments(readyTexts).slice(-PROMPT_TAIL_MAX_LENGTH)
-  return prompt.length > 0 ? prompt : undefined
-}
-
 function mergeTranscriptSegments(segments: string[]): string {
   let merged = ''
 
@@ -442,7 +412,6 @@ function isSessionUsable(sessionId: string): boolean {
 }
 
 export const __testUtils = {
-  buildPromptForChunk,
   mergeTranscriptSegments,
   resolveAudioExtension,
   resetChunkSessions: () => {

@@ -20,7 +20,7 @@ voicekey/
       translation/    Selected-text translation workflow.
       tray/           Tray menu and localized labels.
       window/         Hidden recorder, settings, and HUD windows.
-      asr-provider.ts Cloud GLM ASR plus local SenseVoice provider routing.
+      asr-provider.ts Local SenseVoice transcription provider.
       config-manager.ts electron-store config and encrypted API key migration.
       history-manager.ts Transcript history and stats storage.
       iohook-manager.ts Low-level keyboard hook integration.

@@ -56,7 +56,7 @@
 
 ## 主要功能 <a id="about-the-project"></a>
 
-- **语音转写**: 集成 GLM ASR，实现高精度语音转文字。
+- **本地语音转写**: 使用 SenseVoiceSmall int8 在设备上离线识别，音频无需上传。
 - **文本润色**: 支持基于 OpenAI-compatible 接口的轻量后处理。
 - **文本注入**: 转写完成后可直接注入到当前焦点输入框。
 - **桌面工作流**: 提供全局快捷键、HUD、日志和更新检查能力。
@@ -88,35 +88,31 @@ npm install npm@latest -g
 
 ### 安装步骤 <a id="dev-installation"></a>
 
-1. 获取免费 API Key（见[配置要求](#prerequisites)）。
-2. 克隆仓库。
+1. 克隆仓库。
 
 ```sh
 git clone https://github.com/BuildWithAIs/voicekey.git
 ```
 
-3. 安装依赖。
+2. 安装依赖。
 
 ```sh
 npm install
 ```
 
-4. 启动开发环境。
+3. 启动开发环境。
 
 ```sh
 npm run dev
 ```
 
-5. 在设置页中填写 API Key。
+4. 在设置页下载本地语音识别模型。
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 ## 配置要求 <a id="prerequisites"></a>
 
-本应用依赖 **智谱 AI (GLM)** 的语音转写服务，使用前需要先配置 API Key。
-
-1. **获取 API Key**: 访问智谱 AI 开放平台 [中国站](https://bigmodel.cn/usercenter/proj-mgmt/apikeys) 或 [国际站](https://z.ai/manage-apikey/apikey-list) 注册并获取 Key。
-2. **完成配置**: 打开 Voice Key 设置页，填入你的 API Key。
+语音识别仅使用本地 **SenseVoiceSmall int8** 模型，不需要 ASR API Key。首次使用前请在设置页下载约 240 MB 的模型文件；下载完成后，录音和识别均在本机进行。
 
 ## macOS 安装指南 <a id="installation"></a>
 

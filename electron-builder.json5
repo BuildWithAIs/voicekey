@@ -8,7 +8,7 @@
     output: 'release/${version}',
     buildResources: 'build',
   },
-  files: ['dist', 'dist-electron', 'package.json'],
+  files: ['dist', 'dist-electron', '!dist-electron/**/*.map', 'package.json'],
   asarUnpack: [
     '**/*.node',
     '**/node_modules/uiohook-napi/**',

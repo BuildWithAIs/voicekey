@@ -3,7 +3,7 @@
  *
  * 负责：
  * - FFmpeg 初始化（处理 app.asar.unpacked 路径）
- * - WebM 到 MP3 / WAV 格式转换
+ * - WebM 到本地 ASR 所需的 WAV 格式转换
  *
  * @module electron/main/audio/converter
  */
@@ -16,7 +16,6 @@ import { t } from '../i18n'
 interface FfmpegCommand {
   toFormat(format: string): FfmpegCommand
   audioCodec(codec: string): FfmpegCommand
-  audioBitrate(bitrate: string): FfmpegCommand
   audioFrequency(frequency: number): FfmpegCommand
   audioChannels(channels: number): FfmpegCommand
   audioFilters(filter: string): FfmpegCommand
@@ -32,10 +31,6 @@ type FfmpegFactory = {
 
 let ffmpeg: FfmpegFactory
 let ffmpegInitialized = false
-
-export interface ConvertToMP3Options {
-  gainDb?: number
-}
 
 export interface ConvertToWAVOptions {
   gainDb?: number
@@ -75,24 +70,6 @@ export function initializeFfmpeg(): void {
     setTimeout(() => hideOverlay(), 2000)
     throw error
   }
-}
-
-/**
- * 转换音频格式为 MP3
- *
- * @param inputPath - 输入文件路径（WebM 格式）
- * @param outputPath - 输出文件路径（MP3 格式）
- * @returns Promise<void> - 转换完成时 resolve
- * @throws {Error} 转换失败时 reject
- */
-export function convertToMP3(
-  inputPath: string,
-  outputPath: string,
-  options?: ConvertToMP3Options,
-): Promise<void> {
-  return convertAudio(inputPath, outputPath, 'MP3', options, (command) => {
-    command.toFormat('mp3').audioCodec('libmp3lame').audioBitrate('128k')
-  })
 }
 
 /**

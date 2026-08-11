@@ -2,7 +2,7 @@
  * IPC 处理器统一注册入口
  *
  * 本模块负责注册所有 IPC 处理器，按功能域拆分为：
- * - config-handlers: 配置相关 (CONFIG_GET, CONFIG_SET, CONFIG_SECRET_GET, CONFIG_TEST, CONFIG_REFINE_TEST, LOCAL_ASR_*)
+ * - config-handlers: 配置相关 (CONFIG_GET, CONFIG_SET, CONFIG_SECRET_GET, CONFIG_REFINE_TEST, LOCAL_ASR_*)
  * - session-handlers: 会话相关 (SESSION_START, SESSION_STOP, SESSION_STATUS, AUDIO_DATA, CANCEL_SESSION)
  * - history-handlers: 历史记录 (HISTORY_GET, HISTORY_CLEAR, HISTORY_DELETE)
  * - log-handlers: 日志相关 (LOG_GET_TAIL, LOG_OPEN_FOLDER, LOG_WRITE)
@@ -56,9 +56,7 @@ export type IPCHandlersDeps = {
  *     config: {
  *       updateAutoLaunchState,
  *       refreshLocalizedUi,
- *       invalidateASRProvider,
  *       registerGlobalHotkeys,
- *       getAsrProvider: () => asrProvider,
  *       getRefineService: () => refineService,
  *       getSettingsWindow,
  *     },

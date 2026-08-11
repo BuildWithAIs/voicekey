@@ -109,12 +109,7 @@ function shouldOpenSettingsWindowOnLaunch(): boolean {
 
 // 初始化ASR Provider
 function initializeASRProvider() {
-  const config = configManager.getASRConfig()
-  asrProvider = new ASRProvider(config)
-}
-
-function invalidateASRProvider() {
-  asrProvider = null
+  asrProvider = new ASRProvider()
 }
 
 // 初始化文本润色服务
@@ -176,7 +171,7 @@ app.whenReady().then(async () => {
   })
   // 设置开机自启
   updateAutoLaunchState(appConfig.autoLaunch ?? false)
-  // ASR Provider is initialized on first use so settings changes do not recreate it unnecessarily.
+  // The local ASR provider is initialized on first use.
   initializeRefineService()
   refreshRemoteGlossaryIfEnabled()
   // 创建后台窗口（渲染进程崩溃/无响应时中止进行中的录音会话）
@@ -197,9 +192,7 @@ app.whenReady().then(async () => {
     config: {
       updateAutoLaunchState,
       refreshLocalizedUi,
-      invalidateASRProvider,
       registerGlobalHotkeys: registerHotkeys,
-      getAsrProvider: () => asrProvider,
       getRefineService: () => refineService,
       getSettingsWindow,
     },

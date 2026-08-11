@@ -55,7 +55,7 @@
 
 ## Features <a id="about-the-project"></a>
 
-- **Voice Transcription**: Integrates GLM ASR (Zhipu AI) for high-precision speech-to-text.
+- **Local Voice Transcription**: Uses SenseVoiceSmall int8 for offline, on-device recognition without uploading audio.
 
 ### Built With <a id="built-with"></a>
 
@@ -86,29 +86,25 @@ Ensure you have Node.js and npm installed.
 
 ### Installation <a id="dev-installation"></a>
 
-1. Get a free API Key (See [Configuration Requirements](#prerequisites))
-2. Clone the repo
+1. Clone the repo
    ```sh
    git clone https://github.com/BuildWithAIs/voicekey.git
    ```
-3. Install NPM packages
+2. Install NPM packages
    ```sh
    npm install
    ```
-4. Run locally
+3. Run locally
    ```sh
    npm run dev
    ```
-5. Enter your API Key in the Settings
+4. Download the local speech-recognition model from Settings
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 ## Configuration Requirements <a id="prerequisites"></a>
 
-This application depends on the **Zhipu AI (GLM)** speech transcription service. You must configure an API Key before use.
-
-1. **Get API Key**: Visit the Zhipu AI Open Platform ([China](https://bigmodel.cn/usercenter/proj-mgmt/apikeys) or [International](https://z.ai/manage-apikey/apikey-list)) to register and obtain a Key.
-2. **Configure**: Open the Voice Key settings page and enter your API Key.
+Speech recognition uses only the local **SenseVoiceSmall int8** model and does not require an ASR API key. Before first use, download the roughly 240 MB model from Settings; recording and transcription then run on the device.
 
 ## macOS Installation Guide <a id="installation"></a>
 

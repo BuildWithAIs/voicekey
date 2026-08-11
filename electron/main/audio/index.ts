@@ -1,4 +1,4 @@
-export { initializeFfmpeg, convertToMP3, convertToWAV, isFfmpegInitialized } from './converter'
+export { initializeFfmpeg, convertToWAV, isFfmpegInitialized } from './converter'
 
 export {
   getCurrentSession,

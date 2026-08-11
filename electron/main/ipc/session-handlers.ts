@@ -1,8 +1,8 @@
 import { ipcMain } from 'electron'
 import { IPC_CHANNELS, type AudioChunkPayload, type VoiceSession } from '../../shared/types'
 
-// Session ids are `session-<timestamp>`; chunks rotate every ~29s within a
-// 3-minute session, so these bounds are generous.
+// Session ids are `session-<timestamp>`; chunks rotate every 30s within a
+// 5-minute session, so these bounds are generous.
 const MAX_SESSION_ID_LENGTH = 128
 const MAX_CHUNK_INDEX = 10_000
 const MAX_MIME_TYPE_LENGTH = 128
