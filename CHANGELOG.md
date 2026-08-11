@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.22](https://github.com/BuildWithAIs/voicekey/compare/v0.1.21...v0.1.22) (2026-08-11)
+
+### Features
+
+- add fallback source for local ASR downloads ([ac2f0f5](https://github.com/BuildWithAIs/voicekey/commit/ac2f0f52c7dd9a56b34025022687cc6cc7c52645))
+- add fixed OpenRouter model presets ([50db94d](https://github.com/BuildWithAIs/voicekey/commit/50db94d21dbf52e458adad2ff4071db33bf3afdc))
+- add official OpenAI provider ([7f6d045](https://github.com/BuildWithAIs/voicekey/commit/7f6d0451b3afafea232bcb2d6362c89e693db8b3))
+- **asr:** use local-only speech recognition ([6da5673](https://github.com/BuildWithAIs/voicekey/commit/6da5673fd9c781ed348b6ff58450d789d6013acc))
+- **settings:** improve API key and refinement controls ([ab6f853](https://github.com/BuildWithAIs/voicekey/commit/ab6f8538e427aadd674dd0ef7cc0148f9ad25b56))
+
+### Bug Fixes
+
+- preserve preload during dev builds ([2573625](https://github.com/BuildWithAIs/voicekey/commit/25736256c20139fb2630f500fbdd2f97f33bce15))
+- prevent dev Electron auto-launch ([3474eec](https://github.com/BuildWithAIs/voicekey/commit/3474eecbdd22caacbdd0e7ac0ea2c795d9d22ac4))
+
 ### [0.1.21](https://github.com/BuildWithAIs/voicekey/compare/v0.1.20...v0.1.21) (2026-07-15)
 
 ### Bug Fixes
