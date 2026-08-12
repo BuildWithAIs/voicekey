@@ -326,7 +326,7 @@ export function buildReasoningPayloadFields(
       level,
       fields: {
         thinking: { type: 'enabled' },
-        reasoning_effort: 'high',
+        reasoning_effort: 'low',
       },
     }
   }

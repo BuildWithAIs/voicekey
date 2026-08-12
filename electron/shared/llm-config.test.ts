@@ -41,7 +41,7 @@ describe('automatic LLM reasoning policy', () => {
     expect(config.openai.model).toBe(LLM_PROVIDERS.DEFAULT_OPENAI_MODEL)
   })
 
-  it('ignores the removed legacy reasoning switch and enables supported long-text reasoning', () => {
+  it('ignores the removed legacy reasoning switch and enables long-text reasoning at low effort', () => {
     const legacyConfig = normalizeLLMRefineConfig({
       provider: 'deepseek',
       reasoning: { enabled: false },
@@ -57,7 +57,7 @@ describe('automatic LLM reasoning policy', () => {
       level: 'high',
       fields: {
         thinking: { type: 'enabled' },
-        reasoning_effort: 'high',
+        reasoning_effort: 'low',
       },
     })
   })
