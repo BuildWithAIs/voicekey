@@ -65,6 +65,8 @@ import {
   applyPersistedSecretState,
   isRefineConfigComplete,
   normalizeRendererConfig,
+  reconcileRefineFeaturesAfterConnectionChange,
+  type RefineFeatureFlags,
 } from './settings-config'
 
 const AUTO_SAVE_DELAY_MS = 700
@@ -323,6 +325,8 @@ export default function SettingsPage() {
   const revealRequestIdRef = useRef(0)
   const refineConnectionValidatedRef = useRef(false)
   const refineConnectionTestInFlightRef = useRef(false)
+  /** Intent preserved when a connection change forces refine-related features off. */
+  const refineFeatureFlagsSnapshotRef = useRef<RefineFeatureFlags | null>(null)
 
   useEffect(() => {
     latestConfigRef.current = config
@@ -340,6 +344,8 @@ export default function SettingsPage() {
       try {
         const loadedConfig = await window.electronAPI.getConfig()
         const normalizedConfig = normalizeRendererConfig(loadedConfig)
+        refineFeatureFlagsSnapshotRef.current = null
+        refineConnectionValidatedRef.current = false
         setConfig(normalizedConfig)
         setOriginalConfig(normalizedConfig)
       } catch (error) {
@@ -711,7 +717,7 @@ export default function SettingsPage() {
         return prev
       }
 
-      return {
+      const next = {
         ...prev,
         llmRefine: {
           ...prev.llmRefine,
@@ -723,13 +729,19 @@ export default function SettingsPage() {
           enabled: false,
         },
       }
+      latestConfigRef.current = next
+      return next
     })
+  }
+
+  const clearRefineFeatureFlagsSnapshot = () => {
+    refineFeatureFlagsSnapshotRef.current = null
   }
 
   const verifyRefineConnection = async (forFeatureEnable: boolean): Promise<boolean> => {
     if (refineConnectionTestInFlightRef.current) return false
 
-    const normalizedRefineConfig = normalizeLLMRefineConfig(config.llmRefine)
+    const normalizedRefineConfig = normalizeLLMRefineConfig(latestConfigRef.current.llmRefine)
 
     if (!isRefineConfigComplete(normalizedRefineConfig)) {
       refineConnectionValidatedRef.current = false
@@ -820,6 +832,7 @@ export default function SettingsPage() {
 
   const handleRefineEnabledChange = async (checked: boolean) => {
     if (!checked) {
+      clearRefineFeatureFlagsSnapshot()
       setConfig((prev) => ({
         ...prev,
         llmRefine: { ...prev.llmRefine, enabled: false, translateOutput: false },
@@ -828,6 +841,7 @@ export default function SettingsPage() {
     }
 
     if (!(await verifyRefineConnection(true))) return
+    clearRefineFeatureFlagsSnapshot()
     setConfig((prev) => ({
       ...prev,
       llmRefine: { ...prev.llmRefine, enabled: true },
@@ -836,6 +850,7 @@ export default function SettingsPage() {
 
   const handleTranslationEnabledChange = async (checked: boolean) => {
     if (!checked) {
+      clearRefineFeatureFlagsSnapshot()
       setConfig((prev) => ({
         ...prev,
         translation: { ...prev.translation, enabled: false },
@@ -844,6 +859,7 @@ export default function SettingsPage() {
     }
 
     if (!(await verifyRefineConnection(true))) return
+    clearRefineFeatureFlagsSnapshot()
     setConfig((prev) => ({
       ...prev,
       translation: { ...prev.translation, enabled: true },
@@ -852,6 +868,7 @@ export default function SettingsPage() {
 
   const handleTranslateOutputChange = async (checked: boolean) => {
     if (!checked) {
+      clearRefineFeatureFlagsSnapshot()
       setConfig((prev) => ({
         ...prev,
         llmRefine: { ...prev.llmRefine, translateOutput: false },
@@ -865,6 +882,7 @@ export default function SettingsPage() {
       return
     }
 
+    clearRefineFeatureFlagsSnapshot()
     setConfig((prev) => ({
       ...prev,
       llmRefine: { ...prev.llmRefine, translateOutput: true },
@@ -900,17 +918,31 @@ export default function SettingsPage() {
   const handleLLMProviderChange = (value: string) => {
     const provider = value as LLMProvider
     refineConnectionValidatedRef.current = false
-    disableRefineDependentFeatures()
     setVisibleSecret(null)
     setRevealingSecretId(null)
     revealRequestIdRef.current += 1
-    setConfig((prev) => ({
-      ...prev,
-      llmRefine: normalizeLLMRefineConfig({
-        ...prev.llmRefine,
-        provider,
-      }),
-    }))
+
+    const prev = latestConfigRef.current
+    const nextRefine = normalizeLLMRefineConfig({
+      ...prev.llmRefine,
+      provider,
+    })
+    const result = reconcileRefineFeaturesAfterConnectionChange(
+      prev,
+      nextRefine,
+      refineFeatureFlagsSnapshotRef.current,
+    )
+    refineFeatureFlagsSnapshotRef.current = result.snapshot
+    latestConfigRef.current = result.config
+    setConfig(result.config)
+
+    if (result.shouldReverifyConnection) {
+      void verifyRefineConnection(true).then((ok) => {
+        if (!ok) {
+          clearRefineFeatureFlagsSnapshot()
+        }
+      })
+    }
   }
 
   const handleOpenAIApiKeyChange = (value: string) => {
@@ -1150,18 +1182,16 @@ export default function SettingsPage() {
     }
 
     refineConnectionValidatedRef.current = false
-    setConfig((prev) => ({
-      ...prev,
-      llmRefine: {
-        ...prev.llmRefine,
-        enabled: false,
-        translateOutput: false,
-      },
-      translation: {
-        ...prev.translation,
-        enabled: false,
-      },
-    }))
+    setConfig((prev) => {
+      const result = reconcileRefineFeaturesAfterConnectionChange(
+        prev,
+        prev.llmRefine,
+        refineFeatureFlagsSnapshotRef.current,
+      )
+      refineFeatureFlagsSnapshotRef.current = result.snapshot
+      latestConfigRef.current = result.config
+      return result.config
+    })
   }, [
     canTestRefine,
     config.translation.enabled,
