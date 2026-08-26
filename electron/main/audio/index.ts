@@ -11,4 +11,9 @@ export {
   handleBackgroundRendererGone,
 } from './session-manager'
 
-export { initProcessor, handleAudioChunk } from './processor'
+export {
+  initProcessor,
+  handleAudioChunk,
+  handleStreamingAudioFrame,
+  handleStreamingAudioEnd,
+} from './processor'

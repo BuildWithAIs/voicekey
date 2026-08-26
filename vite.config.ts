@@ -20,6 +20,8 @@ export default defineConfig(({ mode }) => {
           entry: {
             main: 'electron/main/main.ts',
             'local-asr-worker': 'electron/main/local-asr-worker.ts',
+            'streaming-asr-worker': 'electron/main/streaming-asr-worker.ts',
+            'streaming-punctuation-worker': 'electron/main/streaming-punctuation-worker.ts',
           },
           vite: {
             build: {

@@ -94,6 +94,8 @@
       "asr": "Speech recognition",
       "asrLocalReady": "Local model ready",
       "asrLocalMissing": "Model not downloaded",
+      "asrStreamingReady": "Realtime model ready",
+      "asrStreamingMissing": "Realtime model not downloaded",
       "refine": "Refinement",
       "refineOn": "Ready",
       "refineOff": "Incomplete",
@@ -142,6 +144,7 @@
     "testRefineConnection": "Test Connection",
     "testingRefineConnection": "Testing connection...",
     "durationWarning": "Note: Each voice input is limited to 5 minutes and transcribed in 30-second chunks.",
+    "durationWarningStreaming": "Note: Each voice input is limited to 5 minutes and is recognized continuously while recording.",
     "lowVolumeMode": "Low-volume mode",
     "lowVolumeModeHelp": "Boost quiet speech in software before local recognition (may also amplify background noise).",
     "microphone": {
@@ -171,6 +174,22 @@
       "unsupported": "This local model is not available on the current platform.",
       "phase": {
         "model": "Downloading model"
+      }
+    },
+    "streamingAsr": {
+      "modelName": "Streaming Paraformer + local bilingual punctuation",
+      "help": "Paraformer shows text while you speak, then a local CT-Transformer adds Chinese and English punctuation when recording ends. The complete package is about {{size}} and is mutually exclusive with classic SenseVoice. Existing realtime files are reused, so upgrades download only the missing punctuation model.",
+      "ready": "Ready",
+      "download": "Download realtime model",
+      "downloading": "Downloading...",
+      "downloadComplete": "Realtime speech model is ready!",
+      "downloadFailed": "Realtime model download failed: {{message}}",
+      "downloadBeforeEnable": "Download the realtime speech model before enabling realtime recognition.",
+      "unsupported": "This realtime model is not available on the current platform.",
+      "enabled": "Enable realtime recognition",
+      "enabledHelp": "Show text while recording and add punctuation locally when recording ends. SenseVoice is not called in this mode.",
+      "phase": {
+        "model": "Downloading realtime model"
       }
     },
     "languagePlaceholder": "Select language",
@@ -321,6 +340,7 @@
   "hud": {
     "finish": "Finish",
     "cancel": "Cancel",
+    "listening": "Listening",
     "thinking": "Thinking...",
     "transcribing": "Transcribing",
     "refining": "Refining",
@@ -351,6 +371,7 @@
     "internal": "Internal error",
     "startFailed": "Failed to start recording",
     "stopFailed": "Failed to stop recording",
+    "streamingModelMissing": "Download the realtime speech model in Settings first",
     "generic": "Error"
   },
   "notification": {

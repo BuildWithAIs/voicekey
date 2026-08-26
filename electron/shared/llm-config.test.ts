@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { LLM_PROVIDERS } from './constants'
 import {
+  buildDisabledReasoningPayloadFields,
   buildReasoningPayloadFields,
   normalizeLLMRefineConfig,
   resolveLLMConnection,
@@ -83,6 +84,27 @@ describe('automatic LLM reasoning policy', () => {
     expect(LLM_PROVIDERS.DEEPSEEK_MODELS).toEqual(['deepseek-v4-flash'])
     expect(config.deepseek.model).toBe(LLM_PROVIDERS.DEFAULT_DEEPSEEK_MODEL)
   })
+})
+
+describe('dictation refinement reasoning policy', () => {
+  it.each([
+    ['openai', { reasoning_effort: 'none' }],
+    ['deepseek', { thinking: { type: 'disabled' } }],
+    ['openrouter', { reasoning: { enabled: false, exclude: true } }],
+    ['custom-compatible', {}],
+  ] as const)(
+    'always disables reasoning for %s regardless of transcript length',
+    (provider, fields) => {
+      expect(
+        buildDisabledReasoningPayloadFields({
+          provider,
+          endpoint: 'https://example.com/v1',
+          apiKey: 'test-key',
+          model: 'test-model',
+        }),
+      ).toEqual(fields)
+    },
+  )
 })
 
 describe('fixed OpenRouter model policy', () => {

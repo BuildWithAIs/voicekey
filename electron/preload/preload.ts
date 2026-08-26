@@ -15,6 +15,8 @@ import {
   type RefineConnectionResult,
   type RecordingStartPayload,
   type AudioChunkPayload,
+  type StreamingAudioEndPayload,
+  type StreamingAudioFramePayload,
 } from '../shared/types'
 
 // 定义暴露给渲染进程的API接口
@@ -30,6 +32,11 @@ export interface ElectronAPI {
   getLocalASRStatus: () => Promise<LocalASRStatus>
   downloadLocalASR: () => Promise<LocalASRStatus>
   onLocalASRDownloadProgress: (callback: (progress: LocalASRDownloadProgress) => void) => () => void
+  getStreamingASRStatus: () => Promise<LocalASRStatus>
+  downloadStreamingASR: () => Promise<LocalASRStatus>
+  onStreamingASRDownloadProgress: (
+    callback: (progress: LocalASRDownloadProgress) => void,
+  ) => () => void
   getAppLanguage: () => Promise<LanguageSnapshot>
   onAppLanguageChanged: (callback: (snapshot: LanguageSnapshot) => void) => () => void
 
@@ -55,6 +62,8 @@ export interface ElectronAPI {
   onStartRecording: (callback: (payload: RecordingStartPayload) => void) => () => void
   onStopRecording: (callback: () => void) => () => void
   sendAudioChunk: (payload: AudioChunkPayload) => void
+  sendStreamingAudioFrame: (payload: StreamingAudioFramePayload) => void
+  sendStreamingAudioEnd: (payload: StreamingAudioEndPayload) => void
   sendError: (error: string) => void
   sendAudioLevel: (level: number) => void
 
@@ -99,6 +108,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
     }
     ipcRenderer.on(IPC_CHANNELS.LOCAL_ASR_DOWNLOAD_PROGRESS, listener)
     return () => ipcRenderer.removeListener(IPC_CHANNELS.LOCAL_ASR_DOWNLOAD_PROGRESS, listener)
+  },
+  getStreamingASRStatus: () => ipcRenderer.invoke(IPC_CHANNELS.STREAMING_ASR_STATUS),
+  downloadStreamingASR: () => ipcRenderer.invoke(IPC_CHANNELS.STREAMING_ASR_DOWNLOAD),
+  onStreamingASRDownloadProgress: (callback: (progress: LocalASRDownloadProgress) => void) => {
+    const listener = (_event: IpcRendererEvent, progress: LocalASRDownloadProgress) => {
+      callback(progress)
+    }
+    ipcRenderer.on(IPC_CHANNELS.STREAMING_ASR_DOWNLOAD_PROGRESS, listener)
+    return () => ipcRenderer.removeListener(IPC_CHANNELS.STREAMING_ASR_DOWNLOAD_PROGRESS, listener)
   },
   getAppLanguage: () => ipcRenderer.invoke(IPC_CHANNELS.APP_LANGUAGE_GET),
   onAppLanguageChanged: (callback: (snapshot: LanguageSnapshot) => void) => {
@@ -160,6 +178,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   sendAudioChunk: (payload: AudioChunkPayload) => {
     ipcRenderer.send(IPC_CHANNELS.AUDIO_DATA, payload)
+  },
+  sendStreamingAudioFrame: (payload: StreamingAudioFramePayload) => {
+    ipcRenderer.send(IPC_CHANNELS.STREAMING_AUDIO_FRAME, payload)
+  },
+  sendStreamingAudioEnd: (payload: StreamingAudioEndPayload) => {
+    ipcRenderer.send(IPC_CHANNELS.STREAMING_AUDIO_END, payload)
   },
   sendError: (error: string) => {
     ipcRenderer.send('error', error)

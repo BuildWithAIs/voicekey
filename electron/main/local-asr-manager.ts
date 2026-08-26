@@ -115,6 +115,11 @@ export async function runLocalASR(audioFilePath: string): Promise<LocalASRRunRes
   return nextRun
 }
 
+export async function releaseLocalASR(): Promise<void> {
+  await recognitionQueue
+  await terminateLocalASRWorker()
+}
+
 export async function downloadLocalASRAssets(
   onProgress?: ProgressCallback,
 ): Promise<LocalASRStatus> {

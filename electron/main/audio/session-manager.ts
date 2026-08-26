@@ -3,7 +3,17 @@ import { showOverlay, hideOverlay, updateOverlay, showErrorAndHide } from '../wi
 import { getBackgroundWindow } from '../window/background'
 import { t } from '../i18n'
 import { configManager } from '../config-manager'
-import { abortChunkSession, hasReceivedFinalChunk } from './processor'
+import {
+  abortChunkSession,
+  failStreamingSession,
+  hasReceivedFinalChunk,
+  hasReceivedStreamingFinal,
+} from './processor'
+import {
+  cancelStreamingASRSession,
+  getStreamingASRStatus,
+  startStreamingASRSession,
+} from '../streaming-asr-manager'
 
 // How long after SESSION_STOP the final audio chunk may take to arrive before
 // the session is considered lost (renderer crashed or dropped the marker).
@@ -25,12 +35,20 @@ function startFinalChunkWatchdog(sessionId: string): void {
     finalChunkWatchdog = null
     if (!currentSession || currentSession.id !== sessionId) return
     if (currentSession.status !== 'processing') return
-    if (hasReceivedFinalChunk(sessionId)) return
+    if (
+      currentSession.asrMode === 'streaming'
+        ? hasReceivedStreamingFinal(sessionId)
+        : hasReceivedFinalChunk(sessionId)
+    )
+      return
 
     console.error(
       `[Audio:Session] Final audio chunk never arrived for ${sessionId}, aborting session`,
     )
     abortChunkSession(sessionId)
+    if (currentSession.asrMode === 'streaming') {
+      void cancelStreamingASRSession(sessionId)
+    }
     currentSession = null
     showErrorAndHide(t('errors.stopFailed'))
   }, FINAL_CHUNK_TIMEOUT_MS)
@@ -45,6 +63,9 @@ export function handleBackgroundRendererGone(): void {
   console.error('[Audio:Session] Background renderer gone, aborting session', currentSession.id)
   const wasActive = currentSession.status === 'recording' || currentSession.status === 'processing'
   abortChunkSession(currentSession.id)
+  if (currentSession.asrMode === 'streaming') {
+    void cancelStreamingASRSession(currentSession.id)
+  }
   currentSession = null
   if (wasActive) {
     showErrorAndHide(t('errors.internal'))
@@ -104,9 +125,42 @@ export async function handleStartRecording(): Promise<void> {
     }
 
     const asrConfig = configManager.getASRConfig()
+    const asrMode = asrConfig.streamingEnabled ? 'streaming' : 'classic'
+    if (asrMode === 'streaming' && !getStreamingASRStatus().ready) {
+      showErrorAndHide(t('errors.streamingModelMissing'))
+      currentSession = null
+      return
+    }
+
+    currentSession.asrMode = asrMode
     const payload: RecordingStartPayload = {
       sessionId: currentSession.id,
       microphoneDeviceId: asrConfig.microphoneDeviceId || undefined,
+      asrMode,
+      lowVolumeMode: asrConfig.lowVolumeMode ?? true,
+    }
+
+    if (asrMode === 'streaming') {
+      const sessionId = currentSession.id
+      void startStreamingASRSession(sessionId, {
+        onPartial: (text) => {
+          const session = currentSession
+          if (!session || session.id !== sessionId || session.status === 'error') return
+          updateSession({ transcription: text })
+          updateOverlay({
+            status: session.status === 'recording' ? 'recording' : 'processing',
+            processingStage: session.status === 'processing' ? 'transcribing' : undefined,
+            processingTotalStages: optionsForOverlayTotalStages(),
+            transcript: text,
+          })
+        },
+        onError: (error) => {
+          failStreamingSession(sessionId, error)
+          void cancelStreamingASRSession(sessionId)
+        },
+      }).catch(() => {
+        // The callback above owns the visible error state.
+      })
     }
     bgWindow.webContents.send(IPC_CHANNELS.SESSION_START, payload)
     const duration = Date.now() - startTimestamp
@@ -138,6 +192,7 @@ export async function handleStopRecording(options: HandleStopRecordingOptions = 
       status: 'processing',
       processingStage: 'transcribing',
       processingTotalStages: options.willRunRefine ? 2 : 1,
+      transcript: currentSession.transcription,
     })
 
     const bgWindow = getBackgroundWindow()
@@ -148,6 +203,9 @@ export async function handleStopRecording(options: HandleStopRecordingOptions = 
     } else {
       console.error('[Audio:Session] Cannot send SESSION_STOP: backgroundWindow not available')
       abortChunkSession(currentSession.id)
+      if (currentSession.asrMode === 'streaming') {
+        void cancelStreamingASRSession(currentSession.id)
+      }
       currentSession = null
       showErrorAndHide(t('errors.stopFailed'))
     }
@@ -166,6 +224,9 @@ export async function handleCancelSession(): Promise<void> {
   if (currentSession) {
     console.log('[Audio:Session] Cancelling session:', currentSession.id)
     abortChunkSession(currentSession.id)
+    if (currentSession.asrMode === 'streaming') {
+      void cancelStreamingASRSession(currentSession.id)
+    }
     currentSession = null
   }
 
@@ -173,4 +234,8 @@ export async function handleCancelSession(): Promise<void> {
   if (bgWindow) {
     bgWindow.webContents.send(IPC_CHANNELS.SESSION_STOP)
   }
+}
+
+function optionsForOverlayTotalStages(): 1 | 2 {
+  return configManager.isLLMRefineEnabled() ? 2 : 1
 }

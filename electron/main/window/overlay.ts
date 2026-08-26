@@ -12,8 +12,8 @@ import { IPC_CHANNELS, type OverlayState } from '../../shared/types'
 let overlayWindow: BrowserWindow | null = null
 
 // 浮窗尺寸常量
-const OVERLAY_WIDTH = 248
-const OVERLAY_HEIGHT = 76
+const OVERLAY_WIDTH = 420
+const OVERLAY_HEIGHT = 132
 const BOTTOM_MARGIN = 60
 
 /**
@@ -86,7 +86,7 @@ export function createOverlayWindow(): BrowserWindow {
  * @param state 浮窗状态
  */
 export function showOverlay(state: OverlayState): void {
-  console.log(`[Overlay] 🔵 showOverlay:`, JSON.stringify(state))
+  console.log('[Overlay] showOverlay:', summarizeOverlayState(state))
   console.log(`[Main] 🔵 showOverlay called from:`, new Error().stack?.split('\n')[2])
   const win = createOverlayWindow()
   win.webContents.send(IPC_CHANNELS.OVERLAY_UPDATE, state)
@@ -108,12 +108,22 @@ export function hideOverlay(): void {
  * @param state 浮窗状态
  */
 export function updateOverlay(state: OverlayState): void {
-  console.log(`[Overlay] 🔵 updateOverlay:`, JSON.stringify(state))
+  console.log('[Overlay] updateOverlay:', summarizeOverlayState(state))
   if (state.status === 'error') {
     console.log(`[Overlay] 🔴 ERROR state sent!`)
   }
   if (overlayWindow && !overlayWindow.isDestroyed()) {
     overlayWindow.webContents.send(IPC_CHANNELS.OVERLAY_UPDATE, state)
+  }
+}
+
+function summarizeOverlayState(state: OverlayState): Record<string, unknown> {
+  return {
+    status: state.status,
+    processingStage: state.processingStage,
+    processingTotalStages: state.processingTotalStages,
+    transcriptLength: state.transcript?.length ?? 0,
+    hasMessage: Boolean(state.message),
   }
 }
 

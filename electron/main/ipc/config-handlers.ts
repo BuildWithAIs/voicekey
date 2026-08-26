@@ -22,11 +22,18 @@ import {
   type TranslationConfig,
 } from '../../shared/types'
 import { normalizeLLMRefineConfig } from '../../shared/llm-config'
+import { getCurrentSession } from '../audio'
 import { configManager } from '../config-manager'
 import { broadcastLanguageSnapshot, getMainLanguageSnapshot, setMainLanguage } from '../i18n'
 import { hotkeyManager } from '../hotkey-manager'
 import { ioHookManager } from '../iohook-manager'
-import { downloadLocalASRAssets, getLocalASRStatus } from '../local-asr-manager'
+import { downloadLocalASRAssets, getLocalASRStatus, releaseLocalASR } from '../local-asr-manager'
+import {
+  downloadStreamingASRAssets,
+  getStreamingASRStatus,
+  releaseStreamingASR,
+  warmStreamingASR,
+} from '../streaming-asr-manager'
 import type { TextRefiner } from '../refine'
 
 /**
@@ -134,7 +141,28 @@ export function registerConfigHandlers(): void {
         deps.refreshLocalizedUi()
       }
       if (isPlainObject(config.asr)) {
+        const wasStreamingEnabled = configManager.getASRConfig().streamingEnabled ?? false
         configManager.setASRConfig(config.asr)
+        const streamingEnabled = configManager.getASRConfig().streamingEnabled ?? false
+        if (wasStreamingEnabled !== streamingEnabled) {
+          if (getCurrentSession()) {
+            console.warn(
+              '[ASR] Recognition mode changed during an active session; current worker will follow its normal idle lifecycle',
+            )
+          } else if (streamingEnabled) {
+            await releaseLocalASR()
+            if (getStreamingASRStatus().ready) {
+              void warmStreamingASR().catch((error: unknown) => {
+                console.error(
+                  '[ASR:Streaming] Failed to warm recognizer after enabling realtime mode:',
+                  error instanceof Error ? error.message : error,
+                )
+              })
+            }
+          } else {
+            await releaseStreamingASR()
+          }
+        }
       }
       if (isPlainObject(config.llmRefine)) {
         const wasRefineEnabled = configManager.isLLMRefineEnabled()
@@ -196,5 +224,24 @@ export function registerConfigHandlers(): void {
     return await downloadLocalASRAssets((progress) => {
       event.sender.send(IPC_CHANNELS.LOCAL_ASR_DOWNLOAD_PROGRESS, progress)
     })
+  })
+
+  ipcMain.handle(IPC_CHANNELS.STREAMING_ASR_STATUS, () => {
+    return getStreamingASRStatus()
+  })
+
+  ipcMain.handle(IPC_CHANNELS.STREAMING_ASR_DOWNLOAD, async (event) => {
+    const status = await downloadStreamingASRAssets((progress) => {
+      event.sender.send(IPC_CHANNELS.STREAMING_ASR_DOWNLOAD_PROGRESS, progress)
+    })
+    if (status.ready && configManager.getASRConfig().streamingEnabled) {
+      void warmStreamingASR().catch((error: unknown) => {
+        console.error(
+          '[ASR:Streaming] Failed to warm recognizer after downloading realtime models:',
+          error instanceof Error ? error.message : error,
+        )
+      })
+    }
+    return status
   })
 }

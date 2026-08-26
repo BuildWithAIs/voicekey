@@ -136,7 +136,13 @@ export function HUD() {
     window.electronAPI.cancelSession()
   }
 
-  const { status, message, processingStage, processingTotalStages } = overlayState
+  const { status, message, processingStage, processingTotalStages, transcript = '' } = overlayState
+  const transcriptCharacters = Array.from(transcript)
+  const unstableTailLength = status === 'recording' ? Math.min(6, transcriptCharacters.length) : 0
+  const stableTranscript = transcriptCharacters
+    .slice(0, transcriptCharacters.length - unstableTailLength)
+    .join('')
+  const unstableTranscript = transcriptCharacters.slice(-unstableTailLength).join('')
 
   const showDetailedProcessing = status === 'processing' && Boolean(processingStage)
   const visibleProcessingSteps = useMemo(
@@ -151,7 +157,7 @@ export function HUD() {
     <div className="fixed inset-0 flex items-center justify-center pointer-events-none">
       <div
         className={cn(
-          'relative flex w-[248px] items-center gap-3 rounded-full bg-neutral-900/90 p-2 backdrop-blur-xl pointer-events-auto',
+          'relative flex min-h-[92px] w-[400px] items-start gap-3 rounded-2xl border border-white/8 bg-neutral-900/92 p-3 shadow-2xl backdrop-blur-xl pointer-events-auto',
           'transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)]',
           isVisible ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-4 scale-95',
         )}
@@ -161,7 +167,7 @@ export function HUD() {
         {/* Left icon circle */}
         <div
           className={cn(
-            'relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full shadow-lg transition-all duration-500',
+            'relative mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full shadow-lg transition-all duration-500',
             status === 'recording' &&
               'bg-linear-to-br from-red-500 to-orange-600 text-white shadow-red-500/20',
             status === 'processing' && 'border bg-neutral-800',
@@ -200,15 +206,39 @@ export function HUD() {
         </div>
 
         {/* Center content */}
-        <div className="flex min-h-[40px] flex-1 flex-col justify-center overflow-hidden pr-2">
-          {status === 'recording' && (
-            <div className="flex w-full items-center gap-3">
-              <Waveform audioLevel={audioLevel} />
-            </div>
-          )}
+        <div className="flex min-h-[64px] min-w-0 flex-1 flex-col justify-center overflow-hidden pr-1">
+          {status === 'recording' &&
+            (transcript ? (
+              <div className="flex min-w-0 flex-col gap-2">
+                <p className="line-clamp-3 text-[14px] leading-5 text-neutral-100">
+                  <span>{stableTranscript}</span>
+                  <span className="text-neutral-400">{unstableTranscript}</span>
+                </p>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-[10px] font-medium text-red-300">{t('hud.listening')}</span>
+                  <div className="w-24 opacity-80">
+                    <Waveform audioLevel={audioLevel} />
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="flex w-full flex-col gap-2">
+                <span className="text-xs font-medium text-neutral-300">{t('hud.listening')}</span>
+                <Waveform audioLevel={audioLevel} />
+              </div>
+            ))}
 
           {status === 'processing' &&
-            (processingStage === 'translating' ? (
+            (transcript && processingStage !== 'translating' ? (
+              <div className="flex min-w-0 flex-col gap-2">
+                <p className="line-clamp-3 text-[14px] leading-5 text-neutral-100">{transcript}</p>
+                <span
+                  className={cn('text-[10px] font-medium', meta?.titleColor ?? 'text-indigo-200')}
+                >
+                  {getProcessingTitle(processingStage, t)}
+                </span>
+              </div>
+            ) : processingStage === 'translating' ? (
               <div className="flex w-full flex-col gap-1 px-1">
                 {/* Single-step translating view */}
                 <div className="flex items-center justify-between gap-2">
@@ -333,7 +363,7 @@ export function HUD() {
         </div>
 
         {/* Cancel button */}
-        <div className="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full shadow-lg transition-all duration-500">
+        <div className="relative mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full shadow-lg transition-all duration-500">
           <button
             onClick={handleCancel}
             className="flex h-6 w-6 cursor-pointer items-center justify-center rounded-full text-neutral-400 transition-colors hover:bg-white/10 hover:text-red-400"

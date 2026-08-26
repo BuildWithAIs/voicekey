@@ -46,6 +46,8 @@ import {
   handleStartRecording,
   handleStopRecording,
   handleAudioChunk,
+  handleStreamingAudioFrame,
+  handleStreamingAudioEnd,
   handleCancelSession,
   handleBackgroundRendererGone,
   getCurrentSession,
@@ -55,6 +57,7 @@ import {
 } from './audio'
 // 环境模块
 import { initEnv, VITE_DEV_SERVER_URL } from './env'
+import { getStreamingASRStatus, warmStreamingASR } from './streaming-asr-manager'
 // 全局变量
 let asrProvider: ASRProvider | null = null
 let refineService: RefineService | null = null
@@ -174,6 +177,15 @@ app.whenReady().then(async () => {
   // The local ASR provider is initialized on first use.
   initializeRefineService()
   refreshRemoteGlossaryIfEnabled()
+  const asrConfig = configManager.getASRConfig()
+  if (asrConfig.streamingEnabled && getStreamingASRStatus().ready) {
+    void warmStreamingASR().catch((error: unknown) => {
+      console.error(
+        '[ASR:Streaming] Failed to warm recognizer during startup:',
+        error instanceof Error ? error.message : error,
+      )
+    })
+  }
   // 创建后台窗口（渲染进程崩溃/无响应时中止进行中的录音会话）
   setBackgroundWindowCrashHandler(handleBackgroundRendererGone)
   createBackgroundWindow()
@@ -206,6 +218,8 @@ app.whenReady().then(async () => {
           willRunRefine: willRunRefine(),
         }),
       handleAudioChunk,
+      handleStreamingAudioFrame,
+      handleStreamingAudioEnd,
       handleCancelSession,
       getCurrentSession,
     },

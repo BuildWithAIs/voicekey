@@ -8,12 +8,16 @@ export interface VoiceSession {
   transcription?: string
   error?: string
   duration?: number
+  asrMode?: ASRMode
 }
+
+export type ASRMode = 'classic' | 'streaming'
 
 export interface ASRConfig {
   lowVolumeMode?: boolean
   microphoneDeviceId?: string
   microphoneDeviceLabel?: string
+  streamingEnabled?: boolean
 }
 
 export type LocalASRDownloadPhase = 'model'
@@ -156,6 +160,8 @@ export interface RefineConnectionResult {
 export interface RecordingStartPayload {
   sessionId: string
   microphoneDeviceId?: string
+  asrMode: ASRMode
+  lowVolumeMode?: boolean
 }
 
 export interface AudioChunkPayload {
@@ -166,6 +172,18 @@ export interface AudioChunkPayload {
   buffer: ArrayBuffer
 }
 
+export interface StreamingAudioFramePayload {
+  sessionId: string
+  sequence: number
+  sampleRate: number
+  buffer: ArrayBuffer
+}
+
+export interface StreamingAudioEndPayload {
+  sessionId: string
+  sequence: number
+}
+
 export const IPC_CHANNELS = {
   CONFIG_GET: 'config:get',
   CONFIG_SET: 'config:set',
@@ -174,6 +192,9 @@ export const IPC_CHANNELS = {
   LOCAL_ASR_STATUS: 'local-asr:status',
   LOCAL_ASR_DOWNLOAD: 'local-asr:download',
   LOCAL_ASR_DOWNLOAD_PROGRESS: 'local-asr:download-progress',
+  STREAMING_ASR_STATUS: 'streaming-asr:status',
+  STREAMING_ASR_DOWNLOAD: 'streaming-asr:download',
+  STREAMING_ASR_DOWNLOAD_PROGRESS: 'streaming-asr:download-progress',
   APP_LANGUAGE_GET: 'app:language:get',
   APP_LANGUAGE_CHANGED: 'app:language:changed',
 
@@ -181,6 +202,8 @@ export const IPC_CHANNELS = {
   SESSION_STOP: 'session:stop',
   SESSION_STATUS: 'session:status',
   AUDIO_DATA: 'audio:data',
+  STREAMING_AUDIO_FRAME: 'streaming-audio:frame',
+  STREAMING_AUDIO_END: 'streaming-audio:end',
   ERROR: 'error',
 
   HOTKEY_REGISTER: 'hotkey:register',
@@ -219,6 +242,7 @@ export interface OverlayState {
   message?: string
   processingStage?: OverlayProcessingStage
   processingTotalStages?: 1 | 2
+  transcript?: string
 }
 
 export type IPCChannel = (typeof IPC_CHANNELS)[keyof typeof IPC_CHANNELS]

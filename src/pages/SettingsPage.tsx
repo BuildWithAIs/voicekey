@@ -26,6 +26,8 @@ import {
   LLM_PROVIDERS,
   MICROPHONE_INPUT,
   STORED_SECRET_PLACEHOLDER,
+  STREAMING_ASR,
+  STREAMING_PUNCTUATION,
   TRANSLATION,
   TARGET_LANGUAGES,
 } from '@electron/shared/constants'
@@ -99,6 +101,7 @@ function isAppPreferencesDirty(current: AppConfig['app'], original: AppConfig['a
 function isAsrConfigDirty(current: AppConfig['asr'], original: AppConfig['asr']): boolean {
   return (
     (current.lowVolumeMode ?? true) !== (original.lowVolumeMode ?? true) ||
+    (current.streamingEnabled ?? false) !== (original.streamingEnabled ?? false) ||
     (current.microphoneDeviceId ?? '') !== (original.microphoneDeviceId ?? '') ||
     (current.microphoneDeviceLabel ?? '') !== (original.microphoneDeviceLabel ?? '')
   )
@@ -287,6 +290,7 @@ export default function SettingsPage() {
       lowVolumeMode: true,
       microphoneDeviceId: '',
       microphoneDeviceLabel: '',
+      streamingEnabled: false,
     },
     llmRefine: defaultLLMRefineConfig,
     hotkey: {
@@ -311,6 +315,11 @@ export default function SettingsPage() {
   const [localAsrStatus, setLocalAsrStatus] = useState<LocalASRStatus | null>(null)
   const [localAsrProgress, setLocalAsrProgress] = useState<LocalASRDownloadProgress | null>(null)
   const [downloadingLocalAsr, setDownloadingLocalAsr] = useState(false)
+  const [streamingAsrStatus, setStreamingAsrStatus] = useState<LocalASRStatus | null>(null)
+  const [streamingAsrProgress, setStreamingAsrProgress] = useState<LocalASRDownloadProgress | null>(
+    null,
+  )
+  const [downloadingStreamingAsr, setDownloadingStreamingAsr] = useState(false)
   const [microphoneDevices, setMicrophoneDevices] = useState<AudioInputDevice[]>([])
   const [loadingMicrophones, setLoadingMicrophones] = useState(false)
   const [microphoneError, setMicrophoneError] = useState<string | null>(null)
@@ -401,6 +410,46 @@ export default function SettingsPage() {
 
     return () => clearInterval(timer)
   }, [downloadingLocalAsr])
+
+  useEffect(() => {
+    const loadStreamingAsrStatus = async () => {
+      try {
+        const status = await window.electronAPI.getStreamingASRStatus()
+        setStreamingAsrStatus(status)
+        setDownloadingStreamingAsr(status.downloading)
+        setStreamingAsrProgress(status.progress ?? null)
+      } catch (error) {
+        console.error('Failed to load streaming ASR status:', error)
+      }
+    }
+
+    void loadStreamingAsrStatus()
+    return window.electronAPI.onStreamingASRDownloadProgress((progress) => {
+      setStreamingAsrProgress(progress)
+      setDownloadingStreamingAsr(true)
+      setStreamingAsrStatus((prev) => (prev ? { ...prev, downloading: true, progress } : prev))
+    })
+  }, [])
+
+  useEffect(() => {
+    if (!downloadingStreamingAsr) return
+
+    const timer = setInterval(() => {
+      void window.electronAPI
+        .getStreamingASRStatus()
+        .then((status) => {
+          if (status.downloading) return
+          setStreamingAsrStatus(status)
+          setStreamingAsrProgress(status.progress ?? null)
+          setDownloadingStreamingAsr(false)
+        })
+        .catch((error) => {
+          console.error('Failed to refresh streaming ASR status:', error)
+        })
+    }, 2000)
+
+    return () => clearInterval(timer)
+  }, [downloadingStreamingAsr])
 
   const loadMicrophoneDevices = useCallback(async () => {
     if (!navigator.mediaDevices?.enumerateDevices) {
@@ -704,6 +753,45 @@ export default function SettingsPage() {
     } finally {
       setDownloadingLocalAsr(false)
     }
+  }
+
+  const handleDownloadStreamingASR = async () => {
+    setDownloadingStreamingAsr(true)
+    setAsrTestStatus(null)
+    try {
+      const status = await window.electronAPI.downloadStreamingASR()
+      setStreamingAsrStatus(status)
+      setStreamingAsrProgress(status.progress ?? null)
+      if (status.ready) {
+        setAsrTestStatus({
+          type: 'success',
+          message: t('settings.streamingAsr.downloadComplete'),
+        })
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : t('common.unknownError')
+      setAsrTestStatus({
+        type: 'error',
+        message: t('settings.streamingAsr.downloadFailed', { message: errorMessage }),
+      })
+    } finally {
+      setDownloadingStreamingAsr(false)
+    }
+  }
+
+  const handleStreamingEnabledChange = (checked: boolean) => {
+    if (checked && !streamingAsrStatus?.ready) {
+      setAsrTestStatus({
+        type: 'error',
+        message: t('settings.streamingAsr.downloadBeforeEnable'),
+      })
+      return
+    }
+
+    setConfig((prev) => ({
+      ...prev,
+      asr: { ...prev.asr, streamingEnabled: checked },
+    }))
   }
 
   const disableRefineDependentFeatures = () => {
@@ -1133,6 +1221,8 @@ export default function SettingsPage() {
     config.asr.microphoneDeviceLabel?.trim() || t('settings.microphone.unknownDevice')
   const localAsrReady = Boolean(localAsrStatus?.ready)
   const localAsrSupported = localAsrStatus?.supported ?? true
+  const streamingAsrReady = Boolean(streamingAsrStatus?.ready)
+  const streamingAsrSupported = streamingAsrStatus?.supported ?? true
   const normalizedLLMRefineConfig = normalizeLLMRefineConfig(config.llmRefine)
   const activeLLMConnection = resolveLLMConnection(normalizedLLMRefineConfig)
   const currentLLMProvider = normalizedLLMRefineConfig.provider
@@ -1270,10 +1360,22 @@ export default function SettingsPage() {
   const localAsrProgressLabel = localAsrProgressPhase
     ? t(`settings.localAsr.phase.${localAsrProgressPhase}`)
     : t('settings.localAsr.downloading')
-  const asrHealthReady = localAsrReady
-  const asrHealthStatus = localAsrReady
-    ? t('settings.health.asrLocalReady')
-    : t('settings.health.asrLocalMissing')
+  const streamingAsrProgressPercent =
+    streamingAsrProgress?.percent ?? streamingAsrStatus?.progress?.percent
+  const streamingAsrProgressPhase =
+    streamingAsrProgress?.phase ?? streamingAsrStatus?.progress?.phase
+  const streamingAsrProgressLabel = streamingAsrProgressPhase
+    ? t(`settings.streamingAsr.phase.${streamingAsrProgressPhase}`)
+    : t('settings.streamingAsr.downloading')
+  const streamingEnabled = config.asr.streamingEnabled ?? false
+  const asrHealthReady = streamingEnabled ? streamingAsrReady : localAsrReady
+  const asrHealthStatus = asrHealthReady
+    ? streamingEnabled
+      ? t('settings.health.asrStreamingReady')
+      : t('settings.health.asrLocalReady')
+    : streamingEnabled
+      ? t('settings.health.asrStreamingMissing')
+      : t('settings.health.asrLocalMissing')
 
   const translationActive = config.translation.enabled || translateOutput
   const activeTargetLanguage = TARGET_LANGUAGES.find(
@@ -1459,11 +1561,92 @@ export default function SettingsPage() {
                 </Alert>
               ) : null}
             </div>
+
+            <div className="mt-3 rounded-lg border bg-secondary/30 p-4">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex min-w-0 gap-3">
+                  <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-card text-primary">
+                    <Activity className="h-4 w-4" />
+                  </span>
+                  <div className="min-w-0">
+                    <div className="text-[13px] font-semibold text-foreground">
+                      {streamingAsrStatus?.modelName ?? t('settings.streamingAsr.modelName')}
+                    </div>
+                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                      {t('settings.streamingAsr.help', {
+                        size: formatBytes(
+                          streamingAsrStatus?.downloadSizeBytes ??
+                            STREAMING_ASR.DOWNLOAD_SIZE_BYTES +
+                              STREAMING_PUNCTUATION.DOWNLOAD_SIZE_BYTES,
+                        ),
+                      })}
+                    </p>
+                    {downloadingStreamingAsr ? (
+                      <div className="mt-3">
+                        <div className="mb-1 flex items-center justify-between text-[11px] text-muted-foreground">
+                          <span>{streamingAsrProgressLabel}</span>
+                          <span>{streamingAsrProgressPercent ?? 0}%</span>
+                        </div>
+                        <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+                          <div
+                            className="h-full rounded-full bg-primary transition-all"
+                            style={{ width: `${streamingAsrProgressPercent ?? 0}%` }}
+                          />
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+                <div className="shrink-0">
+                  {streamingAsrReady ? (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-green-500/30 bg-green-500/10 px-2.5 py-1 text-[11px] font-semibold text-green-600 dark:text-green-500">
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      {t('settings.streamingAsr.ready')}
+                    </span>
+                  ) : (
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={handleDownloadStreamingASR}
+                      disabled={!streamingAsrSupported || downloadingStreamingAsr}
+                      className="no-drag cursor-pointer"
+                    >
+                      {downloadingStreamingAsr ? (
+                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                      ) : (
+                        <Download className="h-4 w-4" />
+                      )}
+                      {downloadingStreamingAsr
+                        ? t('settings.streamingAsr.downloading')
+                        : t('settings.streamingAsr.download')}
+                    </Button>
+                  )}
+                </div>
+              </div>
+              {!streamingAsrSupported ? (
+                <Alert variant="destructive" className="mt-4">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertDescription>{t('settings.streamingAsr.unsupported')}</AlertDescription>
+                </Alert>
+              ) : null}
+            </div>
+
+            <div className="mt-4 border-t pt-4">
+              <ToggleRow
+                title={t('settings.streamingAsr.enabled')}
+                desc={t('settings.streamingAsr.enabledHelp')}
+                checked={streamingEnabled}
+                onChange={handleStreamingEnabledChange}
+                disabled={!streamingAsrSupported || downloadingStreamingAsr}
+              />
+            </div>
             <InlineFeedback status={asrTestStatus} testId="asr-test-status" />
 
             <div className="mt-4 flex items-start gap-2 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-3 py-2.5 text-xs leading-relaxed text-muted-foreground">
               <AlertTriangle className="mt-px h-4 w-4 shrink-0 text-yellow-600 dark:text-yellow-500" />
-              {t('settings.durationWarning')}
+              {t(
+                streamingEnabled ? 'settings.durationWarningStreaming' : 'settings.durationWarning',
+              )}
             </div>
 
             <div className="mt-4 border-t pt-4">

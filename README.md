@@ -56,8 +56,8 @@
 
 ## 主要功能 <a id="about-the-project"></a>
 
-- **本地语音转写**: 使用 SenseVoiceSmall int8 在设备上离线识别，音频无需上传。
-- **文本润色**: 支持基于 OpenAI-compatible 接口的轻量后处理。
+- **本地语音转写**: 可选 SenseVoiceSmall 录音后识别，或使用 Streaming Paraformer 边说边识别并在结束后由本地 CT-Transformer 自动补充标点；音频均无需上传。
+- **文本润色**: 录音结束后可通过 OpenAI-compatible 接口统一润色一次，并显式关闭推理模式以降低等待时间。
 - **文本注入**: 转写完成后可直接注入到当前焦点输入框。
 - **桌面工作流**: 提供全局快捷键、HUD、日志和更新检查能力。
 
@@ -112,7 +112,7 @@ npm run dev
 
 ## 配置要求 <a id="prerequisites"></a>
 
-语音识别仅使用本地 **SenseVoiceSmall int8** 模型，不需要 ASR API Key。首次使用前请在设置页下载约 240 MB 的模型文件；下载完成后，录音和识别均在本机进行。
+语音识别仅使用本地模型，不需要 ASR API Key。默认经典模式使用约 240 MB 的 **SenseVoiceSmall int8**；可在设置页另行下载约 298 MB 的实时识别组件，其中 Streaming Paraformer bilingual int8 负责边说边识别，本地 CT-Transformer 负责在录音结束后补充中英文标点。两个模式互斥：启用流式模式后不会再调用 SenseVoice。三套权重分别存放；已有 Streaming Paraformer 的用户升级时只需补下载约 72 MB 的标点模型，切回经典模式也不需要重新下载原模型。
 
 ## macOS 安装指南 <a id="installation"></a>
 

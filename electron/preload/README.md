@@ -11,13 +11,14 @@ Electron 预加载脚本目录，作为主进程与渲染进程之间的安全�
 
 ### `preload.ts`
 
-通过 `contextBridge` 暴露 `window.electronAPI`，封装配置、本地 ASR 模型下载、录音、历史、日志与更新相关 IPC。
+通过 `contextBridge` 暴露 `window.electronAPI`，封装配置、两套本地 ASR 模型下载、经典/流式录音、历史、日志与更新相关 IPC。
 
 ## 录音相关 API
 
 - `onStartRecording(callback)` - 监听录音开始事件，并下发当前 `sessionId`。
 - `onStopRecording(callback)` - 监听录音停止事件。
 - `sendAudioChunk(payload)` - 发送单个录音 `chunk`，包含 `sessionId`、`chunkIndex`、`isFinal`、`mimeType` 与 `buffer`。
+- `sendStreamingAudioFrame(payload)` / `sendStreamingAudioEnd(payload)` - 按序发送 Float32 PCM 帧，并在 worklet flush 后发送流式会话结束标记。
 - `sendAudioLevel(level)` - 向 HUD 同步实时音量。
 - `sendError(error)` - 上报渲染进程录音错误。
 - `cancelSession()` - 取消当前会话。
@@ -27,6 +28,7 @@ Electron 预加载脚本目录，作为主进程与渲染进程之间的安全�
 - `getConfig()` / `setConfig()` - 读取和保存应用配置；普通读取中的已保存 API Key 使用占位符。
 - `getConfigSecret(request)` - 设置页点击显示时按 LLM Provider 请求当前版本保存的 API Key 原文，主进程会校验请求来源。
 - `getLocalASRStatus()` / `downloadLocalASR()` / `onLocalASRDownloadProgress(callback)` - 本地 SenseVoiceSmall 模型状态、下载与进度监听。
+- `getStreamingASRStatus()` / `downloadStreamingASR()` / `onStreamingASRDownloadProgress(callback)` - Streaming Paraformer 与本地标点组件的组合状态、缺失权重下载与进度监听。
 - `testRefineConnection(config)` - 文本润色连接校验。
 - `getHistory()` / `clearHistory()` / `deleteHistoryItem(id)` - 管理转录历史。
 - `checkForUpdates()` / `getUpdateStatus()` / `openExternal(url)` - 更新相关接口。

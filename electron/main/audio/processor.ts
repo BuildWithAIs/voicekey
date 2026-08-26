@@ -2,12 +2,19 @@ import { app } from 'electron'
 import fs from 'fs'
 import path from 'node:path'
 import { LOW_VOLUME_GAIN_DB } from '../../shared/constants'
-import { IPC_CHANNELS, type ASRConfig, type AudioChunkPayload } from '../../shared/types'
+import {
+  IPC_CHANNELS,
+  type ASRConfig,
+  type AudioChunkPayload,
+  type StreamingAudioEndPayload,
+  type StreamingAudioFramePayload,
+} from '../../shared/types'
 import { t } from '../i18n'
 import { historyManager } from '../history-manager'
 import type { ASRProvider } from '../asr-provider'
 import type { TextRefiner } from '../refine'
 import { textInjector } from '../text-injector'
+import { finishStreamingASRSession, pushStreamingAudioFrame } from '../streaming-asr-manager'
 import { getBackgroundWindow } from '../window/background'
 import { hideOverlay, updateOverlay } from '../window/overlay'
 import { convertToWAV } from './converter'
@@ -33,6 +40,7 @@ type ChunkSessionState = {
 
 let deps: ProcessorDeps
 const chunkSessions = new Map<string, ChunkSessionState>()
+const streamingFinalMarkers = new Set<string>()
 
 export function initProcessor(dependencies: ProcessorDeps): void {
   deps = dependencies
@@ -71,6 +79,26 @@ export async function handleAudioChunk(payload: AudioChunkPayload): Promise<void
     }
 
     releaseChunkSessionIfPossible(sessionState)
+  }
+}
+
+export function handleStreamingAudioFrame(payload: StreamingAudioFramePayload): void {
+  if (!isSessionUsable(payload.sessionId)) return
+  pushStreamingAudioFrame(payload)
+}
+
+export async function handleStreamingAudioEnd(payload: StreamingAudioEndPayload): Promise<void> {
+  if (streamingFinalMarkers.has(payload.sessionId)) return
+  streamingFinalMarkers.add(payload.sessionId)
+
+  try {
+    if (!isSessionUsable(payload.sessionId)) return
+    const rawText = await finishStreamingASRSession(payload.sessionId)
+    await finalizeTranscription(payload.sessionId, rawText)
+  } catch (error) {
+    failStreamingSession(payload.sessionId, error)
+  } finally {
+    streamingFinalMarkers.delete(payload.sessionId)
   }
 }
 
@@ -189,18 +217,6 @@ async function finalizeSessionIfReady(sessionState: ChunkSessionState): Promise<
     }
   }
 
-  const currentSession = getCurrentSession()
-  if (
-    !currentSession ||
-    currentSession.id !== sessionState.sessionId ||
-    currentSession.status === 'error'
-  ) {
-    console.log(
-      `[Audio:Processor] Session ${sessionState.sessionId} is no longer active during finalize, skipping`,
-    )
-    return
-  }
-
   sessionState.finalized = true
 
   const orderedTexts: string[] = []
@@ -208,7 +224,17 @@ async function finalizeSessionIfReady(sessionState: ChunkSessionState): Promise<
     orderedTexts.push(sessionState.resultsByIndex.get(index) ?? '')
   }
 
-  const rawText = mergeTranscriptSegments(orderedTexts)
+  await finalizeTranscription(sessionState.sessionId, mergeTranscriptSegments(orderedTexts))
+}
+
+async function finalizeTranscription(sessionId: string, rawText: string): Promise<void> {
+  const currentSession = getCurrentSession()
+  if (!currentSession || currentSession.id !== sessionId || currentSession.status === 'error') {
+    console.log(
+      `[Audio:Processor] Session ${sessionId} is no longer active during finalize, skipping`,
+    )
+    return
+  }
 
   if (rawText.trim().length === 0) {
     console.warn('[Audio:Processor] Final transcript is empty, skipping refine/history/injection')
@@ -223,13 +249,14 @@ async function finalizeSessionIfReady(sessionState: ChunkSessionState): Promise<
   const refineService = deps.getRefineService?.() ?? null
   if (refineService?.isEnabled()) {
     if (refineService.hasValidConfig()) {
-      if (!isSessionUsable(sessionState.sessionId)) return
+      if (!isSessionUsable(sessionId)) return
 
       try {
         updateOverlay({
           status: 'processing',
           processingStage: 'refining',
           processingTotalStages: 2,
+          transcript: rawText,
         })
         console.log('[Audio:Processor] Refining aggregated transcription...')
         const refined = await refineService.refineText(rawText)
@@ -248,7 +275,7 @@ async function finalizeSessionIfReady(sessionState: ChunkSessionState): Promise<
     }
   }
 
-  if (!isSessionUsable(sessionState.sessionId)) {
+  if (!isSessionUsable(sessionId)) {
     return
   }
 
@@ -269,7 +296,7 @@ async function finalizeSessionIfReady(sessionState: ChunkSessionState): Promise<
     duration: getCurrentSession()?.duration,
   })
 
-  if (!isSessionUsable(sessionState.sessionId)) {
+  if (!isSessionUsable(sessionId)) {
     return
   }
 
@@ -283,6 +310,14 @@ async function finalizeSessionIfReady(sessionState: ChunkSessionState): Promise<
 
 export function hasReceivedFinalChunk(sessionId: string): boolean {
   return chunkSessions.get(sessionId)?.finalChunkSeen ?? false
+}
+
+export function hasReceivedStreamingFinal(sessionId: string): boolean {
+  return streamingFinalMarkers.has(sessionId)
+}
+
+export function failStreamingSession(sessionId: string, error: unknown): void {
+  failActiveSession(sessionId, error)
 }
 
 // Marks a session's chunk state as failed so in-flight chunk work is discarded,
@@ -302,11 +337,14 @@ function failSession(sessionId: string, sessionState: ChunkSessionState, error: 
   if (sessionState.failed) return
   sessionState.failed = true
 
-  const message = error instanceof Error ? error.message : t('errors.generic')
-  console.error(`[Audio:Processor] Session ${sessionId} failed:`, error)
-
   cleanupAllSessionTempFiles(sessionState)
 
+  failActiveSession(sessionId, error)
+}
+
+function failActiveSession(sessionId: string, error: unknown): void {
+  const message = error instanceof Error ? error.message : t('errors.generic')
+  console.error(`[Audio:Processor] Session ${sessionId} failed:`, error)
   const currentSession = getCurrentSession()
   if (!currentSession || currentSession.id !== sessionId) {
     return
@@ -416,6 +454,7 @@ export const __testUtils = {
   resolveAudioExtension,
   resetChunkSessions: () => {
     chunkSessions.clear()
+    streamingFinalMarkers.clear()
   },
   getChunkSession: (sessionId: string) => chunkSessions.get(sessionId),
 }

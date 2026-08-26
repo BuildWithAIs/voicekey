@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
-import { RECORDING } from '@electron/shared/constants'
-import type { RecordingStartPayload } from '@electron/shared/types'
+import { LOW_VOLUME_GAIN_DB, RECORDING } from '@electron/shared/constants'
+import type { ASRMode, RecordingStartPayload } from '@electron/shared/types'
 
 type StopMeta = {
   chunkIndex: number
@@ -14,6 +14,7 @@ export function AudioRecorder() {
   const audioContextRef = useRef<AudioContext | null>(null)
   const chunksRef = useRef<Blob[]>([])
   const analyserRef = useRef<AnalyserNode | null>(null)
+  const workletNodeRef = useRef<AudioWorkletNode | null>(null)
   const animationFrameRef = useRef<number | null>(null)
   const chunkTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const sessionMaxTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -23,6 +24,10 @@ export function AudioRecorder() {
   const currentMimeTypeRef = useRef('audio/webm')
   const isRecordingRef = useRef(false)
   const isSessionEndingRef = useRef(false)
+  const currentAsrModeRef = useRef<ASRMode>('classic')
+  const streamingSequenceRef = useRef(0)
+  const streamingFlushResolveRef = useRef<(() => void) | null>(null)
+  const streamingStopPromiseRef = useRef<Promise<void> | null>(null)
 
   const summarizeMediaError = (error: unknown) => {
     if (error instanceof DOMException) {
@@ -86,6 +91,9 @@ export function AudioRecorder() {
       audioContextRef.current = null
     }
 
+    workletNodeRef.current?.disconnect()
+    workletNodeRef.current = null
+
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => {
         track.onended = null
@@ -103,6 +111,10 @@ export function AudioRecorder() {
     currentMimeTypeRef.current = 'audio/webm'
     isRecordingRef.current = false
     isSessionEndingRef.current = false
+    currentAsrModeRef.current = 'classic'
+    streamingSequenceRef.current = 0
+    streamingFlushResolveRef.current = null
+    streamingStopPromiseRef.current = null
   }
 
   const sendAudioLevel = () => {
@@ -271,6 +283,105 @@ export function AudioRecorder() {
     console.log(`[Renderer] Recording chunk ${currentChunkIndexRef.current} started`)
   }
 
+  const finishStreamingCapture = async () => {
+    if (streamingStopPromiseRef.current) return streamingStopPromiseRef.current
+
+    const finish = async () => {
+      clearSessionMaxTimer()
+      const sessionId = currentSessionIdRef.current
+      const worklet = workletNodeRef.current
+
+      if (worklet) {
+        await new Promise<void>((resolve) => {
+          let completed = false
+          const complete = () => {
+            if (completed) return
+            completed = true
+            streamingFlushResolveRef.current = null
+            resolve()
+          }
+          streamingFlushResolveRef.current = complete
+          worklet.port.postMessage({ type: 'flush' })
+          setTimeout(complete, 1000)
+        })
+      }
+
+      isSessionEndingRef.current = true
+      if (sessionId) {
+        window.electronAPI.sendStreamingAudioEnd({
+          sessionId,
+          sequence: streamingSequenceRef.current,
+        })
+      }
+      releaseResources()
+      console.log('[Renderer] Streaming audio final marker sent, resources released')
+    }
+
+    streamingStopPromiseRef.current = finish()
+    return streamingStopPromiseRef.current
+  }
+
+  const startStreamingCapture = async (
+    audioContext: AudioContext,
+    source: MediaStreamAudioSourceNode,
+    lowVolumeMode: boolean,
+  ) => {
+    const workletUrl = new URL('./voice-key-pcm-worklet.js', window.location.href).toString()
+    await audioContext.audioWorklet.addModule(workletUrl)
+    const worklet = new AudioWorkletNode(audioContext, 'voice-key-pcm-capture', {
+      numberOfInputs: 1,
+      numberOfOutputs: 1,
+      outputChannelCount: [1],
+    })
+    workletNodeRef.current = worklet
+
+    worklet.port.onmessage = (event: MessageEvent<unknown>) => {
+      const data = event.data
+      if (!data || typeof data !== 'object') return
+      const message = data as Record<string, unknown>
+
+      if (message.type === 'flushed') {
+        streamingFlushResolveRef.current?.()
+        return
+      }
+
+      if (
+        message.type !== 'audio' ||
+        !(message.buffer instanceof ArrayBuffer) ||
+        typeof message.sampleRate !== 'number'
+      ) {
+        return
+      }
+
+      const sessionId = currentSessionIdRef.current
+      if (!sessionId || isSessionEndingRef.current) return
+      window.electronAPI.sendStreamingAudioFrame({
+        sessionId,
+        sequence: streamingSequenceRef.current++,
+        sampleRate: message.sampleRate,
+        buffer: message.buffer,
+      })
+    }
+
+    const captureInput: AudioNode = lowVolumeMode
+      ? (() => {
+          const gain = audioContext.createGain()
+          gain.gain.value = 10 ** (LOW_VOLUME_GAIN_DB / 20)
+          source.connect(gain)
+          return gain
+        })()
+      : source
+    captureInput.connect(worklet)
+
+    // An AudioWorklet needs a live output graph to be processed. Route it to a
+    // muted gain node so microphone audio is never played back to the user.
+    const mute = audioContext.createGain()
+    mute.gain.value = 0
+    worklet.connect(mute)
+    mute.connect(audioContext.destination)
+    await audioContext.resume()
+  }
+
   const startRecordingSession = async (payload: RecordingStartPayload) => {
     if (isRecordingRef.current) {
       console.warn('[Renderer] Already recording, ignoring start request')
@@ -281,6 +392,7 @@ export function AudioRecorder() {
       releaseResources()
 
       currentSessionIdRef.current = payload.sessionId
+      currentAsrModeRef.current = payload.asrMode
       currentChunkIndexRef.current = 0
       isRecordingRef.current = true
       isSessionEndingRef.current = false
@@ -301,11 +413,6 @@ export function AudioRecorder() {
           if (isSessionEndingRef.current || currentSessionIdRef.current !== payload.sessionId)
             return
           console.warn('[Renderer] Microphone stream ended during recording')
-          requestRecorderStop({
-            chunkIndex: currentChunkIndexRef.current,
-            isFinal: true,
-            rotateAfterStop: false,
-          })
           void window.electronAPI.stopSession()
         }
       })
@@ -330,7 +437,11 @@ export function AudioRecorder() {
       }
       currentMimeTypeRef.current = mimeType
 
-      startChunkRecorder()
+      if (payload.asrMode === 'streaming') {
+        await startStreamingCapture(audioContext, source, payload.lowVolumeMode ?? true)
+      } else {
+        startChunkRecorder()
+      }
 
       sessionMaxTimerRef.current = setTimeout(() => {
         if (!isSessionEndingRef.current && currentSessionIdRef.current === payload.sessionId) {
@@ -350,6 +461,10 @@ export function AudioRecorder() {
 
   const stopRecordingSession = () => {
     console.log('[Renderer] onStopRecording triggered')
+    if (currentAsrModeRef.current === 'streaming') {
+      void finishStreamingCapture()
+      return
+    }
     requestRecorderStop({
       chunkIndex: currentChunkIndexRef.current,
       isFinal: true,

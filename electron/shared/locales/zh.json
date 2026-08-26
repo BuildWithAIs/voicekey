@@ -94,6 +94,8 @@
       "asr": "语音识别",
       "asrLocalReady": "本地模型就绪",
       "asrLocalMissing": "模型未下载",
+      "asrStreamingReady": "实时模型就绪",
+      "asrStreamingMissing": "实时模型未下载",
       "refine": "润色服务",
       "refineOn": "连接就绪",
       "refineOff": "未完成配置",
@@ -142,6 +144,7 @@
     "testRefineConnection": "测试连接",
     "testingRefineConnection": "正在测试连接...",
     "durationWarning": "注意：单次语音输入最长为 5 分钟，每 30 秒分段识别。",
+    "durationWarningStreaming": "注意：单次语音输入最长为 5 分钟，录音期间会持续进行实时识别。",
     "lowVolumeMode": "低音量模式",
     "lowVolumeModeHelp": "在本地识别前对小声语音进行软件增益（可能同时放大环境噪声）。",
     "microphone": {
@@ -171,6 +174,22 @@
       "unsupported": "当前平台暂不支持此本地模型。",
       "phase": {
         "model": "下载模型"
+      }
+    },
+    "streamingAsr": {
+      "modelName": "Streaming Paraformer + 本地中英标点",
+      "help": "Paraformer 负责边说边显示，录音结束后由本地 CT-Transformer 自动补充中英文标点，共约 {{size}}。与经典 SenseVoice 模式互斥；已有实时模型会直接复用，只补下载缺少的标点模型。",
+      "ready": "已就绪",
+      "download": "下载实时模型",
+      "downloading": "下载中...",
+      "downloadComplete": "实时语音模型已就绪！",
+      "downloadFailed": "实时模型下载失败：{{message}}",
+      "downloadBeforeEnable": "请先下载实时语音模型，再启用实时识别。",
+      "unsupported": "当前平台暂不支持此实时模型。",
+      "enabled": "启用实时识别",
+      "enabledHelp": "录音时实时显示识别文字，结束后在本地补充标点。启用后不再调用 SenseVoice。",
+      "phase": {
+        "model": "下载实时模型"
       }
     },
     "languagePlaceholder": "选择语言",
@@ -321,6 +340,7 @@
   "hud": {
     "finish": "完成",
     "cancel": "取消",
+    "listening": "正在听",
     "thinking": "处理中...",
     "transcribing": "识别中",
     "refining": "润色中",
@@ -351,6 +371,7 @@
     "internal": "内部错误",
     "startFailed": "开始录音失败",
     "stopFailed": "停止录音失败",
+    "streamingModelMissing": "请先在设置中下载实时语音模型",
     "generic": "错误"
   },
   "notification": {

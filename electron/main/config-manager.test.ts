@@ -95,6 +95,7 @@ describe('ConfigManager local ASR migration', () => {
       lowVolumeMode: false,
       microphoneDeviceId: 'microphone-id',
       microphoneDeviceLabel: 'Desk microphone',
+      streamingEnabled: false,
     })
     expect(getPath(mocks.lastStoreData, 'asr')).toEqual(manager.getASRConfig())
   })
@@ -118,6 +119,7 @@ describe('ConfigManager local ASR migration', () => {
       lowVolumeMode: true,
       microphoneDeviceId: '',
       microphoneDeviceLabel: '',
+      streamingEnabled: false,
     })
   })
 
@@ -130,12 +132,27 @@ describe('ConfigManager local ASR migration', () => {
       lowVolumeMode: false,
       microphoneDeviceId: 'device-1',
       microphoneDeviceLabel: 'USB microphone',
+      streamingEnabled: false,
     } as unknown as Partial<ASRConfig>)
 
     expect(getPath(mocks.lastStoreData, 'asr')).toEqual({
       lowVolumeMode: false,
       microphoneDeviceId: 'device-1',
       microphoneDeviceLabel: 'USB microphone',
+      streamingEnabled: false,
+    })
+  })
+
+  it('persists the mutually exclusive streaming recognition selection', () => {
+    const manager = createManager({})
+
+    manager.setASRConfig({ streamingEnabled: true })
+
+    expect(getPath(mocks.lastStoreData, 'asr')).toEqual({
+      lowVolumeMode: true,
+      microphoneDeviceId: '',
+      microphoneDeviceLabel: '',
+      streamingEnabled: true,
     })
   })
 })

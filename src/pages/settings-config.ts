@@ -99,6 +99,7 @@ export function normalizeRendererConfig(loadedConfig: AppConfig): AppConfig {
       lowVolumeMode: loadedConfig.asr?.lowVolumeMode ?? true,
       microphoneDeviceId: loadedConfig.asr?.microphoneDeviceId ?? '',
       microphoneDeviceLabel: loadedConfig.asr?.microphoneDeviceLabel ?? '',
+      streamingEnabled: loadedConfig.asr?.streamingEnabled ?? false,
     },
     llmRefine: normalizeLLMRefineConfig(loadedConfig.llmRefine),
     translation: {

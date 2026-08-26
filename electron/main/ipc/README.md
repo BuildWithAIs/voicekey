@@ -5,8 +5,8 @@
 ## 文件
 
 - `index.ts` - IPC 处理器注册入口与依赖初始化。
-- `config-handlers.ts` - 配置读写、仅限设置窗口的已保存 LLM API Key 原文读取、润色连接校验、本地 SenseVoiceSmall 状态/下载、语言快照查询与广播；润色从关闭切到开启时刷新远程术语表，快捷键或翻译开关变化时重注册全局快捷键。
-- `session-handlers.ts` - 录音会话相关处理器，包括开始、停止、状态、音频分段接收与取消；`AUDIO_DATA` 载荷（会话 ID、分段索引、缓冲区类型）在进入音频流水线前做形状校验。
+- `config-handlers.ts` - 配置读写、受限密钥读取、润色连接校验、SenseVoice 与实时识别组件的状态/显式下载、Paraformer 预热、空闲状态切换模式时立即释放另一套 ASR worker，以及语言快照查询与广播。标点 worker 在每次流式录音开始后单独预热并在结束后释放。
+- `session-handlers.ts` - 录音会话相关处理器，包括开始、停止、状态、经典音频分段、流式 PCM 帧/结束标记与取消；载荷进入音频流水线前会校验会话 ID、序号、采样率与缓冲区大小，并拒绝向当前模式发送另一种音频格式。
 - `history-handlers.ts` - 历史记录获取、删除与清空。
 - `log-handlers.ts` - 日志读取、写入与打开目录。
 - `updater-handlers.ts` - 更新检查、版本查询与打开发布页。

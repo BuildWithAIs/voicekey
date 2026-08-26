@@ -40,6 +40,7 @@ const defaultConfig: AppConfig = {
     lowVolumeMode: true,
     microphoneDeviceId: '',
     microphoneDeviceLabel: '',
+    streamingEnabled: false,
   },
   llmRefine: defaultLLMRefineConfig,
   hotkey: {
@@ -148,6 +149,8 @@ function normalizeASRConfig(config: unknown, defaultLowVolumeMode = true): ASRCo
       rawConfig.microphoneDeviceLabel,
       MICROPHONE_INPUT.DEVICE_LABEL_MAX_LENGTH,
     ),
+    streamingEnabled:
+      typeof rawConfig.streamingEnabled === 'boolean' ? rawConfig.streamingEnabled : false,
   }
 }
 
@@ -346,6 +349,10 @@ export class ConfigManager {
         config.microphoneDeviceLabel ?? current.microphoneDeviceLabel,
         MICROPHONE_INPUT.DEVICE_LABEL_MAX_LENGTH,
       ),
+      streamingEnabled:
+        typeof config.streamingEnabled === 'boolean'
+          ? config.streamingEnabled
+          : current.streamingEnabled,
     })
   }
 

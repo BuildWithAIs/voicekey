@@ -350,3 +350,26 @@ export function buildReasoningPayloadFields(
 
   return { level: 'off', fields: {} }
 }
+
+/**
+ * Dictation refinement is a bounded editing task. Keep provider-specific
+ * switches explicit so reasoning-capable models cannot silently spend time on
+ * hidden thinking, regardless of transcript length.
+ */
+export function buildDisabledReasoningPayloadFields(
+  connection: ResolvedLLMConnection,
+): Record<string, unknown> {
+  if (connection.provider === 'openai') {
+    return { reasoning_effort: 'none' }
+  }
+
+  if (connection.provider === 'deepseek') {
+    return { thinking: { type: 'disabled' } }
+  }
+
+  if (connection.provider === 'openrouter') {
+    return { reasoning: { enabled: false, exclude: true } }
+  }
+
+  return {}
+}
