@@ -1,12 +1,17 @@
 import { describe, expect, it } from 'vitest'
-import { STORED_SECRET_PLACEHOLDER } from '@electron/shared/constants'
+import { LLM_PROVIDERS, LLM_REFINE, STORED_SECRET_PLACEHOLDER } from '@electron/shared/constants'
 import { defaultLLMRefineConfig, normalizeLLMRefineConfig } from '@electron/shared/llm-config'
 import type { AppConfig } from '@electron/shared/types'
 import {
   applyPersistedSecretState,
+  getRefineConnectionFingerprint,
+  invalidateRefineConnection,
   isRefineConfigComplete,
+  isRefineConnectionCacheFresh,
+  markRefineConnectionValidated,
   readRefineFeatureFlags,
   reconcileRefineFeaturesAfterConnectionChange,
+  type RefineConnectionValidationCache,
 } from './settings-config'
 
 function createConfig(llmKey: string): AppConfig {
@@ -277,5 +282,84 @@ describe('reconcileRefineFeaturesAfterConnectionChange', () => {
     expect(backToOpenRouter.config.llmRefine.enabled).toBe(true)
     expect(backToOpenRouter.snapshot).toBeNull()
     expect(backToOpenRouter.shouldReverifyConnection).toBe(true)
+  })
+})
+
+describe('refine connection fingerprint', () => {
+  it('stays stable across normalize round-trips and placeholder keys', () => {
+    const config = createOpenRouterConfig({ apiKey: 'openrouter-key' })
+    const fingerprint = getRefineConnectionFingerprint(config.llmRefine)
+
+    expect(getRefineConnectionFingerprint(normalizeLLMRefineConfig(config.llmRefine))).toBe(
+      fingerprint,
+    )
+
+    const masked = createOpenRouterConfig({ apiKey: STORED_SECRET_PLACEHOLDER })
+    expect(getRefineConnectionFingerprint(masked.llmRefine)).toBe(
+      getRefineConnectionFingerprint(normalizeLLMRefineConfig(masked.llmRefine)),
+    )
+  })
+
+  it('changes when the api key, model, or provider changes', () => {
+    const base = getRefineConnectionFingerprint(createOpenRouterConfig().llmRefine)
+
+    const otherKey = createOpenRouterConfig({ apiKey: 'another-key' })
+    expect(getRefineConnectionFingerprint(otherKey.llmRefine)).not.toBe(base)
+
+    const otherProvider = createConfig('deepseek-key')
+    expect(getRefineConnectionFingerprint(otherProvider.llmRefine)).not.toBe(base)
+
+    const otherModel = createOpenRouterConfig()
+    const alternateModel = LLM_PROVIDERS.OPENROUTER_MODELS.find(
+      (option) => option.id !== otherModel.llmRefine.openrouter.model,
+    )
+    expect(alternateModel).toBeDefined()
+    if (!alternateModel) throw new Error('expected an alternate OpenRouter model')
+    otherModel.llmRefine = normalizeLLMRefineConfig({
+      ...otherModel.llmRefine,
+      openrouter: { ...otherModel.llmRefine.openrouter, model: alternateModel.id },
+    })
+    expect(getRefineConnectionFingerprint(otherModel.llmRefine)).not.toBe(base)
+  })
+})
+
+describe('refine connection validation cache', () => {
+  const fingerprint = 'openrouter\nhttps://openrouter.ai/api/v1\nmodel\nkey'
+
+  function createCache(): RefineConnectionValidationCache {
+    return new Map()
+  }
+
+  it('misses when the connection was never validated', () => {
+    expect(isRefineConnectionCacheFresh(createCache(), fingerprint, Date.now())).toBe(false)
+  })
+
+  it('hits while the validation is within the TTL', () => {
+    const cache = createCache()
+    const now = 1_000_000
+    markRefineConnectionValidated(cache, fingerprint, now)
+
+    expect(
+      isRefineConnectionCacheFresh(cache, fingerprint, now + LLM_REFINE.CONNECTION_CACHE_TTL_MS),
+    ).toBe(true)
+  })
+
+  it('misses and evicts the entry once the TTL has passed', () => {
+    const cache = createCache()
+    const now = 1_000_000
+    markRefineConnectionValidated(cache, fingerprint, now)
+
+    const staleNow = now + LLM_REFINE.CONNECTION_CACHE_TTL_MS + 1
+    expect(isRefineConnectionCacheFresh(cache, fingerprint, staleNow)).toBe(false)
+    expect(cache.has(fingerprint)).toBe(false)
+  })
+
+  it('forgets a connection explicitly after a failed test', () => {
+    const cache = createCache()
+    const now = 1_000_000
+    markRefineConnectionValidated(cache, fingerprint, now)
+    invalidateRefineConnection(cache, fingerprint)
+
+    expect(isRefineConnectionCacheFresh(cache, fingerprint, now)).toBe(false)
   })
 })

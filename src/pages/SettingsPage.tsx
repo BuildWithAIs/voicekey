@@ -68,9 +68,14 @@ import { cn } from '@/lib/utils'
 import { validateHotkey } from '@/lib/hotkey-utils'
 import {
   applyPersistedSecretState,
+  getRefineConnectionFingerprint,
+  invalidateRefineConnection,
   isRefineConfigComplete,
+  isRefineConnectionCacheFresh,
+  markRefineConnectionValidated,
   normalizeRendererConfig,
   reconcileRefineFeaturesAfterConnectionChange,
+  type RefineConnectionValidationCache,
   type RefineFeatureFlags,
 } from './settings-config'
 
@@ -450,7 +455,11 @@ export default function SettingsPage() {
   const shouldRunAutoSaveAgainRef = useRef(false)
   const flushAutoSaveRef = useRef<() => Promise<void>>(async () => {})
   const revealRequestIdRef = useRef(0)
-  const refineConnectionValidatedRef = useRef(false)
+  /**
+   * Recently validated LLM connections keyed by fingerprint. Switching providers back
+   * and forth within the TTL reuses the cached result instead of re-testing.
+   */
+  const refineConnectionValidationCacheRef = useRef<RefineConnectionValidationCache>(new Map())
   const refineConnectionTestInFlightRef = useRef(false)
   /** Intent preserved when a connection change forces refine-related features off. */
   const refineFeatureFlagsSnapshotRef = useRef<RefineFeatureFlags | null>(null)
@@ -472,7 +481,7 @@ export default function SettingsPage() {
         const loadedConfig = await window.electronAPI.getConfig()
         const normalizedConfig = normalizeRendererConfig(loadedConfig)
         refineFeatureFlagsSnapshotRef.current = null
-        refineConnectionValidatedRef.current = false
+        refineConnectionValidationCacheRef.current.clear()
         setConfig(normalizedConfig)
         setOriginalConfig(normalizedConfig)
       } catch (error) {
@@ -1017,7 +1026,10 @@ export default function SettingsPage() {
     const normalizedRefineConfig = normalizeLLMRefineConfig(latestConfigRef.current.llmRefine)
 
     if (!isRefineConfigComplete(normalizedRefineConfig)) {
-      refineConnectionValidatedRef.current = false
+      invalidateRefineConnection(
+        refineConnectionValidationCacheRef.current,
+        getRefineConnectionFingerprint(normalizedRefineConfig),
+      )
       const message = t(
         forFeatureEnable
           ? 'settings.result.refineConfigBeforeEnable'
@@ -1031,7 +1043,16 @@ export default function SettingsPage() {
       return false
     }
 
-    if (forFeatureEnable && refineConnectionValidatedRef.current) {
+    const connectionFingerprint = getRefineConnectionFingerprint(normalizedRefineConfig)
+
+    if (
+      forFeatureEnable &&
+      isRefineConnectionCacheFresh(
+        refineConnectionValidationCacheRef.current,
+        connectionFingerprint,
+        Date.now(),
+      )
+    ) {
       return true
     }
 
@@ -1051,10 +1072,24 @@ export default function SettingsPage() {
         (currentConnection.apiKey !== STORED_SECRET_PLACEHOLDER &&
           testedConnection.apiKey !== currentConnection.apiKey)
 
+      // Record the outcome for the connection that was actually tested, even if the
+      // user switched to another connection while the request was in flight.
+      if (result.ok) {
+        markRefineConnectionValidated(
+          refineConnectionValidationCacheRef.current,
+          connectionFingerprint,
+          Date.now(),
+        )
+      } else {
+        invalidateRefineConnection(
+          refineConnectionValidationCacheRef.current,
+          connectionFingerprint,
+        )
+      }
+
       if (connectionChanged) return false
 
       if (result.ok) {
-        refineConnectionValidatedRef.current = true
         setRefineTestStatus({
           type: 'success',
           message: t('settings.result.refineConnectionSuccess'),
@@ -1071,7 +1106,6 @@ export default function SettingsPage() {
           message: t('settings.result.refineConnectionFailed'),
         })
       }
-      refineConnectionValidatedRef.current = false
       disableRefineDependentFeatures()
       if (forFeatureEnable) {
         toast.error(t('settings.result.refineConnectionBeforeEnableFailed'), {
@@ -1080,7 +1114,7 @@ export default function SettingsPage() {
       }
       return false
     } catch (error) {
-      refineConnectionValidatedRef.current = false
+      invalidateRefineConnection(refineConnectionValidationCacheRef.current, connectionFingerprint)
       const errorMessage = error instanceof Error ? error.message : t('common.unknownError')
       setRefineTestStatus({
         type: 'error',
@@ -1190,7 +1224,6 @@ export default function SettingsPage() {
 
   const handleLLMProviderChange = (value: string) => {
     const provider = value as LLMProvider
-    refineConnectionValidatedRef.current = false
     setVisibleSecret(null)
     setRevealingSecretId(null)
     revealRequestIdRef.current += 1
@@ -1219,7 +1252,6 @@ export default function SettingsPage() {
   }
 
   const handleOpenAIApiKeyChange = (value: string) => {
-    refineConnectionValidatedRef.current = false
     disableRefineDependentFeatures()
     setVisibleSecret((current) =>
       current?.id === 'llm-refine:openai' ? { id: current.id } : current,
@@ -1239,7 +1271,6 @@ export default function SettingsPage() {
   const handleOpenAIModelChange = (value: string) => {
     if (value !== LLM_PROVIDERS.DEFAULT_OPENAI_MODEL) return
 
-    refineConnectionValidatedRef.current = false
     disableRefineDependentFeatures()
     setConfig((prev) => ({
       ...prev,
@@ -1254,7 +1285,6 @@ export default function SettingsPage() {
   }
 
   const handleDeepSeekApiKeyChange = (value: string) => {
-    refineConnectionValidatedRef.current = false
     disableRefineDependentFeatures()
     setVisibleSecret((current) =>
       current?.id === 'llm-refine:deepseek' ? { id: current.id } : current,
@@ -1275,7 +1305,6 @@ export default function SettingsPage() {
     const model = LLM_PROVIDERS.DEEPSEEK_MODELS.find((option) => option === value)
     if (!model) return
 
-    refineConnectionValidatedRef.current = false
     disableRefineDependentFeatures()
     setConfig((prev) => ({
       ...prev,
@@ -1290,7 +1319,6 @@ export default function SettingsPage() {
   }
 
   const handleOpenRouterApiKeyChange = (value: string) => {
-    refineConnectionValidatedRef.current = false
     disableRefineDependentFeatures()
     setVisibleSecret((current) =>
       current?.id === 'llm-refine:openrouter' ? { id: current.id } : current,
@@ -1311,7 +1339,6 @@ export default function SettingsPage() {
     const model = LLM_PROVIDERS.OPENROUTER_MODELS.find((option) => option.id === value)?.id
     if (!model) return
 
-    refineConnectionValidatedRef.current = false
     disableRefineDependentFeatures()
     setConfig((prev) => ({
       ...prev,
@@ -1326,7 +1353,6 @@ export default function SettingsPage() {
   }
 
   const handleCustomConfigChange = (key: 'endpoint' | 'model' | 'apiKey', value: string) => {
-    refineConnectionValidatedRef.current = false
     disableRefineDependentFeatures()
     if (key === 'apiKey') {
       setVisibleSecret((current) =>
@@ -1456,7 +1482,6 @@ export default function SettingsPage() {
       return
     }
 
-    refineConnectionValidatedRef.current = false
     setConfig((prev) => {
       const result = reconcileRefineFeaturesAfterConnectionChange(
         prev,

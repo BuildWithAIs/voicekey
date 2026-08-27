@@ -271,6 +271,8 @@ export const LLM_REFINE = {
   API_KEY: '',
   TRANSLATE_OUTPUT: false,
   PROVIDER: 'deepseek',
+  /** How long a successfully tested LLM connection is trusted without re-testing. */
+  CONNECTION_CACHE_TTL_MS: 5 * 60 * 1000,
 } as const
 
 export const TRANSLATION = {
