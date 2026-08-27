@@ -82,8 +82,8 @@ export default function HomePage() {
       {/* 英雄区 */}
       <div className="mt-6 grid gap-4 lg:grid-cols-[1.05fr_1fr]">
         {/* 按住说话 */}
-        <div className="vk-brand-gradient relative flex min-h-[224px] flex-col justify-between overflow-hidden rounded-2xl p-6 text-white shadow-[0_18px_40px_-16px_var(--primary)]">
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(420px_220px_at_88%_-10%,rgba(255,255,255,0.22),transparent_70%)]" />
+        <div className="vk-brand-gradient relative flex min-h-[224px] flex-col justify-between overflow-hidden rounded-2xl border border-white/10 p-6 text-white shadow-[0_1px_2px_rgb(0_0_0/0.05),0_20px_36px_-20px_color-mix(in_oklch,var(--primary)_55%,transparent)]">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(380px_200px_at_90%_-15%,rgba(255,255,255,0.16),transparent_70%)]" />
           <div className="relative z-10 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-white/85">
             <Mic className="h-3.5 w-3.5" />
             {t('home.hero.standby')}

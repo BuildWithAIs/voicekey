@@ -49,7 +49,7 @@ export default function MainLayout({ children, currentRoute }: MainLayoutProps) 
         <aside className="flex w-[232px] flex-col bg-sidebar px-3.5 pb-4">
           {/* 品牌 */}
           <div className="no-drag flex items-center gap-2.5 px-2 pb-4 pt-1">
-            <span className="vk-brand-gradient grid h-9 w-9 place-items-center rounded-[11px] text-white shadow-[0_10px_22px_-8px_var(--primary)]">
+            <span className="vk-brand-gradient grid h-9 w-9 place-items-center rounded-[11px] text-white shadow-[0_8px_18px_-8px_color-mix(in_oklch,var(--primary)_55%,transparent)]">
               <VMark className="h-5 w-5" />
             </span>
             <span className="flex flex-col leading-tight">
