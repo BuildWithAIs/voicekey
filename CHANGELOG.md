@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [0.2.0](https://github.com/BuildWithAIs/voicekey/compare/v0.1.22...v0.2.0) (2026-08-27)
+
+### Features
+
+- **asr:** add local streaming transcription ([be0a4fb](https://github.com/BuildWithAIs/voicekey/commit/be0a4fb3b8df0e77e37208733919893d9a9a74d6))
+- **settings:** add local model management ([86ba0b0](https://github.com/BuildWithAIs/voicekey/commit/86ba0b0952253d57096c80648bb0a4869c2b3170))
+
+### Bug Fixes
+
+- **llm:** use low reasoning_effort for official DeepSeek ([0a06a82](https://github.com/BuildWithAIs/voicekey/commit/0a06a82ac51c11453cbc35e4158765fa5d0682b9))
+- **settings:** restore refine toggles after LLM provider switch ([98fee38](https://github.com/BuildWithAIs/voicekey/commit/98fee38fcf9ae7238a3150e5c1ffa99de4dc24f8))
+
 ### [0.1.22](https://github.com/BuildWithAIs/voicekey/compare/v0.1.21...v0.1.22) (2026-08-11)
 
 ### Features
