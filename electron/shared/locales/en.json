@@ -200,7 +200,6 @@
       "deleteFailed": "Couldn't delete the model: {{message}}",
       "unsupported": "Realtime speech recognition is not available on this platform.",
       "enabled": "Enable realtime recognition",
-      "enabledHelp": "See recognized text as you speak, with punctuation added when recording ends.",
       "phase": {
         "model": "Downloading local model"
       }

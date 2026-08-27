@@ -17,6 +17,7 @@ import {
   Download,
   HardDrive,
   FolderOpen,
+  Folder,
   Trash2,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -248,6 +249,119 @@ function ToggleRow({
         disabled={disabled}
         className="no-drag cursor-pointer disabled:cursor-not-allowed"
       />
+    </div>
+  )
+}
+
+function ModelCard({
+  icon,
+  title,
+  desc,
+  ready,
+  readyLabel,
+  downloading,
+  progressLabel,
+  progressPercent,
+  deleting,
+  downloadDisabled,
+  downloadLabel,
+  downloadingLabel,
+  onDownload,
+  onDelete,
+  deleteLabel,
+  deletingLabel,
+  supported,
+  unsupportedText,
+}: {
+  icon: ReactNode
+  title: string
+  desc: string
+  ready: boolean
+  readyLabel: string
+  downloading: boolean
+  progressLabel: string
+  progressPercent?: number | null
+  deleting: boolean
+  downloadDisabled: boolean
+  downloadLabel: string
+  downloadingLabel: string
+  onDownload: () => void
+  onDelete: () => void
+  deleteLabel: string
+  deletingLabel: string
+  supported: boolean
+  unsupportedText: string
+}) {
+  return (
+    <div className="rounded-lg border bg-secondary/30 p-4">
+      <div className="flex items-center gap-3">
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] bg-card text-primary">
+          {icon}
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="text-[13px] font-semibold text-foreground">{title}</span>
+            {ready ? (
+              <span className="inline-flex items-center gap-1 rounded-full border border-green-500/30 bg-green-500/10 px-2 py-0.5 text-[11px] font-medium text-green-600 dark:text-green-500">
+                <CheckCircle2 className="h-3 w-3" />
+                {readyLabel}
+              </span>
+            ) : null}
+          </div>
+          <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{desc}</p>
+        </div>
+        {ready ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onDelete}
+            disabled={deleting || downloading}
+            className="no-drag h-8 shrink-0 cursor-pointer px-2.5 text-xs text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+          >
+            {deleting ? (
+              <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+            ) : (
+              <Trash2 className="h-3.5 w-3.5" />
+            )}
+            {deleting ? deletingLabel : deleteLabel}
+          </Button>
+        ) : (
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={onDownload}
+            disabled={downloadDisabled}
+            className="no-drag h-8 shrink-0 cursor-pointer text-xs"
+          >
+            {downloading ? (
+              <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+            ) : (
+              <Download className="h-3.5 w-3.5" />
+            )}
+            {downloading ? downloadingLabel : downloadLabel}
+          </Button>
+        )}
+      </div>
+      {downloading ? (
+        <div className="mt-3 pl-12">
+          <div className="mb-1 flex items-center justify-between text-[11px] text-muted-foreground">
+            <span>{progressLabel}</span>
+            <span>{progressPercent ?? 0}%</span>
+          </div>
+          <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+            <div
+              className="h-full rounded-full bg-primary transition-all"
+              style={{ width: `${progressPercent ?? 0}%` }}
+            />
+          </div>
+        </div>
+      ) : null}
+      {!supported ? (
+        <Alert variant="destructive" className="mt-3">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription>{unsupportedText}</AlertDescription>
+        </Alert>
+      ) : null}
     </div>
   )
 }
@@ -1569,202 +1683,89 @@ export default function SettingsPage() {
               ) : null}
             </div>
 
-            <div className="mt-4 rounded-lg border bg-secondary/30 p-4">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex min-w-0 gap-3">
-                  <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-card text-primary">
-                    <HardDrive className="h-4 w-4" />
+            <div className="mt-4 space-y-3">
+              <ModelCard
+                icon={<HardDrive className="h-4 w-4" />}
+                title={t('settings.localAsr.title')}
+                desc={t('settings.localAsr.help', {
+                  size: formatBytes(localAsrStatus?.downloadSizeBytes ?? 240 * 1024 * 1024),
+                })}
+                ready={localAsrReady}
+                readyLabel={t('settings.localAsr.ready')}
+                downloading={downloadingLocalAsr}
+                progressLabel={localAsrProgressLabel}
+                progressPercent={localAsrProgressPercent}
+                deleting={deletingLocalAsr}
+                downloadDisabled={!localAsrSupported || downloadingLocalAsr}
+                downloadLabel={t('settings.localAsr.download')}
+                downloadingLabel={t('settings.localAsr.downloading')}
+                onDownload={handleDownloadLocalASR}
+                onDelete={handleDeleteLocalASR}
+                deleteLabel={t('settings.modelStorage.delete')}
+                deletingLabel={t('settings.modelStorage.deleting')}
+                supported={localAsrSupported}
+                unsupportedText={t('settings.localAsr.unsupported')}
+              />
+
+              <ModelCard
+                icon={<Activity className="h-4 w-4" />}
+                title={t('settings.streamingAsr.title')}
+                desc={t('settings.streamingAsr.help', {
+                  size: formatBytes(
+                    streamingAsrStatus?.downloadSizeBytes ??
+                      STREAMING_ASR.DOWNLOAD_SIZE_BYTES + STREAMING_PUNCTUATION.DOWNLOAD_SIZE_BYTES,
+                  ),
+                })}
+                ready={streamingAsrReady}
+                readyLabel={t('settings.streamingAsr.ready')}
+                downloading={downloadingStreamingAsr}
+                progressLabel={streamingAsrProgressLabel}
+                progressPercent={streamingAsrProgressPercent}
+                deleting={deletingStreamingAsr}
+                downloadDisabled={!streamingAsrSupported || downloadingStreamingAsr}
+                downloadLabel={t('settings.streamingAsr.download')}
+                downloadingLabel={t('settings.streamingAsr.downloading')}
+                onDownload={handleDownloadStreamingASR}
+                onDelete={handleDeleteStreamingASR}
+                deleteLabel={t('settings.modelStorage.delete')}
+                deletingLabel={t('settings.modelStorage.deleting')}
+                supported={streamingAsrSupported}
+                unsupportedText={t('settings.streamingAsr.unsupported')}
+              />
+
+              {modelStorageDir ? (
+                <div className="flex items-center gap-3 rounded-lg border bg-secondary/30 px-4 py-3">
+                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-card text-muted-foreground">
+                    <Folder className="h-4 w-4" />
                   </span>
-                  <div className="min-w-0">
-                    <div className="text-[13px] font-semibold text-foreground">
-                      {t('settings.localAsr.title')}
+                  <div className="min-w-0 flex-1">
+                    <div className="text-xs font-medium text-foreground">
+                      {t('settings.modelStorage.title')}
                     </div>
-                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                      {t('settings.localAsr.help', {
-                        size: formatBytes(localAsrStatus?.downloadSizeBytes ?? 240 * 1024 * 1024),
-                      })}
-                    </p>
-                    {downloadingLocalAsr ? (
-                      <div className="mt-3">
-                        <div className="mb-1 flex items-center justify-between text-[11px] text-muted-foreground">
-                          <span>{localAsrProgressLabel}</span>
-                          <span>{localAsrProgressPercent ?? 0}%</span>
-                        </div>
-                        <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-                          <div
-                            className="h-full rounded-full bg-primary transition-all"
-                            style={{ width: `${localAsrProgressPercent ?? 0}%` }}
-                          />
-                        </div>
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
-                <div className="flex shrink-0 flex-col items-end gap-2">
-                  {localAsrReady ? (
-                    <>
-                      <span className="inline-flex items-center gap-1.5 rounded-full border border-green-500/30 bg-green-500/10 px-2.5 py-1 text-[11px] font-semibold text-green-600 dark:text-green-500">
-                        <CheckCircle2 className="h-3.5 w-3.5" />
-                        {t('settings.localAsr.ready')}
-                      </span>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={handleDeleteLocalASR}
-                        disabled={deletingLocalAsr || downloadingLocalAsr}
-                        className="no-drag cursor-pointer text-destructive hover:bg-destructive/10 hover:text-destructive"
-                      >
-                        {deletingLocalAsr ? (
-                          <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                        ) : (
-                          <Trash2 className="h-4 w-4" />
-                        )}
-                        {deletingLocalAsr
-                          ? t('settings.modelStorage.deleting')
-                          : t('settings.modelStorage.delete')}
-                      </Button>
-                    </>
-                  ) : (
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={handleDownloadLocalASR}
-                      disabled={!localAsrSupported || downloadingLocalAsr}
-                      className="no-drag cursor-pointer"
+                    <code
+                      dir="ltr"
+                      title={modelStorageDir}
+                      className="mt-0.5 block truncate text-[11px] leading-relaxed text-muted-foreground"
                     >
-                      {downloadingLocalAsr ? (
-                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                      ) : (
-                        <Download className="h-4 w-4" />
-                      )}
-                      {downloadingLocalAsr
-                        ? t('settings.localAsr.downloading')
-                        : t('settings.localAsr.download')}
-                    </Button>
-                  )}
+                      {modelStorageDir}
+                    </code>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleOpenASRModelDirectory}
+                    className="no-drag h-8 shrink-0 cursor-pointer text-xs"
+                  >
+                    <FolderOpen className="h-3.5 w-3.5" />
+                    {t('settings.modelStorage.open')}
+                  </Button>
                 </div>
-              </div>
-              {!localAsrSupported ? (
-                <Alert variant="destructive" className="mt-4">
-                  <AlertTriangle className="h-4 w-4" />
-                  <AlertDescription>{t('settings.localAsr.unsupported')}</AlertDescription>
-                </Alert>
               ) : null}
             </div>
-
-            <div className="mt-3 rounded-lg border bg-secondary/30 p-4">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex min-w-0 gap-3">
-                  <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-card text-primary">
-                    <Activity className="h-4 w-4" />
-                  </span>
-                  <div className="min-w-0">
-                    <div className="text-[13px] font-semibold text-foreground">
-                      {t('settings.streamingAsr.title')}
-                    </div>
-                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                      {t('settings.streamingAsr.help', {
-                        size: formatBytes(
-                          streamingAsrStatus?.downloadSizeBytes ??
-                            STREAMING_ASR.DOWNLOAD_SIZE_BYTES +
-                              STREAMING_PUNCTUATION.DOWNLOAD_SIZE_BYTES,
-                        ),
-                      })}
-                    </p>
-                    {downloadingStreamingAsr ? (
-                      <div className="mt-3">
-                        <div className="mb-1 flex items-center justify-between text-[11px] text-muted-foreground">
-                          <span>{streamingAsrProgressLabel}</span>
-                          <span>{streamingAsrProgressPercent ?? 0}%</span>
-                        </div>
-                        <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-                          <div
-                            className="h-full rounded-full bg-primary transition-all"
-                            style={{ width: `${streamingAsrProgressPercent ?? 0}%` }}
-                          />
-                        </div>
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
-                <div className="flex shrink-0 flex-col items-end gap-2">
-                  {streamingAsrReady ? (
-                    <>
-                      <span className="inline-flex items-center gap-1.5 rounded-full border border-green-500/30 bg-green-500/10 px-2.5 py-1 text-[11px] font-semibold text-green-600 dark:text-green-500">
-                        <CheckCircle2 className="h-3.5 w-3.5" />
-                        {t('settings.streamingAsr.ready')}
-                      </span>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={handleDeleteStreamingASR}
-                        disabled={deletingStreamingAsr || downloadingStreamingAsr}
-                        className="no-drag cursor-pointer text-destructive hover:bg-destructive/10 hover:text-destructive"
-                      >
-                        {deletingStreamingAsr ? (
-                          <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                        ) : (
-                          <Trash2 className="h-4 w-4" />
-                        )}
-                        {deletingStreamingAsr
-                          ? t('settings.modelStorage.deleting')
-                          : t('settings.modelStorage.delete')}
-                      </Button>
-                    </>
-                  ) : (
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={handleDownloadStreamingASR}
-                      disabled={!streamingAsrSupported || downloadingStreamingAsr}
-                      className="no-drag cursor-pointer"
-                    >
-                      {downloadingStreamingAsr ? (
-                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                      ) : (
-                        <Download className="h-4 w-4" />
-                      )}
-                      {downloadingStreamingAsr
-                        ? t('settings.streamingAsr.downloading')
-                        : t('settings.streamingAsr.download')}
-                    </Button>
-                  )}
-                </div>
-              </div>
-              {!streamingAsrSupported ? (
-                <Alert variant="destructive" className="mt-4">
-                  <AlertTriangle className="h-4 w-4" />
-                  <AlertDescription>{t('settings.streamingAsr.unsupported')}</AlertDescription>
-                </Alert>
-              ) : null}
-            </div>
-
-            {modelStorageDir ? (
-              <div className="mt-3 flex items-center justify-between gap-4 rounded-lg border bg-secondary/20 px-4 py-3">
-                <div className="min-w-0">
-                  <div className="text-xs font-medium text-foreground">
-                    {t('settings.modelStorage.title')}
-                  </div>
-                  <code className="mt-1 block break-all text-[11px] leading-relaxed text-muted-foreground">
-                    {modelStorageDir}
-                  </code>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleOpenASRModelDirectory}
-                  className="no-drag shrink-0 cursor-pointer"
-                >
-                  <FolderOpen className="h-4 w-4" />
-                  {t('settings.modelStorage.open')}
-                </Button>
-              </div>
-            ) : null}
 
             <div className="mt-4 border-t pt-4">
               <ToggleRow
                 title={t('settings.streamingAsr.enabled')}
-                desc={t('settings.streamingAsr.enabledHelp')}
                 checked={streamingEnabled}
                 onChange={handleStreamingEnabledChange}
                 disabled={!streamingAsrSupported || downloadingStreamingAsr || deletingStreamingAsr}

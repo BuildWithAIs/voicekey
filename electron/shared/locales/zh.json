@@ -200,7 +200,6 @@
       "deleteFailed": "模型删除失败：{{message}}",
       "unsupported": "当前平台暂不支持实时识别。",
       "enabled": "启用实时识别",
-      "enabledHelp": "边说边显示识别文字，录音结束后自动补充标点。",
       "phase": {
         "model": "正在下载本地模型"
       }
