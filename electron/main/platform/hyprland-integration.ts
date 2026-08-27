@@ -1,4 +1,4 @@
-import { execFile } from 'node:child_process'
+import { execFile, spawn } from 'node:child_process'
 import { access, mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises'
 import { createConnection, type Socket } from 'node:net'
 import { homedir } from 'node:os'
@@ -34,6 +34,26 @@ type HyprlandBinding = {
 type ExecFileResult = {
   stdout: string
   stderr: string
+}
+
+export function getWtypeClipboardShortcutArgs(
+  action: 'copy' | 'paste',
+  isTerminal: boolean,
+): string[] {
+  const shortcut =
+    action === 'copy'
+      ? isTerminal
+        ? { modifier: 'ctrl', key: 'Insert' }
+        : { modifier: 'ctrl', key: 'c' }
+      : isTerminal
+        ? { modifier: 'shift', key: 'Insert' }
+        : { modifier: 'ctrl', key: 'v' }
+
+  return ['-M', shortcut.modifier, '-k', shortcut.key, '-m', shortcut.modifier]
+}
+
+export function getWlCopyTextArgs(): string[] {
+  return ['--foreground', '--sensitive', '--type', 'text/plain;charset=utf-8']
 }
 
 const execFileAsync = promisify(execFile)
@@ -295,24 +315,43 @@ export class HyprlandIntegration {
     }
 
     const isTerminal = await this.activeWindowIsTerminal()
-    const shortcut =
-      action === 'copy'
-        ? isTerminal
-          ? { mods: 'CTRL', key: 'Insert' }
-          : { mods: 'CTRL', key: 'C' }
-        : isTerminal
-          ? { mods: 'SHIFT', key: 'Insert' }
-          : { mods: 'CTRL', key: 'V' }
+    await this.runWtype(getWtypeClipboardShortcutArgs(action, isTerminal))
+  }
 
-    await this.sendKeyState(shortcut.mods, shortcut.key, 'down')
+  async pasteClipboardText(text: string): Promise<void> {
+    if (!this.isActiveSession()) {
+      throw new Error('Wayland clipboard paste requested outside a Hyprland session')
+    }
+
+    const provider = spawn('wl-copy', getWlCopyTextArgs(), {
+      env: this.env,
+      stdio: ['pipe', 'ignore', 'pipe'],
+      windowsHide: true,
+    })
+    let stderr = ''
+    provider.stderr.setEncoding('utf8')
+    provider.stderr.on('data', (chunk: string) => {
+      if (stderr.length < 4_096) stderr += chunk
+    })
+
+    const ready = new Promise<void>((resolve, reject) => {
+      provider.once('spawn', resolve)
+      provider.once('error', reject)
+    })
+    provider.stdin.end(text, 'utf8')
+
     try {
-      await delay(50)
+      await ready
+      await delay(75)
+      if (provider.exitCode !== null) {
+        throw new Error(stderr.trim() || `wl-copy exited with code ${provider.exitCode}`)
+      }
+      await this.sendClipboardShortcut('paste')
+      await delay(150)
     } finally {
-      await this.sendKeyState(shortcut.mods, shortcut.key, 'up').catch(async (error) => {
-        console.warn('[Platform:Hyprland] Retrying synthetic key release:', error)
-        await delay(50)
-        await this.sendKeyState(shortcut.mods, shortcut.key, 'up')
-      })
+      if (provider.exitCode === null && provider.signalCode === null) {
+        provider.kill()
+      }
     }
   }
 
@@ -504,9 +543,13 @@ export class HyprlandIntegration {
     }
   }
 
-  private async sendKeyState(mods: string, key: string, state: 'down' | 'up'): Promise<void> {
-    const expression = `hl.dsp.send_key_state({ mods = "${mods}", key = "${key}", state = "${state}" })`
-    await this.runHyprctl(['dispatch', expression])
+  private async runWtype(args: string[]): Promise<void> {
+    await execFileAsync('wtype', args, {
+      encoding: 'utf8',
+      timeout: 3_000,
+      windowsHide: true,
+      env: this.env,
+    })
   }
 }
 

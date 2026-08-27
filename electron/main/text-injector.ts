@@ -155,14 +155,14 @@ export class TextInjector {
   private async pasteFromClipboard(text: string): Promise<void> {
     const snapshot = this.captureClipboard()
     try {
-      clipboard.writeText(text)
-      await this.delay(50)
       if (hyprlandIntegration.isActiveSession()) {
-        await hyprlandIntegration.sendClipboardShortcut('paste')
+        await hyprlandIntegration.pasteClipboardText(text)
       } else {
+        clipboard.writeText(text)
+        await this.delay(50)
         await sendNativeClipboardShortcut('paste')
+        await this.delay(50)
       }
-      await this.delay(50)
     } finally {
       this.restoreClipboard(snapshot)
     }

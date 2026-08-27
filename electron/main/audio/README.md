@@ -6,7 +6,7 @@ Main-process audio pipeline for mutually exclusive classic and streaming local t
 
 - `index.ts` - Re-exports the audio module surface.
 - `session-manager.ts` - Owns the active recording session, selects classic or streaming mode from configuration, rejects an enabled-but-missing streaming model instead of silently falling back, forwards live partial text to the HUD, and runs a 10s final-marker watchdog.
-- `processor.ts` - Classic mode converts chunks to 16k mono WAV for SenseVoice and merges them in order; streaming mode forwards PCM and accepts the final result after Paraformer decoding and isolated CT-Transformer punctuation. Both paths share one finalizer, which optionally calls cloud refinement exactly once after recording ends, then writes history and injects text.
+- `processor.ts` - Classic mode converts chunks to 16k mono WAV for SenseVoice and merges them in order; streaming mode forwards PCM and accepts the final result after Paraformer decoding and isolated CT-Transformer punctuation. Both paths share one finalizer, which optionally calls cloud refinement exactly once after recording ends, then writes history, briefly hides the HUD so Wayland returns keyboard focus to the destination, injects text, and restores the success HUD.
 - `converter.ts` - Initializes FFmpeg and converts captured audio to MP3 or 16k mono WAV, with optional low-volume gain.
 
 ## Current Flow

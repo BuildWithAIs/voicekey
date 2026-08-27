@@ -32,7 +32,7 @@ Electron 主进程目录，负责窗口管理、IPC、录音编排、ASR/润色�
 - `streaming-punctuation-text.ts` - 标点输出规范化和内容一致性校验的纯函数，便于独立回归测试。
 - `refine/` - 文本润色模块，使用 OpenAI-compatible Chat Completions 做后处理、动态 prompt 组装、远程术语表缓存刷新与连接校验。
 - `translation/` - 文本翻译模块，通过快捷键复制选中文本 → LLM API 翻译 → 粘贴替换，复用润色 API 配置。
-- `text-injector.ts` - 跨平台文本注入入口；Windows/macOS/Linux X11 按需加载 `@nut-tree-fork/nut-js`，Omarchy/Hyprland 使用剪贴板与合成器原生按键以保证多语言和多行文本保真。
+- `text-injector.ts` - 跨平台文本注入入口；Windows/macOS/Linux X11 按需加载 `@nut-tree-fork/nut-js`，Omarchy/Hyprland 使用短暂存活的 `wl-copy --sensitive` 剪贴板与 `wtype` Wayland 虚拟键盘以保证多语言和多行文本保真，并避开 Electron Wayland 剪贴板所有权及输入法虚拟键盘导致的 Hyprland 按键名解析失败。
 - `updater-manager.ts` - GitHub Releases 更新检查。
 - `audio/` - 录音会话与分段转写流水线。
 - `hotkey/` - 快捷键解析与 PTT 行为绑定。

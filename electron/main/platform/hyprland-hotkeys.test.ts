@@ -10,6 +10,7 @@ import {
   VOICE_KEY_MANAGED_BLOCK_END,
   VOICE_KEY_MANAGED_BLOCK_START,
 } from './hyprland-hotkeys'
+import { getWlCopyTextArgs, getWtypeClipboardShortcutArgs } from './hyprland-integration'
 
 const hotkeys: HotkeyConfig = {
   pttKey: 'Control+Shift+Space',
@@ -69,5 +70,54 @@ describe('managed Hyprland config block', () => {
     expect(() =>
       upsertHyprlandManagedBlock(incomplete, buildHyprlandManagedBlock(hotkeys, true)),
     ).toThrow('incomplete or duplicated')
+  })
+})
+
+describe('Hyprland clipboard shortcuts', () => {
+  it('uses standard application copy and paste chords', () => {
+    expect(getWtypeClipboardShortcutArgs('copy', false)).toEqual([
+      '-M',
+      'ctrl',
+      '-k',
+      'c',
+      '-m',
+      'ctrl',
+    ])
+    expect(getWtypeClipboardShortcutArgs('paste', false)).toEqual([
+      '-M',
+      'ctrl',
+      '-k',
+      'v',
+      '-m',
+      'ctrl',
+    ])
+  })
+
+  it('uses terminal-safe copy and paste chords', () => {
+    expect(getWtypeClipboardShortcutArgs('copy', true)).toEqual([
+      '-M',
+      'ctrl',
+      '-k',
+      'Insert',
+      '-m',
+      'ctrl',
+    ])
+    expect(getWtypeClipboardShortcutArgs('paste', true)).toEqual([
+      '-M',
+      'shift',
+      '-k',
+      'Insert',
+      '-m',
+      'shift',
+    ])
+  })
+
+  it('offers sensitive UTF-8 text only while the Wayland paste is in progress', () => {
+    expect(getWlCopyTextArgs()).toEqual([
+      '--foreground',
+      '--sensitive',
+      '--type',
+      'text/plain;charset=utf-8',
+    ])
   })
 })

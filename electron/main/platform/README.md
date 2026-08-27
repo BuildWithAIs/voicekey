@@ -5,7 +5,9 @@
 - `hyprland-hotkeys.ts` — Converts Voice Key accelerators into managed Hyprland Lua bindings
   and provides pure helpers for updating the managed block.
 - `hyprland-integration.ts` — Owns Omarchy/Hyprland socket2 events, reversible user binding
-  installation, config validation, and compositor-native copy/paste shortcuts.
+  installation, config validation, and `wl-copy` + `wtype` clipboard injection that preserves
+  Omarchy's regular-window versus terminal semantics without depending on Electron's Wayland
+  clipboard ownership or Hyprland key-name resolution.
 - `linux-auto-launch.ts` — Manages the packaged app's XDG autostart desktop entry.
 - `native-keyboard.ts` — Lazily loads `nut-js` for Windows, macOS, and Linux X11 so Wayland
   sessions do not initialize an incompatible native keyboard backend.

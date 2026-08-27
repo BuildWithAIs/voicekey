@@ -139,8 +139,9 @@ Wayland 的当前版 Omarchy。
 
 Omarchy/Hyprland 下，Voice Key 通过 Hyprland socket2 接收 PTT 的按下与释放事件，
 并沿用 Omarchy 的通用剪贴板语义：普通应用使用 `Ctrl+C/V`，终端使用
-`Ctrl/Shift+Insert`。这条路径支持中文、英文、多行文本和终端输入，不依赖 X11
-键盘 hook。
+`Ctrl/Shift+Insert`；临时文本由 `wl-copy --sensitive` 仅在粘贴期间提供，实际按键由
+`wtype` Wayland 虚拟键盘发送。这条路径支持中文、
+英文、多行文本和终端输入，不依赖 X11 键盘 hook。
 
 ### 其他 Linux
 
@@ -149,6 +150,13 @@ Omarchy/Hyprland 下，Voice Key 通过 Hyprland socket2 接收 PTT 的按下与
 ```bash
 chmod +x Voice-Key-Linux-*-x86_64.AppImage
 ./Voice-Key-Linux-*-x86_64.AppImage
+```
+
+部分新版发行版默认不安装 FUSE 2。如果启动时提示缺少 `libfuse.so.2`，请安装
+系统的 `fuse2`/`libfuse2` 包；也可以免安装地使用提取运行模式：
+
+```bash
+APPIMAGE_EXTRACT_AND_RUN=1 ./Voice-Key-Linux-*-x86_64.AppImage
 ```
 
 - Linux X11 会继续使用原有全局键盘与文本注入后端，无需安装 Hyprland 集成。

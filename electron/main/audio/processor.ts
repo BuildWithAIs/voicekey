@@ -16,7 +16,7 @@ import type { TextRefiner } from '../refine'
 import { textInjector } from '../text-injector'
 import { finishStreamingASRSession, pushStreamingAudioFrame } from '../streaming-asr-manager'
 import { getBackgroundWindow } from '../window/background'
-import { hideOverlay, updateOverlay } from '../window/overlay'
+import { hideOverlay, showOverlay, updateOverlay } from '../window/overlay'
 import { convertToWAV } from './converter'
 import { clearSession, getCurrentSession, updateSession } from './session-manager'
 
@@ -301,9 +301,13 @@ async function finalizeTranscription(sessionId: string, rawText: string): Promis
   }
 
   console.log('[Audio:Processor] Injecting final text...')
+  // Electron's non-focusable HUD can still retain the Wayland keyboard surface
+  // on some Hyprland versions. Hide it before synthetic paste so the destination
+  // application receives the key event, then show the success state again.
+  hideOverlay()
   await textInjector.injectText(finalText)
 
-  updateOverlay({ status: 'success' })
+  showOverlay({ status: 'success' })
   setTimeout(() => hideOverlay(), 800)
   clearSession()
 }
@@ -360,7 +364,7 @@ function failActiveSession(sessionId: string, error: unknown): void {
     }
   }
 
-  updateOverlay({
+  showOverlay({
     status: 'error',
     message,
   })
