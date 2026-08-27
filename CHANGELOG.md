@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.2.1](https://github.com/BuildWithAIs/voicekey/compare/v0.2.0...v0.2.1) (2026-08-27)
+
+### Features
+
+- **linux:** add Omarchy and Hyprland support ([edf2166](https://github.com/BuildWithAIs/voicekey/commit/edf2166df2bc6305e7b43a3b3cfa593499d35a27))
+
+### Bug Fixes
+
+- **linux:** make Wayland text injection reliable ([272991e](https://github.com/BuildWithAIs/voicekey/commit/272991ee43624b7b0aa4bba4b95cce70da4ab371))
+
 ## [0.2.0](https://github.com/BuildWithAIs/voicekey/compare/v0.1.22...v0.2.0) (2026-08-27)
 
 ### Features

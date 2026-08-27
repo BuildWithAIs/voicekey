@@ -1,7 +1,7 @@
 {
   "name": "voice-key",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.2.1",
   "productName": "Voice Key",
   "description": "Privacy-first push-to-talk voice input for Windows, macOS, and Linux",
   "author": {
