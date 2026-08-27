@@ -262,9 +262,11 @@ jobs:
       - name: Generate SHA-256 checksums
         working-directory: artifacts
         run: |
-          find . -type f -printf '%P\0' \
-            | sort -z \
-            | xargs -0 sha256sum > SHA256SUMS.txt
+          while IFS= read -r -d '' file; do
+            hash=$(sha256sum -- "$file" | cut -d ' ' -f 1)
+            printf '%s  %s\n' "$hash" "$(basename -- "$file")"
+          done < <(find . -type f ! -name SHA256SUMS.txt -print0 | sort -z) \
+            > SHA256SUMS.txt
           test -s SHA256SUMS.txt
 
       - name: Create GitHub Release
