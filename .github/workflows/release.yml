@@ -12,6 +12,14 @@ on:
           - patch
           - minor
           - major
+      existing_tag:
+        description: 'Existing version tag to rebuild without bumping (for release recovery)'
+        required: false
+        type: string
+
+concurrency:
+  group: build-and-release
+  cancel-in-progress: false
 
 permissions:
   contents: write
@@ -27,15 +35,27 @@ jobs:
       changelog: ${{ steps.extract_changelog.outputs.notes }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Checkout existing tag
+        if: inputs.existing_tag != ''
+        env:
+          EXISTING_TAG: ${{ inputs.existing_tag }}
+        run: |
+          if [[ ! "$EXISTING_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Invalid existing tag: $EXISTING_TAG" >&2
+            exit 1
+          fi
+          git show-ref --verify --quiet "refs/tags/$EXISTING_TAG"
+          git checkout --detach "$EXISTING_TAG"
+
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: '20'
+          node-version: '24'
 
       - name: Configure Git
         run: |
@@ -63,6 +83,7 @@ jobs:
         run: npm run quality
 
       - name: Bump version and push
+        if: inputs.existing_tag == ''
         run: |
           # 运行 standard-version 更新版本和 Changelog
           npx standard-version --release-as ${{ inputs.release_type }}
@@ -72,11 +93,16 @@ jobs:
 
       - name: Get new tag
         id: get_tag
+        env:
+          EXISTING_TAG: ${{ inputs.existing_tag }}
         run: |
-          # 获取最新的 tag
-          TAG=$(git describe --tags --abbrev=0)
+          if [[ -n "$EXISTING_TAG" ]]; then
+            TAG="$EXISTING_TAG"
+          else
+            TAG=$(git describe --tags --abbrev=0)
+          fi
           echo "tag=$TAG" >> $GITHUB_OUTPUT
-          echo "Generated new tag: $TAG"
+          echo "Release tag: $TAG"
 
       - name: Extract Changelog
         id: extract_changelog
@@ -106,14 +132,14 @@ jobs:
       CSC_IDENTITY_AUTO_DISCOVERY: 'false'
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare-release.outputs.new_tag }}
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: '20'
+          node-version: '24'
           cache: 'npm'
 
       - name: Install dependencies
@@ -128,7 +154,7 @@ jobs:
             --publish never
 
       - name: Upload macOS artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: mac-artifacts-${{ matrix.arch }}
           path: release/**/Voice*-Mac-*.dmg
@@ -140,14 +166,14 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare-release.outputs.new_tag }}
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: '20'
+          node-version: '24'
           cache: 'npm'
 
       - name: Install dependencies
@@ -157,7 +183,7 @@ jobs:
         run: npm run build -- --win --publish never
 
       - name: Upload Windows artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: win-artifacts
           path: release/**/Voice*-Windows-*-Setup.exe
@@ -169,20 +195,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare-release.outputs.new_tag }}
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: '20'
+          node-version: '24'
           cache: 'npm'
 
       - name: Install Linux build dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y \
+            libarchive-tools \
             libx11-dev \
             libxtst-dev \
             libxt-dev \
@@ -200,7 +227,7 @@ jobs:
         run: npm run build -- --linux AppImage pacman --x64 --publish never
 
       - name: Upload Linux artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: linux-artifacts-x64
           path: |
@@ -214,20 +241,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download macOS artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: mac-artifacts-*
           merge-multiple: true
           path: artifacts
 
       - name: Download Windows artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: win-artifacts
           path: artifacts
 
       - name: Download Linux artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: linux-artifacts-x64
           path: artifacts
