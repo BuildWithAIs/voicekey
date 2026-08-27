@@ -35,6 +35,7 @@ export interface LocalASRStatus {
   downloading: boolean
   modelName: string
   installDir: string
+  storageDir: string
   modelPath?: string
   missing: string[]
   downloadSizeBytes: number
@@ -191,10 +192,13 @@ export const IPC_CHANNELS = {
   CONFIG_REFINE_TEST: 'config:refine:test',
   LOCAL_ASR_STATUS: 'local-asr:status',
   LOCAL_ASR_DOWNLOAD: 'local-asr:download',
+  LOCAL_ASR_DELETE: 'local-asr:delete',
   LOCAL_ASR_DOWNLOAD_PROGRESS: 'local-asr:download-progress',
   STREAMING_ASR_STATUS: 'streaming-asr:status',
   STREAMING_ASR_DOWNLOAD: 'streaming-asr:download',
+  STREAMING_ASR_DELETE: 'streaming-asr:delete',
   STREAMING_ASR_DOWNLOAD_PROGRESS: 'streaming-asr:download-progress',
+  ASR_MODEL_DIRECTORY_OPEN: 'asr-model-directory:open',
   APP_LANGUAGE_GET: 'app:language:get',
   APP_LANGUAGE_CHANGED: 'app:language:changed',
 

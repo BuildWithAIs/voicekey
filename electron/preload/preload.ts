@@ -31,12 +31,15 @@ export interface ElectronAPI {
   testRefineConnection: (config: LLMRefineConfig) => Promise<RefineConnectionResult>
   getLocalASRStatus: () => Promise<LocalASRStatus>
   downloadLocalASR: () => Promise<LocalASRStatus>
+  deleteLocalASR: () => Promise<LocalASRStatus>
   onLocalASRDownloadProgress: (callback: (progress: LocalASRDownloadProgress) => void) => () => void
   getStreamingASRStatus: () => Promise<LocalASRStatus>
   downloadStreamingASR: () => Promise<LocalASRStatus>
+  deleteStreamingASR: () => Promise<LocalASRStatus>
   onStreamingASRDownloadProgress: (
     callback: (progress: LocalASRDownloadProgress) => void,
   ) => () => void
+  openASRModelDirectory: () => Promise<void>
   getAppLanguage: () => Promise<LanguageSnapshot>
   onAppLanguageChanged: (callback: (snapshot: LanguageSnapshot) => void) => () => void
 
@@ -102,6 +105,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke(IPC_CHANNELS.CONFIG_REFINE_TEST, config),
   getLocalASRStatus: () => ipcRenderer.invoke(IPC_CHANNELS.LOCAL_ASR_STATUS),
   downloadLocalASR: () => ipcRenderer.invoke(IPC_CHANNELS.LOCAL_ASR_DOWNLOAD),
+  deleteLocalASR: () => ipcRenderer.invoke(IPC_CHANNELS.LOCAL_ASR_DELETE),
   onLocalASRDownloadProgress: (callback: (progress: LocalASRDownloadProgress) => void) => {
     const listener = (_event: IpcRendererEvent, progress: LocalASRDownloadProgress) => {
       callback(progress)
@@ -111,6 +115,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   getStreamingASRStatus: () => ipcRenderer.invoke(IPC_CHANNELS.STREAMING_ASR_STATUS),
   downloadStreamingASR: () => ipcRenderer.invoke(IPC_CHANNELS.STREAMING_ASR_DOWNLOAD),
+  deleteStreamingASR: () => ipcRenderer.invoke(IPC_CHANNELS.STREAMING_ASR_DELETE),
   onStreamingASRDownloadProgress: (callback: (progress: LocalASRDownloadProgress) => void) => {
     const listener = (_event: IpcRendererEvent, progress: LocalASRDownloadProgress) => {
       callback(progress)
@@ -118,6 +123,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on(IPC_CHANNELS.STREAMING_ASR_DOWNLOAD_PROGRESS, listener)
     return () => ipcRenderer.removeListener(IPC_CHANNELS.STREAMING_ASR_DOWNLOAD_PROGRESS, listener)
   },
+  openASRModelDirectory: () => ipcRenderer.invoke(IPC_CHANNELS.ASR_MODEL_DIRECTORY_OPEN),
   getAppLanguage: () => ipcRenderer.invoke(IPC_CHANNELS.APP_LANGUAGE_GET),
   onAppLanguageChanged: (callback: (snapshot: LanguageSnapshot) => void) => {
     const listener = (_event: IpcRendererEvent, snapshot: LanguageSnapshot) => callback(snapshot)

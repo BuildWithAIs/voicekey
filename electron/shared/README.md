@@ -11,7 +11,7 @@ length caps.
 
 ## 文件列表
 
-- `types.ts` - 跨进程类型定义与 IPC 通道常量；包含经典/流式 ASR 模式、两套模型下载状态、流式 PCM 载荷、带实时 transcript 的 Overlay、Provider-aware LLM 润色配置及其余应用配置。
+- `types.ts` - 跨进程类型定义与 IPC 通道常量；包含经典/流式 ASR 模式、两套模型下载/删除状态、统一模型存储目录、流式 PCM 载荷、带实时 transcript 的 Overlay、Provider-aware LLM 润色配置及其余应用配置。
 - `constants.ts` - SenseVoice、Streaming Paraformer 与 CT-Transformer 标点模型的独立版本、文件大小、SHA-256 和主备下载源，以及录音限制、Provider 固定模型、精简 refine system prompt、术语表与翻译规则。
 - `constants.test.ts` - 录音限制、流式 ASR/标点模型大小与哈希格式，以及精简润色 prompt 关键边界的回归测试。
 - `llm-config.ts` - 共享 LLM 配置 normalizer 与迁移工具；保留翻译功能的 Provider-aware reasoning 能力，同时为语音润色提供显式关闭 reasoning/thinking 的独立参数构造器。

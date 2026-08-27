@@ -163,33 +163,46 @@
       "unsupported": "This environment cannot detect microphone devices.",
       "detectFailed": "Couldn't detect microphones."
     },
+    "modelStorage": {
+      "title": "Model storage folder",
+      "open": "Open folder",
+      "openFailed": "Couldn't open the model folder: {{message}}",
+      "delete": "Delete model",
+      "deleting": "Deleting..."
+    },
     "localAsr": {
-      "modelName": "SenseVoiceSmall int8",
-      "help": "Offline recognition; audio is not uploaded. First use downloads about {{size}} of model files.",
+      "title": "Local speech recognition",
+      "help": "First use requires downloading a local model of about {{size}} for speech recognition. Audio is not uploaded.",
       "ready": "Ready",
-      "download": "Download model",
+      "download": "Download local model",
       "downloading": "Downloading...",
       "downloadComplete": "Local model is ready!",
-      "downloadFailed": "Download failed: {{message}}",
-      "unsupported": "This local model is not available on the current platform.",
+      "downloadFailed": "Local model download failed: {{message}}",
+      "deleteConfirm": "Delete the local speech recognition model? You'll need to download it again before using local recognition.",
+      "deleteComplete": "The local speech recognition model was deleted.",
+      "deleteFailed": "Couldn't delete the model: {{message}}",
+      "unsupported": "Local speech recognition is not available on this platform.",
       "phase": {
-        "model": "Downloading model"
+        "model": "Downloading local model"
       }
     },
     "streamingAsr": {
-      "modelName": "Streaming Paraformer + local bilingual punctuation",
-      "help": "Paraformer shows text while you speak, then a local CT-Transformer adds Chinese and English punctuation when recording ends. The complete package is about {{size}} and is mutually exclusive with classic SenseVoice. Existing realtime files are reused, so upgrades download only the missing punctuation model.",
+      "title": "Realtime speech recognition",
+      "help": "First use requires downloading a local model of about {{size}}. Speech stays on this device.",
       "ready": "Ready",
-      "download": "Download realtime model",
+      "download": "Download local model",
       "downloading": "Downloading...",
-      "downloadComplete": "Realtime speech model is ready!",
-      "downloadFailed": "Realtime model download failed: {{message}}",
-      "downloadBeforeEnable": "Download the realtime speech model before enabling realtime recognition.",
-      "unsupported": "This realtime model is not available on the current platform.",
+      "downloadComplete": "Local model is ready!",
+      "downloadFailed": "Local model download failed: {{message}}",
+      "downloadBeforeEnable": "Download the local model before enabling realtime recognition.",
+      "deleteConfirm": "Delete the local model required for realtime speech recognition? Realtime recognition will be turned off, and the model must be downloaded again before reuse.",
+      "deleteComplete": "The realtime speech recognition model was deleted.",
+      "deleteFailed": "Couldn't delete the model: {{message}}",
+      "unsupported": "Realtime speech recognition is not available on this platform.",
       "enabled": "Enable realtime recognition",
-      "enabledHelp": "Show text while recording and add punctuation locally when recording ends. SenseVoice is not called in this mode.",
+      "enabledHelp": "See recognized text as you speak, with punctuation added when recording ends.",
       "phase": {
-        "model": "Downloading realtime model"
+        "model": "Downloading local model"
       }
     },
     "languagePlaceholder": "Select language",

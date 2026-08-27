@@ -13,6 +13,7 @@ import type {
   LocalASRStatus,
   StreamingAudioFramePayload,
 } from '../shared/types'
+import { getASRModelStorageDir, removeManagedASRInstallDir } from './asr-model-storage'
 import { downloadFromSources } from './download-sources'
 import {
   punctuateStreamingText,
@@ -33,6 +34,7 @@ type ModelBundlePaths = {
 
 type StreamingASRPaths = {
   installDir: string
+  punctuationInstallDir: string
   asr: ModelBundlePaths
   punctuation: ModelBundlePaths
 }
@@ -92,6 +94,7 @@ const nodeRequire = createRequire(import.meta.url)
 const DOWNLOAD_IDLE_TIMEOUT_MS = 30_000
 
 let activeDownload: Promise<LocalASRStatus> | null = null
+let deletingAssets = false
 let currentProgress: LocalASRDownloadProgress | undefined
 let lastError: string | undefined
 let streamingWorker: Worker | null = null
@@ -111,6 +114,7 @@ export function getStreamingASRStatus(): LocalASRStatus {
     downloading: Boolean(activeDownload),
     modelName: `${STREAMING_ASR.MODEL_NAME} + ${STREAMING_PUNCTUATION.MODEL_NAME}`,
     installDir: paths.installDir,
+    storageDir: getASRModelStorageDir(),
     modelPath: modelDirs
       ? path.join(modelDirs.asrModelDir, STREAMING_ASR.ENCODER_FILE)
       : paths.asr.modelPath,
@@ -126,6 +130,10 @@ export async function startStreamingASRSession(
   sessionId: string,
   callbacks: StreamingSessionCallbacks,
 ): Promise<void> {
+  if (deletingAssets) {
+    throw new Error('Streaming ASR model deletion is in progress')
+  }
+
   clearWorkerIdleTimer()
 
   if (activeSession && activeSession.id !== sessionId) {
@@ -170,6 +178,10 @@ export async function startStreamingASRSession(
 }
 
 export async function warmStreamingASR(): Promise<void> {
+  if (deletingAssets) {
+    throw new Error('Streaming ASR model deletion is in progress')
+  }
+
   clearWorkerIdleTimer()
   const paths = ensureStreamingASRReady()
   const modelDirs = getReadyModelDirs(paths)
@@ -285,9 +297,38 @@ export async function releaseStreamingASR(): Promise<void> {
   await Promise.all([terminateWorker(), releaseStreamingPunctuation()])
 }
 
+export async function deleteStreamingASRAssets(): Promise<LocalASRStatus> {
+  if (activeDownload) {
+    throw new Error('Cannot delete streaming ASR models while they are downloading')
+  }
+  if (deletingAssets) {
+    throw new Error('Streaming ASR model deletion is already in progress')
+  }
+
+  deletingAssets = true
+  try {
+    if (activeSession) {
+      throw new Error('Cannot delete streaming ASR models while a session is active')
+    }
+
+    await releaseStreamingASR()
+    const paths = getStreamingASRPaths()
+    removeManagedASRInstallDir(paths.installDir)
+    removeManagedASRInstallDir(paths.punctuationInstallDir)
+    currentProgress = undefined
+    lastError = undefined
+    return getStreamingASRStatus()
+  } finally {
+    deletingAssets = false
+  }
+}
+
 export async function downloadStreamingASRAssets(
   onProgress?: ProgressCallback,
 ): Promise<LocalASRStatus> {
+  if (deletingAssets) {
+    throw new Error('Cannot download streaming ASR models while deletion is in progress')
+  }
   if (activeDownload) return activeDownload
 
   activeDownload = downloadStreamingASRAssetsInternal(onProgress).finally(() => {
@@ -341,13 +382,10 @@ async function downloadStreamingASRAssetsInternal(
 }
 
 function getStreamingASRPaths(): StreamingASRPaths {
-  const installDir = path.join(app.getPath('userData'), 'local-asr', 'streaming-paraformer')
+  const storageDir = getASRModelStorageDir()
+  const installDir = path.join(storageDir, 'streaming-paraformer')
   const asrModelDir = path.join(installDir, 'models', STREAMING_ASR.MODEL_VERSION)
-  const punctuationInstallDir = path.join(
-    app.getPath('userData'),
-    'local-asr',
-    'streaming-punctuation',
-  )
+  const punctuationInstallDir = path.join(storageDir, 'streaming-punctuation')
   const punctuationModelDir = path.join(
     punctuationInstallDir,
     'models',
@@ -355,6 +393,7 @@ function getStreamingASRPaths(): StreamingASRPaths {
   )
   return {
     installDir,
+    punctuationInstallDir,
     asr: {
       modelDir: asrModelDir,
       manifestPath: path.join(asrModelDir, 'model.json'),

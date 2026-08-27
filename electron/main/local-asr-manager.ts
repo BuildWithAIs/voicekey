@@ -9,6 +9,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { Worker } from 'node:worker_threads'
 import { AUDIO_CONFIG, LOCAL_ASR } from '../shared/constants'
 import type { LocalASRDownloadProgress, LocalASRStatus } from '../shared/types'
+import { getASRModelStorageDir, removeManagedASRInstallDir } from './asr-model-storage'
 import { downloadFromSources } from './download-sources'
 
 type ModelFile = (typeof LOCAL_ASR.MODEL_FILES)[number]
@@ -42,6 +43,7 @@ const nodeRequire = createRequire(import.meta.url)
 const DOWNLOAD_IDLE_TIMEOUT_MS = 30_000
 
 let activeDownload: Promise<LocalASRStatus> | null = null
+let deletingAssets = false
 let currentProgress: LocalASRDownloadProgress | undefined
 let lastError: string | undefined
 let recognitionQueue: Promise<void> = Promise.resolve()
@@ -61,6 +63,7 @@ export function getLocalASRStatus(): LocalASRStatus {
     downloading: Boolean(activeDownload),
     modelName: LOCAL_ASR.MODEL_NAME,
     installDir: paths.installDir,
+    storageDir: getASRModelStorageDir(),
     modelPath: modelDir ? path.join(modelDir, LOCAL_ASR.MODEL_FILE) : paths.modelPath,
     missing,
     downloadSizeBytes: LOCAL_ASR.DOWNLOAD_SIZE_BYTES,
@@ -81,6 +84,10 @@ export function ensureLocalASRReady(): LocalASRPaths {
 }
 
 export async function runLocalASR(audioFilePath: string): Promise<LocalASRRunResult> {
+  if (deletingAssets) {
+    throw new Error('Local ASR model deletion is in progress')
+  }
+
   // Count a queued request as activity immediately, even if another chunk is
   // still ahead of it in the serialized recognition queue.
   clearLocalASRWorkerIdleTimer()
@@ -120,9 +127,32 @@ export async function releaseLocalASR(): Promise<void> {
   await terminateLocalASRWorker()
 }
 
+export async function deleteLocalASRAssets(): Promise<LocalASRStatus> {
+  if (activeDownload) {
+    throw new Error('Cannot delete the local ASR model while it is downloading')
+  }
+  if (deletingAssets) {
+    throw new Error('Local ASR model deletion is already in progress')
+  }
+
+  deletingAssets = true
+  try {
+    await releaseLocalASR()
+    removeManagedASRInstallDir(getLocalASRPaths().installDir)
+    currentProgress = undefined
+    lastError = undefined
+    return getLocalASRStatus()
+  } finally {
+    deletingAssets = false
+  }
+}
+
 export async function downloadLocalASRAssets(
   onProgress?: ProgressCallback,
 ): Promise<LocalASRStatus> {
+  if (deletingAssets) {
+    throw new Error('Cannot download the local ASR model while deletion is in progress')
+  }
   if (activeDownload) {
     return activeDownload
   }
@@ -179,7 +209,7 @@ async function downloadLocalASRAssetsInternal(
 }
 
 function getLocalASRPaths(): LocalASRPaths {
-  const installDir = path.join(app.getPath('userData'), 'local-asr', 'sensevoice')
+  const installDir = path.join(getASRModelStorageDir(), 'sensevoice')
   const modelDir = path.join(installDir, 'models', LOCAL_ASR.MODEL_VERSION)
 
   return {

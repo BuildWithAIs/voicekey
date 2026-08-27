@@ -16,6 +16,8 @@ import {
   Languages,
   Download,
   HardDrive,
+  FolderOpen,
+  Trash2,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -315,11 +317,13 @@ export default function SettingsPage() {
   const [localAsrStatus, setLocalAsrStatus] = useState<LocalASRStatus | null>(null)
   const [localAsrProgress, setLocalAsrProgress] = useState<LocalASRDownloadProgress | null>(null)
   const [downloadingLocalAsr, setDownloadingLocalAsr] = useState(false)
+  const [deletingLocalAsr, setDeletingLocalAsr] = useState(false)
   const [streamingAsrStatus, setStreamingAsrStatus] = useState<LocalASRStatus | null>(null)
   const [streamingAsrProgress, setStreamingAsrProgress] = useState<LocalASRDownloadProgress | null>(
     null,
   )
   const [downloadingStreamingAsr, setDownloadingStreamingAsr] = useState(false)
+  const [deletingStreamingAsr, setDeletingStreamingAsr] = useState(false)
   const [microphoneDevices, setMicrophoneDevices] = useState<AudioInputDevice[]>([])
   const [loadingMicrophones, setLoadingMicrophones] = useState(false)
   const [microphoneError, setMicrophoneError] = useState<string | null>(null)
@@ -776,6 +780,73 @@ export default function SettingsPage() {
       })
     } finally {
       setDownloadingStreamingAsr(false)
+    }
+  }
+
+  const handleOpenASRModelDirectory = async () => {
+    setAsrTestStatus(null)
+    try {
+      await window.electronAPI.openASRModelDirectory()
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : t('common.unknownError')
+      setAsrTestStatus({
+        type: 'error',
+        message: t('settings.modelStorage.openFailed', { message: errorMessage }),
+      })
+    }
+  }
+
+  const handleDeleteLocalASR = async () => {
+    if (!window.confirm(t('settings.localAsr.deleteConfirm'))) return
+
+    setDeletingLocalAsr(true)
+    setAsrTestStatus(null)
+    try {
+      const status = await window.electronAPI.deleteLocalASR()
+      setLocalAsrStatus(status)
+      setLocalAsrProgress(null)
+      setAsrTestStatus({ type: 'success', message: t('settings.localAsr.deleteComplete') })
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : t('common.unknownError')
+      setAsrTestStatus({
+        type: 'error',
+        message: t('settings.localAsr.deleteFailed', { message: errorMessage }),
+      })
+    } finally {
+      setDeletingLocalAsr(false)
+    }
+  }
+
+  const handleDeleteStreamingASR = async () => {
+    if (!window.confirm(t('settings.streamingAsr.deleteConfirm'))) return
+
+    setDeletingStreamingAsr(true)
+    setAsrTestStatus(null)
+    try {
+      const status = await window.electronAPI.deleteStreamingASR()
+      setStreamingAsrStatus(status)
+      setStreamingAsrProgress(null)
+      setConfig((prev) => ({
+        ...prev,
+        asr: { ...prev.asr, streamingEnabled: false },
+      }))
+      setOriginalConfig((prev) =>
+        prev
+          ? {
+              ...prev,
+              asr: { ...prev.asr, streamingEnabled: false },
+            }
+          : prev,
+      )
+      setAsrTestStatus({ type: 'success', message: t('settings.streamingAsr.deleteComplete') })
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : t('common.unknownError')
+      setAsrTestStatus({
+        type: 'error',
+        message: t('settings.streamingAsr.deleteFailed', { message: errorMessage }),
+      })
+    } finally {
+      setDeletingStreamingAsr(false)
     }
   }
 
@@ -1368,6 +1439,7 @@ export default function SettingsPage() {
     ? t(`settings.streamingAsr.phase.${streamingAsrProgressPhase}`)
     : t('settings.streamingAsr.downloading')
   const streamingEnabled = config.asr.streamingEnabled ?? false
+  const modelStorageDir = localAsrStatus?.storageDir ?? streamingAsrStatus?.storageDir
   const asrHealthReady = streamingEnabled ? streamingAsrReady : localAsrReady
   const asrHealthStatus = asrHealthReady
     ? streamingEnabled
@@ -1505,7 +1577,7 @@ export default function SettingsPage() {
                   </span>
                   <div className="min-w-0">
                     <div className="text-[13px] font-semibold text-foreground">
-                      {localAsrStatus?.modelName ?? t('settings.localAsr.modelName')}
+                      {t('settings.localAsr.title')}
                     </div>
                     <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
                       {t('settings.localAsr.help', {
@@ -1528,12 +1600,30 @@ export default function SettingsPage() {
                     ) : null}
                   </div>
                 </div>
-                <div className="shrink-0">
+                <div className="flex shrink-0 flex-col items-end gap-2">
                   {localAsrReady ? (
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-green-500/30 bg-green-500/10 px-2.5 py-1 text-[11px] font-semibold text-green-600 dark:text-green-500">
-                      <CheckCircle2 className="h-3.5 w-3.5" />
-                      {t('settings.localAsr.ready')}
-                    </span>
+                    <>
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-green-500/30 bg-green-500/10 px-2.5 py-1 text-[11px] font-semibold text-green-600 dark:text-green-500">
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                        {t('settings.localAsr.ready')}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleDeleteLocalASR}
+                        disabled={deletingLocalAsr || downloadingLocalAsr}
+                        className="no-drag cursor-pointer text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      >
+                        {deletingLocalAsr ? (
+                          <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                        ) : (
+                          <Trash2 className="h-4 w-4" />
+                        )}
+                        {deletingLocalAsr
+                          ? t('settings.modelStorage.deleting')
+                          : t('settings.modelStorage.delete')}
+                      </Button>
+                    </>
                   ) : (
                     <Button
                       variant="secondary"
@@ -1570,7 +1660,7 @@ export default function SettingsPage() {
                   </span>
                   <div className="min-w-0">
                     <div className="text-[13px] font-semibold text-foreground">
-                      {streamingAsrStatus?.modelName ?? t('settings.streamingAsr.modelName')}
+                      {t('settings.streamingAsr.title')}
                     </div>
                     <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
                       {t('settings.streamingAsr.help', {
@@ -1597,12 +1687,30 @@ export default function SettingsPage() {
                     ) : null}
                   </div>
                 </div>
-                <div className="shrink-0">
+                <div className="flex shrink-0 flex-col items-end gap-2">
                   {streamingAsrReady ? (
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-green-500/30 bg-green-500/10 px-2.5 py-1 text-[11px] font-semibold text-green-600 dark:text-green-500">
-                      <CheckCircle2 className="h-3.5 w-3.5" />
-                      {t('settings.streamingAsr.ready')}
-                    </span>
+                    <>
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-green-500/30 bg-green-500/10 px-2.5 py-1 text-[11px] font-semibold text-green-600 dark:text-green-500">
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                        {t('settings.streamingAsr.ready')}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleDeleteStreamingASR}
+                        disabled={deletingStreamingAsr || downloadingStreamingAsr}
+                        className="no-drag cursor-pointer text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      >
+                        {deletingStreamingAsr ? (
+                          <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                        ) : (
+                          <Trash2 className="h-4 w-4" />
+                        )}
+                        {deletingStreamingAsr
+                          ? t('settings.modelStorage.deleting')
+                          : t('settings.modelStorage.delete')}
+                      </Button>
+                    </>
                   ) : (
                     <Button
                       variant="secondary"
@@ -1631,13 +1739,35 @@ export default function SettingsPage() {
               ) : null}
             </div>
 
+            {modelStorageDir ? (
+              <div className="mt-3 flex items-center justify-between gap-4 rounded-lg border bg-secondary/20 px-4 py-3">
+                <div className="min-w-0">
+                  <div className="text-xs font-medium text-foreground">
+                    {t('settings.modelStorage.title')}
+                  </div>
+                  <code className="mt-1 block break-all text-[11px] leading-relaxed text-muted-foreground">
+                    {modelStorageDir}
+                  </code>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleOpenASRModelDirectory}
+                  className="no-drag shrink-0 cursor-pointer"
+                >
+                  <FolderOpen className="h-4 w-4" />
+                  {t('settings.modelStorage.open')}
+                </Button>
+              </div>
+            ) : null}
+
             <div className="mt-4 border-t pt-4">
               <ToggleRow
                 title={t('settings.streamingAsr.enabled')}
                 desc={t('settings.streamingAsr.enabledHelp')}
                 checked={streamingEnabled}
                 onChange={handleStreamingEnabledChange}
-                disabled={!streamingAsrSupported || downloadingStreamingAsr}
+                disabled={!streamingAsrSupported || downloadingStreamingAsr || deletingStreamingAsr}
               />
             </div>
             <InlineFeedback status={asrTestStatus} testId="asr-test-status" />

@@ -6,12 +6,14 @@
  * - CONFIG_SET: 设置配置（支持 app/asr/llmRefine/hotkey/translation 部分更新）
  * - CONFIG_SECRET_GET: 仅向设置窗口返回指定的已保存 API Key 原文
  * - CONFIG_REFINE_TEST: 校验文本润色连接
- * - LOCAL_ASR_STATUS / LOCAL_ASR_DOWNLOAD: 本地 ASR 模型状态与下载
+ * - LOCAL_ASR_STATUS / LOCAL_ASR_DOWNLOAD / LOCAL_ASR_DELETE: 经典模型管理
+ * - STREAMING_ASR_STATUS / STREAMING_ASR_DOWNLOAD / STREAMING_ASR_DELETE: 实时模型管理
+ * - ASR_MODEL_DIRECTORY_OPEN: 打开统一模型存储目录
  *
  * @module electron/main/ipc/config-handlers
  */
 
-import { ipcMain, type BrowserWindow } from 'electron'
+import { ipcMain, type BrowserWindow, type IpcMainInvokeEvent } from 'electron'
 import {
   IPC_CHANNELS,
   type AppPreferences,
@@ -27,8 +29,15 @@ import { configManager } from '../config-manager'
 import { broadcastLanguageSnapshot, getMainLanguageSnapshot, setMainLanguage } from '../i18n'
 import { hotkeyManager } from '../hotkey-manager'
 import { ioHookManager } from '../iohook-manager'
-import { downloadLocalASRAssets, getLocalASRStatus, releaseLocalASR } from '../local-asr-manager'
+import { openASRModelStorageDir } from '../asr-model-storage'
 import {
+  deleteLocalASRAssets,
+  downloadLocalASRAssets,
+  getLocalASRStatus,
+  releaseLocalASR,
+} from '../local-asr-manager'
+import {
+  deleteStreamingASRAssets,
   downloadStreamingASRAssets,
   getStreamingASRStatus,
   releaseStreamingASR,
@@ -75,6 +84,19 @@ function isConfigSecretRequest(value: unknown): value is ConfigSecretRequest {
   return false
 }
 
+function assertSettingsWindowSender(event: IpcMainInvokeEvent, action: string): void {
+  const settingsWindow = deps.getSettingsWindow()
+  if (!settingsWindow || settingsWindow.webContents !== event.sender) {
+    throw new Error(`${action} is only available from the settings window`)
+  }
+}
+
+function assertNoActiveSessionForModelManagement(): void {
+  if (getCurrentSession()) {
+    throw new Error('Models cannot be changed while recording is active')
+  }
+}
+
 /**
  * 初始化配置处理器依赖
  * 必须在 registerConfigHandlers 之前调用
@@ -93,10 +115,7 @@ export function registerConfigHandlers(): void {
   })
 
   ipcMain.handle(IPC_CHANNELS.CONFIG_SECRET_GET, (event, request: unknown) => {
-    const settingsWindow = deps.getSettingsWindow()
-    if (!settingsWindow || settingsWindow.webContents !== event.sender) {
-      throw new Error('Saved API keys can only be revealed from the settings window')
-    }
+    assertSettingsWindowSender(event, 'Saved API key access')
     if (!isConfigSecretRequest(request)) {
       throw new Error('Invalid saved API key request')
     }
@@ -226,6 +245,12 @@ export function registerConfigHandlers(): void {
     })
   })
 
+  ipcMain.handle(IPC_CHANNELS.LOCAL_ASR_DELETE, async (event) => {
+    assertSettingsWindowSender(event, 'Local ASR model deletion')
+    assertNoActiveSessionForModelManagement()
+    return await deleteLocalASRAssets()
+  })
+
   ipcMain.handle(IPC_CHANNELS.STREAMING_ASR_STATUS, () => {
     return getStreamingASRStatus()
   })
@@ -243,5 +268,20 @@ export function registerConfigHandlers(): void {
       })
     }
     return status
+  })
+
+  ipcMain.handle(IPC_CHANNELS.STREAMING_ASR_DELETE, async (event) => {
+    assertSettingsWindowSender(event, 'Streaming ASR model deletion')
+    assertNoActiveSessionForModelManagement()
+    const status = await deleteStreamingASRAssets()
+    if (configManager.getASRConfig().streamingEnabled) {
+      configManager.setASRConfig({ streamingEnabled: false })
+    }
+    return status
+  })
+
+  ipcMain.handle(IPC_CHANNELS.ASR_MODEL_DIRECTORY_OPEN, async (event) => {
+    assertSettingsWindowSender(event, 'ASR model directory access')
+    await openASRModelStorageDir()
   })
 }

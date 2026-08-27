@@ -163,33 +163,46 @@
       "unsupported": "当前环境无法检测麦克风设备。",
       "detectFailed": "无法检测麦克风。"
     },
+    "modelStorage": {
+      "title": "模型存储目录",
+      "open": "打开目录",
+      "openFailed": "无法打开模型目录：{{message}}",
+      "delete": "删除模型",
+      "deleting": "正在删除..."
+    },
     "localAsr": {
-      "modelName": "SenseVoiceSmall int8",
-      "help": "离线识别，音频不上传。首次使用需下载约 {{size}} 的模型文件。",
+      "title": "本地语音识别",
+      "help": "首次使用需要下载约 {{size}} 的本地模型，用于语音识别。音频不会上传。",
       "ready": "已就绪",
-      "download": "下载模型",
+      "download": "下载本地模型",
       "downloading": "下载中...",
       "downloadComplete": "本地模型已就绪！",
-      "downloadFailed": "下载失败：{{message}}",
-      "unsupported": "当前平台暂不支持此本地模型。",
+      "downloadFailed": "本地模型下载失败：{{message}}",
+      "deleteConfirm": "确定删除本地语音识别模型吗？删除后，如需再次使用本地语音识别，需要重新下载。",
+      "deleteComplete": "本地语音识别模型已删除。",
+      "deleteFailed": "模型删除失败：{{message}}",
+      "unsupported": "当前平台暂不支持本地语音识别。",
       "phase": {
-        "model": "下载模型"
+        "model": "正在下载本地模型"
       }
     },
     "streamingAsr": {
-      "modelName": "Streaming Paraformer + 本地中英标点",
-      "help": "Paraformer 负责边说边显示，录音结束后由本地 CT-Transformer 自动补充中英文标点，共约 {{size}}。与经典 SenseVoice 模式互斥；已有实时模型会直接复用，只补下载缺少的标点模型。",
+      "title": "实时语音识别",
+      "help": "首次使用需要下载约 {{size}} 的本地模型，语音全程在设备本地处理。",
       "ready": "已就绪",
-      "download": "下载实时模型",
+      "download": "下载本地模型",
       "downloading": "下载中...",
-      "downloadComplete": "实时语音模型已就绪！",
-      "downloadFailed": "实时模型下载失败：{{message}}",
-      "downloadBeforeEnable": "请先下载实时语音模型，再启用实时识别。",
-      "unsupported": "当前平台暂不支持此实时模型。",
+      "downloadComplete": "本地模型已就绪！",
+      "downloadFailed": "本地模型下载失败：{{message}}",
+      "downloadBeforeEnable": "请先下载本地模型，再启用实时识别。",
+      "deleteConfirm": "确定删除实时语音识别所需的本地模型吗？删除后将关闭实时识别，如需再次使用需要重新下载。",
+      "deleteComplete": "实时语音识别模型已删除。",
+      "deleteFailed": "模型删除失败：{{message}}",
+      "unsupported": "当前平台暂不支持实时识别。",
       "enabled": "启用实时识别",
-      "enabledHelp": "录音时实时显示识别文字，结束后在本地补充标点。启用后不再调用 SenseVoice。",
+      "enabledHelp": "边说边显示识别文字，录音结束后自动补充标点。",
       "phase": {
-        "model": "下载实时模型"
+        "model": "正在下载本地模型"
       }
     },
     "languagePlaceholder": "选择语言",
