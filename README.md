@@ -48,6 +48,7 @@
       </ul>
     </li>
     <li><a href="#prerequisites">配置要求</a></li>
+    <li><a href="#linux-installation">Linux / Omarchy 安装指南</a></li>
     <li><a href="#installation">macOS 安装指南</a></li>
     <li><a href="#license">开源协议</a></li>
     <li><a href="#roadmap">Star History</a></li>
@@ -113,6 +114,46 @@ npm run dev
 ## 配置要求 <a id="prerequisites"></a>
 
 语音识别仅使用本地模型，不需要 ASR API Key。默认经典模式使用约 240 MB 的 **SenseVoiceSmall int8**；可在设置页另行下载约 298 MB 的实时识别组件，其中 Streaming Paraformer bilingual int8 负责边说边识别，本地 CT-Transformer 负责在录音结束后补充中英文标点。两个模式互斥：启用流式模式后不会再调用 SenseVoice。三套权重分别存放；已有 Streaming Paraformer 的用户升级时只需补下载约 72 MB 的标点模型，切回经典模式也不需要重新下载原模型。
+
+## Linux / Omarchy 安装指南 <a id="linux-installation"></a>
+
+Linux 当前提供 x86_64 AppImage 与 Arch/pacman 安装包，并优先适配使用 Hyprland
+Wayland 的当前版 Omarchy。
+
+### Omarchy / Arch Linux
+
+1. 从 GitHub Releases 下载 `Voice-Key-Linux-*-x86_64.pkg.tar.zst`，然后安装：
+
+   ```bash
+   sudo pacman -U ./Voice-Key-Linux-*-x86_64.pkg.tar.zst
+   ```
+
+2. 启动 Voice Key，进入 **设置 > Linux 与 Omarchy 集成**，点击 **安装集成**。
+
+   Voice Key 会在 `~/.config/hypr/bindings.lua` 中维护一个带明确标记的配置块，
+   并在同目录保留一次性备份。应用会先检查快捷键冲突，再重载 Hyprland 并检查
+   配置错误；失败时自动恢复原文件。之后修改 Voice Key 快捷键时，回到这里点击
+   **更新集成** 即可。
+
+3. 在设置页下载本地识别模型，然后按住录音快捷键说话、松开完成输入。
+
+Omarchy/Hyprland 下，Voice Key 通过 Hyprland socket2 接收 PTT 的按下与释放事件，
+并沿用 Omarchy 的通用剪贴板语义：普通应用使用 `Ctrl+C/V`，终端使用
+`Ctrl/Shift+Insert`。这条路径支持中文、英文、多行文本和终端输入，不依赖 X11
+键盘 hook。
+
+### 其他 Linux
+
+下载 AppImage 后运行：
+
+```bash
+chmod +x Voice-Key-Linux-*-x86_64.AppImage
+./Voice-Key-Linux-*-x86_64.AppImage
+```
+
+- Linux X11 会继续使用原有全局键盘与文本注入后端，无需安装 Hyprland 集成。
+- 其他 Wayland 合成器尚未提供完整 PTT 按下/释放适配；现阶段建议使用 X11 会话。
+- 开启“开机自动启动”后，Linux 会写入用户级 XDG autostart 项，并以隐藏窗口模式启动。
 
 ## macOS 安装指南 <a id="installation"></a>
 

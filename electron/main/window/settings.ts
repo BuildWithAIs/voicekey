@@ -42,10 +42,16 @@ export function createSettingsWindow(): BrowserWindow | void {
     minHeight: MIN_HEIGHT,
     show: false,
     title: t('window.settingsTitle'),
-    titleBarStyle: 'hiddenInset', // macOS 风格：隐藏标题栏但保留交通灯按钮
-    trafficLightPosition: { x: 20, y: 20 }, // 交通灯按钮位置
-    vibrancy: 'sidebar', // macOS 毛玻璃效果
-    backgroundColor: '#00000000', // 透明背景
+    ...(process.platform !== 'linux'
+      ? {
+          titleBarStyle: 'hiddenInset' as const,
+          trafficLightPosition: { x: 20, y: 20 },
+          vibrancy: 'sidebar' as const,
+          backgroundColor: '#00000000',
+        }
+      : {
+          backgroundColor: '#111827',
+        }),
     webPreferences: {
       preload: path.join(getMainDist(), 'preload.cjs'),
       nodeIntegration: false,

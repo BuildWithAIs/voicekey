@@ -12,6 +12,7 @@ import {
   type LLMRefineConfig,
   type LocalASRDownloadProgress,
   type LocalASRStatus,
+  type LinuxIntegrationStatus,
   type RefineConnectionResult,
   type RecordingStartPayload,
   type AudioChunkPayload,
@@ -42,6 +43,9 @@ export interface ElectronAPI {
   openASRModelDirectory: () => Promise<void>
   getAppLanguage: () => Promise<LanguageSnapshot>
   onAppLanguageChanged: (callback: (snapshot: LanguageSnapshot) => void) => () => void
+  getLinuxIntegrationStatus: () => Promise<LinuxIntegrationStatus>
+  installLinuxIntegration: () => Promise<LinuxIntegrationStatus>
+  removeLinuxIntegration: () => Promise<LinuxIntegrationStatus>
 
   // 录音会话相关
   startSession: () => Promise<void>
@@ -130,6 +134,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on(IPC_CHANNELS.APP_LANGUAGE_CHANGED, listener)
     return () => ipcRenderer.removeListener(IPC_CHANNELS.APP_LANGUAGE_CHANGED, listener)
   },
+  getLinuxIntegrationStatus: () => ipcRenderer.invoke(IPC_CHANNELS.LINUX_INTEGRATION_STATUS),
+  installLinuxIntegration: () => ipcRenderer.invoke(IPC_CHANNELS.LINUX_INTEGRATION_INSTALL),
+  removeLinuxIntegration: () => ipcRenderer.invoke(IPC_CHANNELS.LINUX_INTEGRATION_REMOVE),
 
   // 录音会话相关
   startSession: () => ipcRenderer.invoke(IPC_CHANNELS.SESSION_START),

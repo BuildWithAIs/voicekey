@@ -1,5 +1,4 @@
 import { clipboard, type NativeImage } from 'electron'
-import { keyboard, Key } from '@nut-tree-fork/nut-js'
 import { randomUUID } from 'node:crypto'
 import type { LLMRefineConfig, TranslationConfig } from '../../shared/types'
 import { configManager } from '../config-manager'
@@ -14,6 +13,8 @@ import {
   type ResolvedLLMConnection,
 } from '../../shared/llm-config'
 import { t } from '../i18n'
+import { hyprlandIntegration } from '../platform/hyprland-integration'
+import { sendNativeClipboardShortcut } from '../platform/native-keyboard'
 
 type ClipboardSnapshot = {
   text?: string
@@ -346,15 +347,19 @@ export class Translator {
   }
 
   private async simulateCopy(): Promise<void> {
-    const modifierKey = process.platform === 'darwin' ? Key.LeftCmd : Key.LeftControl
-    await keyboard.pressKey(modifierKey, Key.C)
-    await keyboard.releaseKey(modifierKey, Key.C)
+    if (hyprlandIntegration.isActiveSession()) {
+      await hyprlandIntegration.sendClipboardShortcut('copy')
+      return
+    }
+    await sendNativeClipboardShortcut('copy')
   }
 
   private async simulatePaste(): Promise<void> {
-    const modifierKey = process.platform === 'darwin' ? Key.LeftCmd : Key.LeftControl
-    await keyboard.pressKey(modifierKey, Key.V)
-    await keyboard.releaseKey(modifierKey, Key.V)
+    if (hyprlandIntegration.isActiveSession()) {
+      await hyprlandIntegration.sendClipboardShortcut('paste')
+      return
+    }
+    await sendNativeClipboardShortcut('paste')
   }
 
   private delay(ms: number): Promise<void> {

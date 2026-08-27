@@ -8,6 +8,7 @@
  * - log-handlers: 日志相关 (LOG_GET_TAIL, LOG_OPEN_FOLDER, LOG_WRITE)
  * - updater-handlers: 更新相关 (CHECK_FOR_UPDATES, GET_UPDATE_STATUS, GET_APP_VERSION, OPEN_EXTERNAL)
  * - overlay-handlers: 浮窗相关 (OVERLAY_AUDIO_LEVEL, set-ignore-mouse-events, error)
+ * - platform-handlers: Linux/Omarchy Hyprland 集成状态、安装与移除
  *
  * @module electron/main/ipc
  */
@@ -37,10 +38,17 @@ import {
   type OverlayHandlersDeps,
 } from './overlay-handlers'
 
+import {
+  registerPlatformHandlers,
+  initPlatformHandlers,
+  type PlatformHandlersDeps,
+} from './platform-handlers'
+
 export type IPCHandlersDeps = {
   config: ConfigHandlersDeps
   session: SessionHandlersDeps
   overlay: OverlayHandlersDeps
+  platform: PlatformHandlersDeps
 }
 
 /**
@@ -69,6 +77,7 @@ export function initIPCHandlers(deps: IPCHandlersDeps): void {
   initConfigHandlers(deps.config)
   initSessionHandlers(deps.session)
   initOverlayHandlers(deps.overlay)
+  initPlatformHandlers(deps.platform)
 }
 
 /**
@@ -82,6 +91,7 @@ export function initIPCHandlers(deps: IPCHandlersDeps): void {
  * - ✅ log-handlers (3 个通道)
  * - ✅ updater-handlers (4 个通道)
  * - ✅ overlay-handlers (3 个通道)
+ * - ✅ platform-handlers (3 个通道)
  */
 export function registerAllIPCHandlers(): void {
   registerConfigHandlers()
@@ -90,11 +100,13 @@ export function registerAllIPCHandlers(): void {
   registerLogHandlers()
   registerUpdaterHandlers()
   registerOverlayHandlers()
+  registerPlatformHandlers()
 
-  console.log('[IPC] All handlers registered: 6 modules, 32 channels')
+  console.log('[IPC] All handlers registered: 7 modules, 35 channels')
 }
 
 // Re-export types for external use
 export type { ConfigHandlersDeps } from './config-handlers'
 export type { SessionHandlersDeps } from './session-handlers'
 export type { OverlayHandlersDeps } from './overlay-handlers'
+export type { PlatformHandlersDeps } from './platform-handlers'

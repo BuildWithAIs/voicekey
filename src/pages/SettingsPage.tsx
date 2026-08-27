@@ -19,6 +19,7 @@ import {
   FolderOpen,
   Folder,
   Trash2,
+  Monitor,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -47,6 +48,7 @@ import type {
   LLMProvider,
   LocalASRDownloadProgress,
   LocalASRStatus,
+  LinuxIntegrationStatus,
   TranslationConfig,
   UpdateInfo,
 } from '@electron/shared/types'
@@ -446,6 +448,10 @@ export default function SettingsPage() {
   const [microphoneDevices, setMicrophoneDevices] = useState<AudioInputDevice[]>([])
   const [loadingMicrophones, setLoadingMicrophones] = useState(false)
   const [microphoneError, setMicrophoneError] = useState<string | null>(null)
+  const [linuxIntegrationStatus, setLinuxIntegrationStatus] =
+    useState<LinuxIntegrationStatus | null>(null)
+  const [linuxIntegrationBusy, setLinuxIntegrationBusy] = useState(false)
+  const [linuxIntegrationError, setLinuxIntegrationError] = useState<string | null>(null)
   const hasLoadedConfig = useRef(false)
   const hasLoadedUpdateStatus = useRef(false)
   const latestConfigRef = useRef(config)
@@ -472,6 +478,17 @@ export default function SettingsPage() {
     latestOriginalConfigRef.current = originalConfig
   }, [originalConfig])
 
+  const refreshLinuxIntegrationStatus = useCallback(async () => {
+    if (window.electronAPI.platform !== 'linux') return
+    try {
+      const status = await window.electronAPI.getLinuxIntegrationStatus()
+      setLinuxIntegrationStatus(status)
+      setLinuxIntegrationError(status.error ?? null)
+    } catch (error) {
+      setLinuxIntegrationError(error instanceof Error ? error.message : String(error))
+    }
+  }, [])
+
   useEffect(() => {
     if (hasLoadedConfig.current) return
     hasLoadedConfig.current = true
@@ -493,6 +510,25 @@ export default function SettingsPage() {
 
     loadConfig()
   }, [])
+
+  useEffect(() => {
+    void refreshLinuxIntegrationStatus()
+  }, [refreshLinuxIntegrationStatus])
+
+  useEffect(() => {
+    if (window.electronAPI.platform !== 'linux' || isConfigLoading) return
+    const timer = setTimeout(() => {
+      void refreshLinuxIntegrationStatus()
+    }, AUTO_SAVE_DELAY_MS + 500)
+    return () => clearTimeout(timer)
+  }, [
+    config.hotkey.pttKey,
+    config.hotkey.toggleSettings,
+    config.hotkey.translateKey,
+    config.translation.enabled,
+    isConfigLoading,
+    refreshLinuxIntegrationStatus,
+  ])
 
   useEffect(() => {
     const loadLocalAsrStatus = async () => {
@@ -1422,6 +1458,56 @@ export default function SettingsPage() {
     }))
   }
 
+  const handleInstallLinuxIntegration = async () => {
+    const hotkeyError = getHotkeyErrorMessage(config.hotkey)
+    if (hotkeyError) {
+      setLinuxIntegrationError(hotkeyError)
+      return
+    }
+
+    setLinuxIntegrationBusy(true)
+    setLinuxIntegrationError(null)
+    try {
+      clearAutoSaveTimer()
+      await window.electronAPI.setConfig({
+        hotkey: config.hotkey,
+        translation: config.translation,
+      })
+      setOriginalConfig((current) => {
+        if (!current) return current
+        const next = {
+          ...current,
+          hotkey: config.hotkey,
+          translation: config.translation,
+        }
+        latestOriginalConfigRef.current = next
+        return next
+      })
+      const status = await window.electronAPI.installLinuxIntegration()
+      setLinuxIntegrationStatus(status)
+      setSaveStatus({ state: 'success', message: t('settings.autoSave.saved') })
+      toast.success(t('settings.linuxIntegration.installSuccess'))
+    } catch (error) {
+      setLinuxIntegrationError(error instanceof Error ? error.message : String(error))
+    } finally {
+      setLinuxIntegrationBusy(false)
+    }
+  }
+
+  const handleRemoveLinuxIntegration = async () => {
+    setLinuxIntegrationBusy(true)
+    setLinuxIntegrationError(null)
+    try {
+      const status = await window.electronAPI.removeLinuxIntegration()
+      setLinuxIntegrationStatus(status)
+      toast.success(t('settings.linuxIntegration.removeSuccess'))
+    } catch (error) {
+      setLinuxIntegrationError(error instanceof Error ? error.message : String(error))
+    } finally {
+      setLinuxIntegrationBusy(false)
+    }
+  }
+
   const selectedMicrophoneDeviceId = config.asr.microphoneDeviceId?.trim() ?? ''
   const selectedMicrophoneValue = selectedMicrophoneDeviceId || MICROPHONE_INPUT.SYSTEM_DEFAULT_ID
   const selectedMicrophone = microphoneDevices.find(
@@ -1592,6 +1678,13 @@ export default function SettingsPage() {
   const activeTargetLanguage = TARGET_LANGUAGES.find(
     (lang) => lang.value === config.translation.targetLanguage,
   )
+  const linuxIntegrationReady = Boolean(
+    linuxIntegrationStatus?.available &&
+    linuxIntegrationStatus.installed &&
+    linuxIntegrationStatus.connected &&
+    !linuxIntegrationStatus.needsRepair,
+  )
+  const linuxBackendReady = linuxIntegrationReady || linuxIntegrationStatus?.session === 'x11'
 
   return (
     <div className="mx-auto max-w-[1040px] px-8 py-7">
@@ -2115,6 +2208,127 @@ export default function SettingsPage() {
               </Alert>
             )}
           </div>
+
+          {window.electronAPI.platform === 'linux' && (
+            <SectionCard
+              icon={<Monitor className="h-[18px] w-[18px]" />}
+              title={t('settings.linuxIntegration.title')}
+              desc={t('settings.linuxIntegration.description')}
+            >
+              <div className="space-y-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">
+                      {linuxIntegrationStatus?.session === 'x11'
+                        ? t('settings.linuxIntegration.x11Ready')
+                        : linuxIntegrationReady
+                          ? t('settings.linuxIntegration.ready')
+                          : linuxIntegrationStatus?.installed
+                            ? t('settings.linuxIntegration.installedNeedsRepair')
+                            : t('settings.linuxIntegration.notInstalled')}
+                    </p>
+                    <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                      {t('settings.linuxIntegration.session', {
+                        session: linuxIntegrationStatus
+                          ? t(
+                              `settings.linuxIntegration.sessions.${linuxIntegrationStatus.session}`,
+                            )
+                          : '—',
+                      })}
+                    </p>
+                  </div>
+                  <span
+                    className={cn(
+                      'shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold',
+                      linuxBackendReady
+                        ? 'bg-green-500/10 text-green-600 dark:text-green-500'
+                        : 'bg-amber-500/10 text-amber-700 dark:text-amber-400',
+                    )}
+                  >
+                    {linuxBackendReady
+                      ? t('settings.linuxIntegration.connected')
+                      : t('settings.linuxIntegration.actionRequired')}
+                  </span>
+                </div>
+
+                {linuxIntegrationStatus && !linuxIntegrationStatus.available && (
+                  <Alert>
+                    <Info className="h-4 w-4" />
+                    <AlertDescription>
+                      {linuxIntegrationStatus.session === 'x11'
+                        ? t('settings.linuxIntegration.x11Fallback')
+                        : t('settings.linuxIntegration.waylandUnsupported')}
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                {linuxIntegrationStatus?.conflicts.length ? (
+                  <Alert variant="destructive">
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertDescription>
+                      {t('settings.linuxIntegration.conflicts', {
+                        conflicts: linuxIntegrationStatus.conflicts.join(', '),
+                      })}
+                    </AlertDescription>
+                  </Alert>
+                ) : null}
+
+                {linuxIntegrationError && (
+                  <Alert variant="destructive">
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertDescription>{linuxIntegrationError}</AlertDescription>
+                  </Alert>
+                )}
+
+                {linuxIntegrationStatus?.configPath && (
+                  <div className="rounded-lg border bg-secondary/50 p-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      {t('settings.linuxIntegration.configPath')}
+                    </p>
+                    <p className="mt-1 break-all font-mono text-xs text-foreground">
+                      {linuxIntegrationStatus.configPath}
+                    </p>
+                    <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+                      {t('settings.linuxIntegration.backupHelp')}
+                    </p>
+                  </div>
+                )}
+
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void handleInstallLinuxIntegration()}
+                    disabled={
+                      linuxIntegrationBusy ||
+                      saveStatus?.state === 'saving' ||
+                      !linuxIntegrationStatus?.available ||
+                      Boolean(linuxIntegrationStatus?.error) ||
+                      Boolean(linuxIntegrationStatus?.conflicts.length)
+                    }
+                    className="no-drag cursor-pointer"
+                  >
+                    {linuxIntegrationBusy
+                      ? t('settings.linuxIntegration.working')
+                      : linuxIntegrationStatus?.installed
+                        ? t('settings.linuxIntegration.repair')
+                        : t('settings.linuxIntegration.install')}
+                  </Button>
+                  {linuxIntegrationStatus?.installed && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => void handleRemoveLinuxIntegration()}
+                      disabled={linuxIntegrationBusy || !linuxIntegrationStatus.available}
+                      className="no-drag cursor-pointer text-muted-foreground"
+                    >
+                      {t('settings.linuxIntegration.remove')}
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </SectionCard>
+          )}
 
           {/* 诊断 */}
           <SectionCard

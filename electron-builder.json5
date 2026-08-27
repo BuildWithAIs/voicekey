@@ -41,6 +41,45 @@
     artifactName: '${productName}-Windows-${version}-Setup.${ext}',
     icon: 'build/icons/win/icon.ico',
   },
+  linux: {
+    target: [
+      {
+        target: 'AppImage',
+        arch: ['x64'],
+      },
+      {
+        target: 'pacman',
+        arch: ['x64'],
+      },
+    ],
+    artifactName: '${productName}-Linux-${version}-${arch}.${ext}',
+    executableName: 'voice-key',
+    icon: 'build/icons/png',
+    category: 'Utility',
+    synopsis: 'Push-to-talk voice input',
+    description: 'Privacy-first push-to-talk voice input with local speech recognition, optional refinement, translation, and focused-app text injection.',
+    maintainer: 'BuildWithAIs <buildwithais@users.noreply.github.com>',
+    vendor: 'BuildWithAIs',
+    syncDesktopName: true,
+    desktop: {
+      entry: {
+        Keywords: 'voice;dictation;transcription;speech;input;',
+      },
+    },
+  },
+  pacman: {
+    artifactName: '${productName}-Linux-${version}-${arch}.pkg.tar.zst',
+    depends: [
+      'gtk3',
+      'libnotify',
+      'nss',
+      'libxss',
+      'libxtst',
+      'xdg-utils',
+      'at-spi2-core',
+      'libsecret',
+    ],
+  },
   nsis: {
     oneClick: false,
     perMachine: false,

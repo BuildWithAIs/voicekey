@@ -51,11 +51,11 @@ import type { TextRefiner } from '../refine'
  */
 export type ConfigHandlersDeps = {
   /** 更新开机自启状态 */
-  updateAutoLaunchState: (enable: boolean) => void
+  updateAutoLaunchState: (enable: boolean) => Promise<void>
   /** 刷新本地化 UI（托盘菜单、窗口标题等） */
   refreshLocalizedUi: () => void
   /** 重新注册全局快捷键 */
-  registerGlobalHotkeys: () => void
+  registerGlobalHotkeys: () => Promise<void>
   /** 获取文本润色服务 */
   getRefineService: () => TextRefiner | null
   /** 获取设置窗口；只有该窗口可以请求显示已保存的明文密钥 */
@@ -151,7 +151,7 @@ export function registerConfigHandlers(): void {
       if (isPlainObject(config.app)) {
         configManager.setAppConfig(config.app)
         if (typeof config.app.autoLaunch === 'boolean') {
-          deps.updateAutoLaunchState(config.app.autoLaunch)
+          await deps.updateAutoLaunchState(config.app.autoLaunch)
         }
         if (typeof config.app.language === 'string' && config.app.language) {
           await setMainLanguage(config.app.language)
@@ -208,7 +208,7 @@ export function registerConfigHandlers(): void {
         hotkeyManager.unregisterAll()
         ioHookManager.removeAllListeners('keydown')
         ioHookManager.removeAllListeners('keyup')
-        deps.registerGlobalHotkeys()
+        await deps.registerGlobalHotkeys()
         console.log('[IPC:Config] Hotkeys re-registered after config update')
       }
     },

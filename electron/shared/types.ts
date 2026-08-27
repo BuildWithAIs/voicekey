@@ -120,6 +120,21 @@ export interface AppConfig {
   translation: TranslationConfig
 }
 
+export type LinuxDesktopSession = 'omarchy' | 'hyprland' | 'wayland' | 'x11' | 'other'
+
+export interface LinuxIntegrationStatus {
+  supported: boolean
+  available: boolean
+  installed: boolean
+  connected: boolean
+  needsRepair: boolean
+  session: LinuxDesktopSession
+  configPath: string
+  backupPath: string
+  conflicts: string[]
+  error?: string
+}
+
 export interface ConfigSecretRequest {
   scope: 'llm-refine'
   provider: LLMProvider
@@ -201,6 +216,9 @@ export const IPC_CHANNELS = {
   ASR_MODEL_DIRECTORY_OPEN: 'asr-model-directory:open',
   APP_LANGUAGE_GET: 'app:language:get',
   APP_LANGUAGE_CHANGED: 'app:language:changed',
+  LINUX_INTEGRATION_STATUS: 'linux-integration:status',
+  LINUX_INTEGRATION_INSTALL: 'linux-integration:install',
+  LINUX_INTEGRATION_REMOVE: 'linux-integration:remove',
 
   SESSION_START: 'session:start',
   SESSION_STOP: 'session:stop',

@@ -47,6 +47,7 @@
       </ul>
     </li>
     <li><a href="#prerequisites">Configuration Requirements</a></li>
+    <li><a href="#linux-installation">Linux / Omarchy Installation Guide</a></li>
     <li><a href="#installation">macOS Installation Guide</a></li>
     <li><a href="#license">License</a></li>
     <li><a href="#roadmap">Star History</a></li>
@@ -105,6 +106,49 @@ Ensure you have Node.js and npm installed.
 ## Configuration Requirements <a id="prerequisites"></a>
 
 Speech recognition uses only the local **SenseVoiceSmall int8** model and does not require an ASR API key. Before first use, download the roughly 240 MB model from Settings; recording and transcription then run on the device.
+
+## Linux / Omarchy Installation Guide <a id="linux-installation"></a>
+
+Linux releases include an x86_64 AppImage and an Arch/pacman package. Current Omarchy,
+which runs Hyprland on Wayland, is the primary supported Linux environment.
+
+### Omarchy / Arch Linux
+
+1. Download `Voice-Key-Linux-*-x86_64.pkg.tar.zst` from GitHub Releases and install it:
+
+   ```bash
+   sudo pacman -U ./Voice-Key-Linux-*-x86_64.pkg.tar.zst
+   ```
+
+2. Launch Voice Key, open **Settings > Linux & Omarchy Integration**, and select
+   **Install integration**.
+
+   Voice Key manages only a clearly marked block in `~/.config/hypr/bindings.lua` and keeps
+   a one-time backup beside it. It checks shortcut conflicts before changing the file, reloads
+   Hyprland, validates configuration errors, and rolls back automatically on failure. After
+   changing Voice Key hotkeys, use **Update integration** to refresh the managed block.
+
+3. Download a local speech-recognition model in Settings, then hold the recording hotkey and
+   release it to inject the transcription.
+
+On Omarchy/Hyprland, Voice Key receives PTT press/release events over Hyprland socket2 and follows
+Omarchy's universal clipboard behavior: `Ctrl+C/V` in regular apps and `Ctrl/Shift+Insert` in
+terminals. This supports multilingual and multiline text without an X11 keyboard hook.
+
+### Other Linux distributions
+
+Run the AppImage directly:
+
+```bash
+chmod +x Voice-Key-Linux-*-x86_64.AppImage
+./Voice-Key-Linux-*-x86_64.AppImage
+```
+
+- Linux X11 keeps the existing global keyboard and text-injection backend; no Hyprland setup is
+  required.
+- Other Wayland compositors do not yet have complete PTT press/release support. Use an X11 session
+  for now.
+- “Launch on startup” creates a user-level XDG autostart entry and starts Voice Key hidden.
 
 ## macOS Installation Guide <a id="installation"></a>
 

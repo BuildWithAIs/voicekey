@@ -1,56 +1,65 @@
-import { uIOhook, UiohookKey, UiohookKeyboardEvent } from 'uiohook-napi'
 import { EventEmitter } from 'events'
+import type { UiohookKeyMap } from './hotkey/parser'
 
-// Define supported modifiers
-const MODIFIERS = {
-  SHIFT: new Set([UiohookKey.Shift, UiohookKey.ShiftRight]),
-  CTRL: new Set([UiohookKey.Ctrl, UiohookKey.CtrlRight]),
-  ALT: new Set([UiohookKey.Alt, UiohookKey.AltRight]),
-  META: new Set([UiohookKey.Meta, UiohookKey.MetaRight]), // Command on Mac, Windows key on Win
+type UiohookModule = typeof import('uiohook-napi')
+
+type UiohookKeyboardEvent = {
+  type: number
+  keycode: number
 }
-
-// All modifier keys for exact match checking
-const ALL_MODIFIER_KEYS: Set<number> = new Set([
-  UiohookKey.Shift,
-  UiohookKey.ShiftRight,
-  UiohookKey.Ctrl,
-  UiohookKey.CtrlRight,
-  UiohookKey.Alt,
-  UiohookKey.AltRight,
-  UiohookKey.Meta,
-  UiohookKey.MetaRight,
-])
 
 export class IOHookManager extends EventEmitter {
   private pressedKeys: Set<number> = new Set()
   private isListening = false
   private debug = false
+  private nativeModule: UiohookModule | null = null
+  private modifiers: Record<string, Set<number>> = {}
+  private allModifierKeys = new Set<number>()
 
   constructor() {
     super()
   }
 
-  start(debug = false) {
+  async start(debug = false): Promise<void> {
     if (this.isListening) return
 
+    const nativeModule = await import('uiohook-napi')
+    const keyMap = nativeModule.UiohookKey
+    this.nativeModule = nativeModule
+    this.modifiers = {
+      SHIFT: new Set([keyMap.Shift, keyMap.ShiftRight]),
+      CTRL: new Set([keyMap.Ctrl, keyMap.CtrlRight]),
+      ALT: new Set([keyMap.Alt, keyMap.AltRight]),
+      META: new Set([keyMap.Meta, keyMap.MetaRight]),
+    }
+    this.allModifierKeys = new Set([
+      keyMap.Shift,
+      keyMap.ShiftRight,
+      keyMap.Ctrl,
+      keyMap.CtrlRight,
+      keyMap.Alt,
+      keyMap.AltRight,
+      keyMap.Meta,
+      keyMap.MetaRight,
+    ])
     this.debug = debug
     this.pressedKeys.clear()
 
-    uIOhook.on('keydown', (e: UiohookKeyboardEvent) => {
+    nativeModule.uIOhook.on('keydown', (e: UiohookKeyboardEvent) => {
       this.handleInput(e)
     })
-    uIOhook.on('keyup', (e: UiohookKeyboardEvent) => {
+    nativeModule.uIOhook.on('keyup', (e: UiohookKeyboardEvent) => {
       this.handleInput(e)
     })
 
-    uIOhook.start()
+    nativeModule.uIOhook.start()
     this.isListening = true
     if (this.debug) console.log('[IOHook] Started')
   }
 
   stop() {
     if (!this.isListening) return
-    uIOhook.stop()
+    this.nativeModule?.uIOhook.stop()
     this.pressedKeys.clear()
     this.isListening = false
     if (this.debug) console.log('[IOHook] Stopped')
@@ -67,13 +76,17 @@ export class IOHookManager extends EventEmitter {
     if (e.type === 4) {
       // KeyDown
       this.pressedKeys.add(e.keycode)
-      if (this.debug) console.log('[IOHook] KeyDown:', e.keycode, (UiohookKey as any)[e.keycode])
+      if (this.debug) {
+        console.log('[IOHook] KeyDown:', e.keycode, this.getKeyName(e.keycode))
+      }
       this.emit('keydown', e.keycode)
       this.checkHotkeys()
     } else if (e.type === 5) {
       // KeyUp
       this.pressedKeys.delete(e.keycode)
-      if (this.debug) console.log('[IOHook] KeyUp:', e.keycode, (UiohookKey as any)[e.keycode])
+      if (this.debug) {
+        console.log('[IOHook] KeyUp:', e.keycode, this.getKeyName(e.keycode))
+      }
       this.emit('keyup', e.keycode)
     }
   }
@@ -117,13 +130,13 @@ export class IOHookManager extends EventEmitter {
     // 裸修饰键热键（如 PTT = 'Alt'）：主键本身是修饰键且无附加修饰键。
     // 这类热键必须"单独按下"才算命中——否则 'Alt' 会被 'Alt+T' 之类的组合键误触发，
     // 因为下面的检查默认只排斥额外的"修饰键"，不排斥额外的普通键（字母）。
-    const isBareModifierHotkey = modifiers.length === 0 && ALL_MODIFIER_KEYS.has(key)
+    const isBareModifierHotkey = modifiers.length === 0 && this.allModifierKeys.has(key)
 
     for (const pressedKey of this.pressedKeys) {
       // Skip the main key
       if (pressedKey === key) continue
 
-      if (ALL_MODIFIER_KEYS.has(pressedKey)) {
+      if (this.allModifierKeys.has(pressedKey)) {
         // If a pressed key is a modifier key but NOT in the required set, reject
         if (!requiredModifierKeys.has(pressedKey)) {
           return false
@@ -142,7 +155,7 @@ export class IOHookManager extends EventEmitter {
   private getRequiredModifierKeys(modifiers: string[]): Set<number> {
     const keys = new Set<number>()
     for (const mod of modifiers) {
-      const modSet = MODIFIERS[mod.toUpperCase() as keyof typeof MODIFIERS]
+      const modSet = this.modifiers[mod.toUpperCase()]
       if (modSet) {
         for (const k of modSet) {
           keys.add(k)
@@ -153,7 +166,7 @@ export class IOHookManager extends EventEmitter {
   }
 
   private hasModifier(mod: string): boolean {
-    const modSet = MODIFIERS[mod.toUpperCase() as keyof typeof MODIFIERS]
+    const modSet = this.modifiers[mod.toUpperCase()]
     if (!modSet) return false
 
     // Check if any key in the modifier set is pressed
@@ -161,6 +174,18 @@ export class IOHookManager extends EventEmitter {
       if (this.pressedKeys.has(key)) return true
     }
     return false
+  }
+
+  getKeyMap(): UiohookKeyMap {
+    if (!this.nativeModule) {
+      throw new Error('uiohook has not been started')
+    }
+    return this.nativeModule.UiohookKey
+  }
+
+  private getKeyName(keycode: number): string | undefined {
+    if (!this.nativeModule) return undefined
+    return Object.entries(this.nativeModule.UiohookKey).find(([, value]) => value === keycode)?.[0]
   }
 }
 

@@ -58,13 +58,24 @@ import {
 // 环境模块
 import { initEnv, VITE_DEV_SERVER_URL } from './env'
 import { getStreamingASRStatus, warmStreamingASR } from './streaming-asr-manager'
+import { hyprlandIntegration } from './platform/hyprland-integration'
+import {
+  resolveLinuxAutoLaunchExecutable,
+  updateLinuxAutoLaunch,
+} from './platform/linux-auto-launch'
 // 全局变量
 let asrProvider: ASRProvider | null = null
 let refineService: RefineService | null = null
 const STARTUP_HIDDEN_ARG = '--startup-hidden'
 
+if (process.platform === 'linux') {
+  app.commandLine.appendSwitch('ozone-platform-hint', 'auto')
+  app.commandLine.appendSwitch('class', 'voice-key')
+  app.setDesktopName('voice-key.desktop')
+}
+
 // 设置开机自启
-function updateAutoLaunchState(enable: boolean) {
+async function updateAutoLaunchState(enable: boolean): Promise<void> {
   console.log(`[Main] Updating auto-launch state: ${enable}`)
 
   // Development runs use the generic Electron executable. Registering it as a login item
@@ -83,6 +94,16 @@ function updateAutoLaunchState(enable: boolean) {
     return
   }
 
+  if (process.platform === 'linux') {
+    await updateLinuxAutoLaunch({
+      enable,
+      homeDir: app.getPath('home'),
+      executablePath: resolveLinuxAutoLaunchExecutable(process.execPath),
+      configHome: process.env.XDG_CONFIG_HOME,
+    })
+    return
+  }
+
   app.setLoginItemSettings({
     openAtLogin: enable,
     openAsHidden: true,
@@ -90,7 +111,7 @@ function updateAutoLaunchState(enable: boolean) {
 }
 
 function isSilentStartupLaunch(): boolean {
-  if (process.platform === 'win32') {
+  if (process.platform === 'win32' || process.platform === 'linux') {
     return process.argv.includes(STARTUP_HIDDEN_ARG)
   }
 
@@ -135,8 +156,8 @@ function willRunRefine(): boolean {
   return Boolean(refineService?.isEnabled() && refineService.hasValidConfig())
 }
 
-function registerHotkeys(): void {
-  registerGlobalHotkeys({
+async function registerHotkeys(): Promise<void> {
+  await registerGlobalHotkeys({
     getWillRunRefine: willRunRefine,
   })
 }
@@ -173,7 +194,9 @@ app.whenReady().then(async () => {
     })
   })
   // 设置开机自启
-  updateAutoLaunchState(appConfig.autoLaunch ?? false)
+  await updateAutoLaunchState(appConfig.autoLaunch ?? false).catch((error: unknown) => {
+    console.error('[Main] Failed to update auto-launch state:', error)
+  })
   // The local ASR provider is initialized on first use.
   initializeRefineService()
   refreshRemoteGlossaryIfEnabled()
@@ -230,14 +253,15 @@ app.whenReady().then(async () => {
       getCurrentSession, // 同样从 audio/ 导入
       setSessionError, // 同样从 audio/ 导入
     },
+    platform: {
+      getSettingsWindow,
+    },
   })
   registerAllIPCHandlers()
   // 检查更新
   void UpdaterManager.checkForUpdates()
   // 注册全局快捷键
-  registerHotkeys()
-  // 启动 ioHook
-  ioHookManager.start()
+  await registerHotkeys()
 
   // 设置 Dock 图标和应用名称（macOS）
   if (process.platform === 'darwin') {
@@ -278,6 +302,7 @@ app.on('before-quit', () => {
   // 清理资源
   hotkeyManager.unregisterAll()
   ioHookManager.stop()
+  hyprlandIntegration.stop()
 })
 
 app.on('activate', () => {

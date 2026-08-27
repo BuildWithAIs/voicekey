@@ -1,6 +1,13 @@
 import { clipboard, type NativeImage } from 'electron'
-import { keyboard, Key } from '@nut-tree-fork/nut-js'
+import type { Key } from '@nut-tree-fork/nut-js'
 import { createHash } from 'node:crypto'
+import { hyprlandIntegration } from './platform/hyprland-integration'
+import {
+  pressNativeKey,
+  probeNativeKeyboard,
+  sendNativeClipboardShortcut,
+  typeWithNativeKeyboard,
+} from './platform/native-keyboard'
 
 type ClipboardSnapshot = {
   text?: string
@@ -10,10 +17,6 @@ type ClipboardSnapshot = {
 }
 
 export class TextInjector {
-  constructor() {
-    keyboard.config.autoDelayMs = 0
-  }
-
   async injectText(text: string): Promise<void> {
     const injectStartTime = Date.now()
     if (!text || text.trim().length === 0) {
@@ -57,7 +60,7 @@ export class TextInjector {
       // nut.js会在第一次使用时自动请求权限
       try {
         // 尝试一个简单的操作来检查权限
-        await keyboard.type('')
+        await probeNativeKeyboard()
         return { hasPermission: true }
       } catch (error) {
         console.log({ error })
@@ -76,8 +79,7 @@ export class TextInjector {
   // 模拟按键（用于特殊按键，如Enter、Tab等）
   async pressKey(key: Key): Promise<void> {
     try {
-      await keyboard.pressKey(key)
-      await keyboard.releaseKey(key)
+      await pressNativeKey(key)
     } catch (error) {
       console.error('Failed to press key:', error)
       throw error
@@ -89,11 +91,15 @@ export class TextInjector {
       await this.pasteFromClipboard(text)
       return
     }
-    await keyboard.type(text)
+    await typeWithNativeKeyboard(text)
   }
 
   private shouldPasteFromClipboard(text: string): boolean {
     if (process.platform === 'win32') {
+      return true
+    }
+
+    if (hyprlandIntegration.isActiveSession()) {
       return true
     }
 
@@ -148,20 +154,18 @@ export class TextInjector {
 
   private async pasteFromClipboard(text: string): Promise<void> {
     const snapshot = this.captureClipboard()
-    const modifierKey = this.getPasteModifierKey()
     try {
       clipboard.writeText(text)
       await this.delay(50)
-      await keyboard.pressKey(modifierKey, Key.V)
-      await keyboard.releaseKey(modifierKey, Key.V)
+      if (hyprlandIntegration.isActiveSession()) {
+        await hyprlandIntegration.sendClipboardShortcut('paste')
+      } else {
+        await sendNativeClipboardShortcut('paste')
+      }
       await this.delay(50)
     } finally {
       this.restoreClipboard(snapshot)
     }
-  }
-
-  private getPasteModifierKey(): Key {
-    return process.platform === 'darwin' ? Key.LeftCmd : Key.LeftControl
   }
 
   private hasLineBreaks(text: string): boolean {

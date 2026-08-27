@@ -158,9 +158,54 @@ jobs:
           path: release/**/Voice*-Windows-*-Setup.exe
           if-no-files-found: error
 
-  # 4. 发布 Release
+  # 4. 构建 Linux（Omarchy/Arch 优先，同时提供通用 AppImage）
+  build-linux:
+    needs: [prepare-release]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare-release.outputs.new_tag }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libx11-dev \
+            libxtst-dev \
+            libxt-dev \
+            libxrandr-dev \
+            libxinerama-dev \
+            libx11-xcb-dev \
+            libxkbcommon-dev \
+            libxkbcommon-x11-dev \
+            libxkbfile-dev
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Linux packages
+        run: npm run build -- --linux AppImage pacman --x64 --publish never
+
+      - name: Upload Linux artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-artifacts-x64
+          path: |
+            release/**/Voice*-Linux-*.AppImage
+            release/**/Voice*-Linux-*.pkg.tar.zst
+          if-no-files-found: error
+
+  # 5. 发布 Release
   release:
-    needs: [prepare-release, build-mac, build-win]
+    needs: [prepare-release, build-mac, build-win, build-linux]
     runs-on: ubuntu-latest
     steps:
       - name: Download macOS artifacts
@@ -176,6 +221,12 @@ jobs:
           name: win-artifacts
           path: artifacts
 
+      - name: Download Linux artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-artifacts-x64
+          path: artifacts
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -185,6 +236,8 @@ jobs:
           files: |
             artifacts/**/Voice*-Mac-*.dmg
             artifacts/**/Voice*-Windows-*-Setup.exe
+            artifacts/**/Voice*-Linux-*.AppImage
+            artifacts/**/Voice*-Linux-*.pkg.tar.zst
           body: |
             ## 🎉 新版本发布！
 
@@ -204,6 +257,11 @@ jobs:
 
             1. 点击 “更多信息”
             2. 点击 “仍要运行”
+
+            ### 🐧 Linux / Omarchy 用户
+            Omarchy/Arch 可下载 `.pkg.tar.zst` 后执行 `sudo pacman -U ./Voice-Key-*.pkg.tar.zst`。
+            其他 x86_64 Linux 可下载 AppImage，执行 `chmod +x` 后直接运行。
+            首次进入设置页后，请在「Linux 与 Omarchy 集成」中安装 Hyprland 集成。
 
             ---
 

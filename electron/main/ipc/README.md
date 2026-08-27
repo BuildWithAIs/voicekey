@@ -11,3 +11,4 @@
 - `log-handlers.ts` - 日志读取、写入与打开目录。
 - `updater-handlers.ts` - 更新检查、版本查询与打开发布页。
 - `overlay-handlers.ts` - HUD 音频电平与鼠标穿透控制；渲染进程错误上报会被安全转为字符串，并在有活跃会话时把 HUD 切到错误态后自动隐藏。
+- `platform-handlers.ts` - Linux/Omarchy 集成状态、安装与移除；仅设置窗口可调用，快捷键和路径均由主进程配置解析，不接受渲染进程传入的文件路径或 Lua 内容。

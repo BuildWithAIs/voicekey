@@ -3,6 +3,13 @@
   "private": true,
   "version": "0.2.0",
   "productName": "Voice Key",
+  "description": "Privacy-first push-to-talk voice input for Windows, macOS, and Linux",
+  "author": {
+    "name": "BuildWithAIs",
+    "email": "buildwithais@users.noreply.github.com"
+  },
+  "homepage": "https://github.com/BuildWithAIs/voicekey",
+  "desktopName": "voice-key.desktop",
   "type": "module",
   "scripts": {
     "dev": "vite",

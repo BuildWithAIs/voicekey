@@ -1,6 +1,6 @@
 # Translation Module
 
-- `translator.ts` — Core translation/polishing service: captures selected text via Ctrl+C, calls the configured OpenAI/DeepSeek/OpenRouter/custom-compatible LLM API with the built-in native-quality translation prompt and the shared target language, applies the same Provider-aware reasoning policy used by refinement, and replaces the selection via plain-text Ctrl+V (clipboard save/restore). No character-by-character deletion — relies on standard GUI behavior where Ctrl+V replaces selected text.
+- `translator.ts` — Core translation/polishing service: captures selected text via the platform clipboard shortcut, calls the configured OpenAI/DeepSeek/OpenRouter/custom-compatible LLM API with the built-in native-quality translation prompt and the shared target language, applies the same Provider-aware reasoning policy used by refinement, and replaces the selection via a plain-text paste (clipboard save/restore). Omarchy/Hyprland follows its universal clipboard convention (`Ctrl+C/V` for GUI apps, `Ctrl/Shift+Insert` for terminals); other platforms keep the native keyboard backend.
 
 ## Architecture
 
@@ -25,7 +25,7 @@ We use Ctrl+V to **replace** the currently-selected text rather than Esc + Backs
 
 - In GUI applications (VS Code, Obsidian, Outlook, browsers), selecting text then pressing Ctrl+V natively replaces the selection with the clipboard content
 - Character-by-character Backspace deletion was unreliable in input-box applications: Esc might not position the cursor at the end of the selection, causing Backspace to delete text _before_ the selection
-- The trade-off is that terminal applications (where Ctrl+V may not replace selected text) are a secondary use case
+- On Omarchy/Hyprland, terminal-tagged windows use `Ctrl+Insert` and `Shift+Insert`, so terminal replacement follows the compositor's existing universal clipboard model
 
 The paste path intentionally writes only `text/plain` and waits before restoring the original clipboard. Apps such as Word, WeChat, and browser inputs may read clipboard data asynchronously; restoring rich clipboard contents too early can cause the app to paste stale HTML/RTF data instead of the translated or polished text.
 

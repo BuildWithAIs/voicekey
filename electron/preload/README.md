@@ -11,7 +11,7 @@ Electron 预加载脚本目录，作为主进程与渲染进程之间的安全�
 
 ### `preload.ts`
 
-通过 `contextBridge` 暴露 `window.electronAPI`，封装配置、两套本地 ASR 模型下载/删除、模型目录打开、经典/流式录音、历史、日志与更新相关 IPC。
+通过 `contextBridge` 暴露 `window.electronAPI`，封装配置、两套本地 ASR 模型下载/删除、模型目录打开、经典/流式录音、Linux/Omarchy 集成、历史、日志与更新相关 IPC。
 
 ## 录音相关 API
 
@@ -34,3 +34,4 @@ Electron 预加载脚本目录，作为主进程与渲染进程之间的安全�
 - `getHistory()` / `clearHistory()` / `deleteHistoryItem(id)` - 管理转录历史。
 - `checkForUpdates()` / `getUpdateStatus()` / `openExternal(url)` - 更新相关接口。
 - `getLogTail(options)` / `openLogFolder()` / `log(entry)` - 日志相关接口。
+- `getLinuxIntegrationStatus()` / `installLinuxIntegration()` / `removeLinuxIntegration()` - 查询、安装/更新与移除受管理的 Omarchy/Hyprland 集成；主进程限制为设置窗口调用。

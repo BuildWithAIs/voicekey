@@ -43,6 +43,7 @@ export function createOverlayWindow(): BrowserWindow {
     x: Math.round((screenWidth - OVERLAY_WIDTH) / 2),
     y: screenHeight - OVERLAY_HEIGHT - BOTTOM_MARGIN,
     frame: false,
+    title: 'Voice Key Overlay',
     transparent: true,
     backgroundColor: '#00000000',
     alwaysOnTop: true,
@@ -57,6 +58,10 @@ export function createOverlayWindow(): BrowserWindow {
       nodeIntegration: false,
       contextIsolation: true,
     },
+  })
+
+  overlayWindow.webContents.on('page-title-updated', (event) => {
+    event.preventDefault()
   })
 
   // 设置全屏/多工作区可见
