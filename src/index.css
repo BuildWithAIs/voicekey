@@ -342,3 +342,63 @@ html.vk-theme-changing *::after {
   content-visibility: auto;
   contain-intrinsic-size: 96px;
 }
+
+/* ============================================================
+   HUD 浮窗动效（流光光标 / 胶囊扫光 / 弹性出现）
+   ============================================================ */
+
+/* 流式文本末尾的呼吸光标 */
+.hud-caret {
+  animation: hud-caret 1s ease-in-out infinite;
+}
+@keyframes hud-caret {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.15;
+  }
+}
+
+/* 处理阶段激活胶囊上的流光扫过 */
+.hud-shimmer {
+  background: linear-gradient(
+    100deg,
+    transparent 20%,
+    rgba(255, 255, 255, 0.16) 50%,
+    transparent 80%
+  );
+  animation: hud-shimmer 1.6s ease-in-out infinite;
+}
+@keyframes hud-shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* 状态图标的弹性出现 */
+.hud-pop {
+  animation: hud-pop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+@keyframes hud-pop {
+  0% {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hud-caret,
+  .hud-shimmer,
+  .hud-pop {
+    animation: none;
+  }
+}
