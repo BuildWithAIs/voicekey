@@ -1,220 +1,239 @@
-<a id="readme-top"></a>
-
-[![Contributors][contributors-shield]][contributors-url]
-[![Forks][forks-shield]][forks-url]
-[![Stargazers][stars-shield]][stars-url]
-[![Issues][issues-shield]][issues-url]
-
-[English](./README_EN.md)
-
-<br />
 <div align="center">
   <a href="https://github.com/BuildWithAIs/voicekey">
-    <img src="imgs/logo.png" alt="Logo" width="80" height="80">
+    <img src="imgs/logo.png" alt="Voice Key logo" width="96" height="96">
   </a>
 
-  <h3 align="center">Voice Key</h3>
+  <h1>Voice Key</h1>
 
-  <p align="center">
-    一款开源的桌面语音输入应用
-    <br />
-    <br />
-    <a href="https://github.com/BuildWithAIs/voicekey">查看演示</a>
-    &middot;
-    <a href="https://github.com/BuildWithAIs/voicekey/issues">报告 Bug</a>
-    &middot;
-    <a href="https://github.com/BuildWithAIs/voicekey/issues">请求功能</a>
+  <p><strong>Privacy-first push-to-talk voice input for Windows, macOS, and Linux.</strong></p>
+
+  <p>
+    Hold a hotkey, speak, and release. Voice Key transcribes on your device, optionally cleans up
+    the text with your own LLM provider, and inserts the result into the focused application.
+  </p>
+
+  <p>
+    <a href="README.zh-CN.md">简体中文</a>
+    · <a href="https://buildwithais.github.io/voicekey/">Website</a>
+    · <a href="https://github.com/BuildWithAIs/voicekey/releases/latest">Download</a>
+    · <a href="https://github.com/BuildWithAIs/voicekey/issues">Issues</a>
+  </p>
+
+  <p>
+    <a href="https://github.com/BuildWithAIs/voicekey/actions/workflows/ci.yml"><img src="https://github.com/BuildWithAIs/voicekey/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
+    <a href="https://github.com/BuildWithAIs/voicekey/releases/latest"><img src="https://img.shields.io/github/v/release/BuildWithAIs/voicekey" alt="Latest release"></a>
+    <a href="LICENSE"><img src="https://img.shields.io/github/license/BuildWithAIs/voicekey" alt="MIT license"></a>
+    <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-2f363d" alt="Supported platforms">
   </p>
 </div>
 
-<p align="center">
-  <img src="imgs/screenshot.png" alt="Voice Key Screenshot" width="100%">
-</p>
+> [!NOTE]
+> Voice Key is under active development. Current release builds are not code-signed, so Windows
+> SmartScreen or macOS Gatekeeper may show a warning during installation.
 
-<details>
-  <summary>目录</summary>
-  <ol>
-    <li>
-      <a href="#about-the-project">主要功能</a>
-      <ul>
-        <li><a href="#built-with">技术栈</a></li>
-      </ul>
-    </li>
-    <li>
-      <a href="#getting-started">上手指南</a>
-      <ul>
-        <li><a href="#env-prerequisites">环境要求</a></li>
-        <li><a href="#dev-installation">安装步骤</a></li>
-      </ul>
-    </li>
-    <li><a href="#prerequisites">配置要求</a></li>
-    <li><a href="#linux-installation">Linux / Omarchy 安装指南</a></li>
-    <li><a href="#installation">macOS 安装指南</a></li>
-    <li><a href="#license">开源协议</a></li>
-    <li><a href="#roadmap">Star History</a></li>
-  </ol>
-</details>
+## Why Voice Key
 
-## 主要功能 <a id="about-the-project"></a>
+Voice Key turns speech into text without changing the way you work. It stays in the background,
+starts recording only while you hold the push-to-talk key, and pastes the final text wherever your
+cursor is active.
 
-- **本地语音转写**: 可选 SenseVoiceSmall 录音后识别，或使用 Streaming Paraformer 边说边识别并在结束后由本地 CT-Transformer 自动补充标点；音频均无需上传。
-- **文本润色**: 录音结束后可通过 OpenAI-compatible 接口统一润色一次，并显式关闭推理模式以降低等待时间。
-- **文本注入**: 转写完成后可直接注入到当前焦点输入框。
-- **桌面工作流**: 提供全局快捷键、HUD、日志和更新检查能力。
+- **Local-first transcription** — raw audio is processed on your device with downloadable ONNX
+  models; no ASR API key is required.
+- **Two recognition modes** — choose a compact classic workflow or live partial transcription with
+  local punctuation.
+- **Optional text cleanup** — connect OpenAI, DeepSeek, OpenRouter, or a custom OpenAI-compatible
+  endpoint using your own API key.
+- **Translation in place** — translate selected text and replace it in the current application with
+  a dedicated shortcut.
+- **Desktop-native workflow** — configurable global hotkeys, microphone selection, a status HUD,
+  launch-at-login support, update checks, and focused-app text injection.
+- **Local history** — search, copy, inspect, and delete recent transcripts; records are retained on
+  the device for up to 90 days.
+- **English and Chinese interface** — switch the application language from Settings.
 
-### 技术栈 <a id="built-with"></a>
+## How it works
 
-- [![Electron][Electron.js]][Electron-url]
-- [![React][React.js]][React-url]
-- [![Vite][Vite.js]][Vite-url]
-- [![TypeScript][TypeScript]][TypeScript-url]
-- [![TailwindCSS][TailwindCSS]][TailwindCSS-url]
-- [![shadcn/ui][shadcn/ui]][shadcn-url]
-- [![Zustand][Zustand]][Zustand-url]
+```text
+Hold the PTT hotkey
+        ↓
+Capture microphone audio
+        ↓
+Run local speech recognition
+        ↓
+Optionally refine or translate the final text with your LLM provider
+        ↓
+Insert the result into the focused application and save local history
+```
 
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
+The Electron main process owns microphone sessions, model files, hotkeys, credentials, history,
+updates, and text injection. Speech recognition runs in worker threads so model inference does not
+block the application UI.
 
-## 上手指南 <a id="getting-started"></a>
+### Recognition modes
 
-按照以下步骤在本地启动项目。
+| Mode          | Local models                                                     | Experience                                                                                | Approximate download |
+| ------------- | ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------- | -------------------- |
+| **Classic**   | SenseVoiceSmall int8                                             | Transcribes after recording; best for a compact, simple setup                             | 240 MB               |
+| **Streaming** | Streaming Paraformer bilingual int8 + CT-Transformer punctuation | Shows partial text while speaking and adds Chinese/English punctuation locally at the end | 298 MB               |
 
-### 环境要求 <a id="env-prerequisites"></a>
+The modes are mutually exclusive. Model files are downloaded only when requested from Settings,
+stored under Electron's per-user application data directory, and verified against pinned file sizes
+and SHA-256 hashes.
 
-- Node.js
+## Installation
+
+Download the latest build from
+[GitHub Releases](https://github.com/BuildWithAIs/voicekey/releases/latest).
+
+| Platform                    | Package                         | Notes                                                  |
+| --------------------------- | ------------------------------- | ------------------------------------------------------ |
+| Windows x64                 | Installer (`.exe`)              | SmartScreen may warn because the package is unsigned.  |
+| macOS Intel / Apple silicon | Disk image (`.dmg`)             | Microphone and Accessibility permissions are required. |
+| Linux x86_64                | AppImage                        | Recommended for general Linux X11 distributions.       |
+| Omarchy / Arch Linux x86_64 | pacman package (`.pkg.tar.zst`) | Includes a managed Hyprland integration workflow.      |
+
+### First run
+
+1. Open **Settings** and select a microphone.
+2. Download either the **Classic** or **Streaming** local recognition model.
+3. Optionally configure an LLM provider for transcript cleanup and translation.
+4. Focus any text field, hold the push-to-talk hotkey, speak, and release to insert the result.
+
+The default push-to-talk shortcut is `Control+Shift+Space` on Windows and Linux, and `Option`
+(`Alt`) on macOS. All shortcuts can be changed in Settings.
+
+### Windows
+
+If SmartScreen appears, select **More info**, verify that the package came from this repository's
+Releases page, and then select **Run anyway**.
+
+### macOS
+
+The application needs:
+
+- **Microphone** access to record speech.
+- **Accessibility** access to monitor the push-to-talk shortcut and insert text into other apps.
+
+If macOS reports that the unsigned application is damaged, move it to `/Applications` and run:
+
+```bash
+xattr -cr "/Applications/Voice Key.app"
+```
+
+Then enable Voice Key under **System Settings → Privacy & Security → Accessibility**.
+
+### Linux and Omarchy
+
+For a general x86_64 Linux distribution, make the downloaded AppImage executable and launch it:
+
+```bash
+chmod +x "/path/to/Voice Key-Linux.AppImage"
+"/path/to/Voice Key-Linux.AppImage"
+```
+
+Some recent distributions do not include FUSE 2 by default. If the AppImage reports a missing
+`libfuse.so.2`, install your distribution's `fuse2` or `libfuse2` package, or use AppImage's
+extract-and-run mode:
+
+```bash
+APPIMAGE_EXTRACT_AND_RUN=1 "/path/to/Voice Key-Linux.AppImage"
+```
+
+For Omarchy or Arch Linux, install the downloaded package:
+
+```bash
+sudo pacman -U "/path/to/voice-key-package.pkg.tar.zst"
+```
+
+On Omarchy/Hyprland, open **Settings → Linux & Omarchy Integration** and select
+**Install integration**. Voice Key manages only a marked block in
+`~/.config/hypr/bindings.lua`, checks for shortcut conflicts, keeps a backup, reloads Hyprland,
+and rolls back the change if validation fails.
+
+During text injection, the integration exposes temporary clipboard text through
+`wl-copy --sensitive` and sends the paste shortcut with the `wtype` Wayland virtual keyboard. The
+pacman package declares both tools as dependencies.
+
+Linux X11 uses the standard global-keyboard and text-injection backend. Other Wayland compositors
+do not yet provide complete push-to-talk press/release support; use an X11 session if you are not
+running the supported Hyprland integration path.
+
+## Privacy and data flow
+
+Local transcription does not upload microphone audio. Optional cloud features have a narrower,
+explicit scope:
+
+- **Transcript cleanup** sends the final recognized text—not the raw audio—to the configured LLM
+  provider.
+- **Translation** sends the selected text to that provider and replaces the selection with the
+  response.
+- **History and model files** remain in the application's local user-data directory.
+- **API keys** are managed by the Electron main process and are excluded from application logs.
+
+If you need a fully offline workflow, leave transcript cleanup and translation disabled.
+
+## Build from source
+
+### Prerequisites
+
+- [Node.js 20](https://nodejs.org/)
 - npm
+- Platform build tools required by Electron's native dependencies
 
-```sh
-npm install npm@latest -g
-```
+### Development
 
-### 安装步骤 <a id="dev-installation"></a>
-
-1. 克隆仓库。
-
-```sh
+```bash
 git clone https://github.com/BuildWithAIs/voicekey.git
-```
-
-2. 安装依赖。
-
-```sh
-npm install
-```
-
-3. 启动开发环境。
-
-```sh
+cd voicekey
+npm ci
 npm run dev
 ```
 
-4. 在设置页下载本地语音识别模型。
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-## 配置要求 <a id="prerequisites"></a>
-
-语音识别仅使用本地模型，不需要 ASR API Key。默认经典模式使用约 240 MB 的 **SenseVoiceSmall int8**；可在设置页另行下载约 298 MB 的实时识别组件，其中 Streaming Paraformer bilingual int8 负责边说边识别，本地 CT-Transformer 负责在录音结束后补充中英文标点。两个模式互斥：启用流式模式后不会再调用 SenseVoice。三套权重分别存放；已有 Streaming Paraformer 的用户升级时只需补下载约 72 MB 的标点模型，切回经典模式也不需要重新下载原模型。
-
-## Linux / Omarchy 安装指南 <a id="linux-installation"></a>
-
-Linux 当前提供 x86_64 AppImage 与 Arch/pacman 安装包，并优先适配使用 Hyprland
-Wayland 的当前版 Omarchy。
-
-### Omarchy / Arch Linux
-
-1. 从 GitHub Releases 下载 `Voice-Key-Linux-*-x86_64.pkg.tar.zst`，然后安装：
-
-   ```bash
-   sudo pacman -U ./Voice-Key-Linux-*-x86_64.pkg.tar.zst
-   ```
-
-2. 启动 Voice Key，进入 **设置 > Linux 与 Omarchy 集成**，点击 **安装集成**。
-
-   Voice Key 会在 `~/.config/hypr/bindings.lua` 中维护一个带明确标记的配置块，
-   并在同目录保留一次性备份。应用会先检查快捷键冲突，再重载 Hyprland 并检查
-   配置错误；失败时自动恢复原文件。之后修改 Voice Key 快捷键时，回到这里点击
-   **更新集成** 即可。
-
-3. 在设置页下载本地识别模型，然后按住录音快捷键说话、松开完成输入。
-
-Omarchy/Hyprland 下，Voice Key 通过 Hyprland socket2 接收 PTT 的按下与释放事件，
-并沿用 Omarchy 的通用剪贴板语义：普通应用使用 `Ctrl+C/V`，终端使用
-`Ctrl/Shift+Insert`；临时文本由 `wl-copy --sensitive` 仅在粘贴期间提供，实际按键由
-`wtype` Wayland 虚拟键盘发送。这条路径支持中文、
-英文、多行文本和终端输入，不依赖 X11 键盘 hook。
-
-### 其他 Linux
-
-下载 AppImage 后运行：
+Useful commands:
 
 ```bash
-chmod +x Voice-Key-Linux-*-x86_64.AppImage
-./Voice-Key-Linux-*-x86_64.AppImage
+npm run quality       # lint, formatting, type checks, and tests
+npm run type-check    # TypeScript only
+npm test              # unit tests
+npm run build         # production build and platform package
 ```
 
-部分新版发行版默认不安装 FUSE 2。如果启动时提示缺少 `libfuse.so.2`，请安装
-系统的 `fuse2`/`libfuse2` 包；也可以免安装地使用提取运行模式：
+Packaged artifacts are written to `release/<version>/`. The marketing website is an independent
+Astro project under `website/`; use the `website:*` npm scripts to work on it.
 
-```bash
-APPIMAGE_EXTRACT_AND_RUN=1 ./Voice-Key-Linux-*-x86_64.AppImage
+## Project structure
+
+```text
+electron/
+  main/       Electron lifecycle, audio, ASR, hotkeys, LLM workflows, history, and injection
+  preload/    Typed contextBridge API exposed to renderer windows
+  shared/     Cross-process types, constants, model metadata, and localization
+src/
+  components/ React UI, recorder bridge, HUD, charts, and reusable primitives
+  pages/      Home, Settings, and History screens
+website/      Astro marketing site for GitHub Pages
+public/       Runtime assets used by the desktop renderer
+build/        Installer icons and packaging resources
 ```
 
-- Linux X11 会继续使用原有全局键盘与文本注入后端，无需安装 Hyprland 集成。
-- 其他 Wayland 合成器尚未提供完整 PTT 按下/释放适配；现阶段建议使用 X11 会话。
-- 开启“开机自动启动”后，Linux 会写入用户级 XDG autostart 项，并以隐藏窗口模式启动。
+Directory-level README files provide a more detailed ownership map. Start with
+[`electron/README.md`](electron/README.md) and [`src/README.md`](src/README.md) when tracing a
+runtime or UI change.
 
-## macOS 安装指南 <a id="installation"></a>
+## Contributing
 
-由于应用当前未签名，安装后可能需要额外执行以下步骤。
+Contributions are welcome. Before opening a pull request:
 
-1. **解除安全限制**
+1. Search [existing issues](https://github.com/BuildWithAIs/voicekey/issues) or open a focused issue
+   for a bug or proposal.
+2. Keep privileged operations in the Electron main process and validate renderer-provided IPC
+   payloads.
+3. Update the relevant directory README when behavior or module ownership changes materially.
+4. Run `npm run quality` and include the platforms or runtime paths you verified in the PR.
+5. Use a [Conventional Commits](https://www.conventionalcommits.org/) style commit message.
 
-   如果打开应用时提示“文件已损坏”，请在终端运行：
+Please do not include API keys, transcript contents, or raw recordings in issues or logs.
 
-   ```bash
-   xattr -cr /Applications/Voice\ Key.app
-   ```
+## License
 
-   ![安全提示](imgs/macos-damaged-warning.png)
-
-2. **授予辅助功能权限**
-
-   应用需要监听按键并模拟输入。请前往 **系统设置 > 隐私与安全性 > 辅助功能**，为 **Voice Key** 打开权限。
-
-   ![权限请求](imgs/macos-accessibility-prompt.png)
-   ![权限设置](imgs/macos-accessibility-settings.png)
-
-## 开源协议 <a id="license"></a>
-
-本项目采用 [MIT License](LICENSE)。
-
-## Star History <a id="roadmap"></a>
-
-[![Star History Chart](https://api.star-history.com/svg?repos=BuildWithAIs/voicekey&type=Date)](https://star-history.com/#BuildWithAIs/voicekey&Date)
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-[contributors-shield]: https://img.shields.io/github/contributors/BuildWithAIs/voicekey.svg?style=for-the-badge
-[contributors-url]: https://github.com/BuildWithAIs/voicekey/graphs/contributors
-[forks-shield]: https://img.shields.io/github/forks/BuildWithAIs/voicekey.svg?style=for-the-badge
-[forks-url]: https://github.com/BuildWithAIs/voicekey/network/members
-[stars-shield]: https://img.shields.io/github/stars/BuildWithAIs/voicekey.svg?style=for-the-badge
-[stars-url]: https://github.com/BuildWithAIs/voicekey/stargazers
-[issues-shield]: https://img.shields.io/github/issues/BuildWithAIs/voicekey.svg?style=for-the-badge
-[issues-url]: https://github.com/BuildWithAIs/voicekey/issues
-[license-shield]: https://img.shields.io/github/license/BuildWithAIs/voicekey.svg?style=for-the-badge
-[license-url]: https://github.com/BuildWithAIs/voicekey/blob/master/LICENSE
-[Electron.js]: https://img.shields.io/badge/Electron-191970?style=for-the-badge&logo=Electron&logoColor=white
-[Electron-url]: https://www.electronjs.org/
-[React.js]: https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB
-[React-url]: https://reactjs.org/
-[Vite.js]: https://img.shields.io/badge/vite-%23646CFF.svg?style=for-the-badge&logo=vite&logoColor=white
-[Vite-url]: https://vitejs.dev/
-[TypeScript]: https://img.shields.io/badge/typescript-%23007ACC.svg?style=for-the-badge&logo=typescript&logoColor=white
-[TypeScript-url]: https://www.typescriptlang.org/
-[TailwindCSS]: https://img.shields.io/badge/tailwindcss-%2338B2AC.svg?style=for-the-badge&logo=tailwind-css&logoColor=white
-[TailwindCSS-url]: https://tailwindcss.com/
-[shadcn/ui]: https://img.shields.io/badge/shadcn%2Fui-000000?style=for-the-badge&logo=shadcnui&logoColor=white
-[shadcn-url]: https://ui.shadcn.com/
-[Zustand]: https://img.shields.io/badge/zustand-%2320232a.svg?style=for-the-badge&logo=react&logoColor=%2361DAFB
-[Zustand-url]: https://github.com/pmndrs/zustand
+Voice Key is available under the [MIT License](LICENSE).
