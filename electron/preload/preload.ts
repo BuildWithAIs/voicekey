@@ -15,6 +15,7 @@ import {
   type HostCapabilities,
   type LinuxIntegrationStatus,
   type RefineConnectionResult,
+  type TokenDanceAuthResult,
   type RecordingStartPayload,
   type AudioChunkPayload,
   type StreamingAudioEndPayload,
@@ -31,6 +32,7 @@ export interface ElectronAPI {
   setConfig: (config: Partial<AppConfig>) => Promise<void>
   getConfigSecret: (request: ConfigSecretRequest) => Promise<string>
   testRefineConnection: (config: LLMRefineConfig) => Promise<RefineConnectionResult>
+  connectTokenDance: () => Promise<TokenDanceAuthResult>
   getLocalASRStatus: () => Promise<LocalASRStatus>
   downloadLocalASR: () => Promise<LocalASRStatus>
   deleteLocalASR: () => Promise<LocalASRStatus>
@@ -109,6 +111,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke(IPC_CHANNELS.CONFIG_SECRET_GET, request),
   testRefineConnection: (config: LLMRefineConfig) =>
     ipcRenderer.invoke(IPC_CHANNELS.CONFIG_REFINE_TEST, config),
+  connectTokenDance: () => ipcRenderer.invoke(IPC_CHANNELS.TOKENDANCE_AUTH_CONNECT),
   getLocalASRStatus: () => ipcRenderer.invoke(IPC_CHANNELS.LOCAL_ASR_STATUS),
   downloadLocalASR: () => ipcRenderer.invoke(IPC_CHANNELS.LOCAL_ASR_DOWNLOAD),
   deleteLocalASR: () => ipcRenderer.invoke(IPC_CHANNELS.LOCAL_ASR_DELETE),

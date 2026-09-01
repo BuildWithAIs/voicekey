@@ -6,6 +6,7 @@
  * - CONFIG_SET: 设置配置（支持 app/asr/llmRefine/hotkey/translation 部分更新）
  * - CONFIG_SECRET_GET: 仅向设置窗口返回指定的已保存 API Key 原文
  * - CONFIG_REFINE_TEST: 校验文本润色连接
+ * - TOKENDANCE_AUTH_CONNECT: 浏览器 OAuth 授权创建 TokenDance API Key 并保存（仅设置窗口）
  * - LOCAL_ASR_STATUS / LOCAL_ASR_DOWNLOAD / LOCAL_ASR_DELETE: 经典模型管理
  * - STREAMING_ASR_STATUS / STREAMING_ASR_DOWNLOAD / STREAMING_ASR_DELETE: 实时模型管理
  * - ASR_MODEL_DIRECTORY_OPEN: 打开统一模型存储目录
@@ -48,6 +49,7 @@ import {
   warmStreamingASR,
 } from '../streaming-asr-manager'
 import type { TextRefiner } from '../refine'
+import { authorizeTokenDanceApiKey } from '../refine/tokendance-oauth'
 
 /**
  * 配置处理器外部依赖
@@ -113,6 +115,7 @@ function isConfigSecretRequest(value: unknown): value is ConfigSecretRequest {
       value.provider === 'openai' ||
       value.provider === 'deepseek' ||
       value.provider === 'openrouter' ||
+      value.provider === 'tokendance' ||
       value.provider === 'custom-compatible'
     )
   }
@@ -269,6 +272,24 @@ export function registerConfigHandlers(): void {
     return await refineService.testConnection(
       configManager.resolveLLMRefineConfig(normalizeLLMRefineConfig(config)),
     )
+  })
+
+  // TOKENDANCE_AUTH_CONNECT: 浏览器 OAuth 授权创建 TokenDance API Key 并写入主进程配置
+  ipcMain.handle(IPC_CHANNELS.TOKENDANCE_AUTH_CONNECT, async (event) => {
+    assertSettingsWindowSender(event, 'TokenDance authorization')
+    try {
+      const apiKey = await authorizeTokenDanceApiKey()
+      const currentRefine = configManager.getLLMRefineConfig()
+      configManager.setLLMRefineConfig({
+        tokendance: { ...currentRefine.tokendance, apiKey },
+      })
+      return { ok: true }
+    } catch (error: unknown) {
+      return {
+        ok: false,
+        message: error instanceof Error ? error.message : 'Unknown error',
+      }
+    }
   })
 
   ipcMain.handle(IPC_CHANNELS.LOCAL_ASR_STATUS, () => {

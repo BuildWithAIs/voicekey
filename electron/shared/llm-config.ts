@@ -9,6 +9,7 @@ import type {
   OpenAIConfig,
   OpenRouterConfig,
   OpenRouterModel,
+  TokenDanceConfig,
 } from './types'
 
 export interface ResolvedLLMConnection {
@@ -33,6 +34,11 @@ const DEFAULT_OPENROUTER_CONFIG: OpenRouterConfig = {
   model: LLM_PROVIDERS.DEFAULT_OPENROUTER_MODEL,
 }
 
+const DEFAULT_TOKENDANCE_CONFIG: TokenDanceConfig = {
+  apiKey: LLM_REFINE.API_KEY,
+  model: LLM_PROVIDERS.DEFAULT_TOKENDANCE_MODEL,
+}
+
 const DEFAULT_CUSTOM_CONFIG: CustomCompatibleLLMConfig = {
   endpoint: LLM_REFINE.ENDPOINT,
   model: LLM_REFINE.MODEL,
@@ -49,6 +55,7 @@ export const defaultLLMRefineConfig: LLMRefineConfig = {
   openai: DEFAULT_OPENAI_CONFIG,
   deepseek: DEFAULT_DEEPSEEK_CONFIG,
   openrouter: DEFAULT_OPENROUTER_CONFIG,
+  tokendance: DEFAULT_TOKENDANCE_CONFIG,
   custom: DEFAULT_CUSTOM_CONFIG,
 }
 
@@ -89,6 +96,7 @@ function normalizeProvider(value: unknown, rawConfig?: Record<string, unknown>):
     value === 'openai' ||
     value === 'deepseek' ||
     value === 'openrouter' ||
+    value === 'tokendance' ||
     value === 'custom-compatible'
   ) {
     return value
@@ -107,6 +115,10 @@ function normalizeProvider(value: unknown, rawConfig?: Record<string, unknown>):
 
   if (lowerEndpoint.includes('openrouter.ai')) {
     return 'openrouter'
+  }
+
+  if (lowerEndpoint.includes('tokendance.space')) {
+    return 'tokendance'
   }
 
   if (endpoint || readString(rawConfig?.model) || readString(rawConfig?.apiKey)) {
@@ -147,6 +159,15 @@ function isBuiltInOpenRouterModel(model: string): model is OpenRouterModel {
 function normalizeOpenRouterModel(value: unknown): OpenRouterModel {
   const model = readString(value).trim()
   return isBuiltInOpenRouterModel(model) ? model : LLM_PROVIDERS.DEFAULT_OPENROUTER_MODEL
+}
+
+function isBuiltInTokenDanceModel(model: string): model is TokenDanceConfig['model'] {
+  return LLM_PROVIDERS.TOKENDANCE_MODELS.some((option) => option.id === model)
+}
+
+function normalizeTokenDanceModel(value: unknown): TokenDanceConfig['model'] {
+  const model = readString(value).trim()
+  return isBuiltInTokenDanceModel(model) ? model : LLM_PROVIDERS.DEFAULT_TOKENDANCE_MODEL
 }
 
 function normalizeDeepSeekConfig(
@@ -191,6 +212,21 @@ function normalizeOpenRouterConfig(
   return {
     apiKey: readString(raw?.apiKey, readString(legacyApiKey, DEFAULT_OPENROUTER_CONFIG.apiKey)),
     model: normalizeOpenRouterModel(raw?.model ?? legacyModel),
+  }
+}
+
+function normalizeTokenDanceConfig(
+  value: unknown,
+  rawConfig: Record<string, unknown> | undefined,
+  provider: LLMProvider,
+): TokenDanceConfig {
+  const raw = isRecord(value) ? value : undefined
+  const legacyModel = provider === 'tokendance' ? rawConfig?.model : undefined
+  const legacyApiKey = provider === 'tokendance' ? rawConfig?.apiKey : undefined
+
+  return {
+    apiKey: readString(raw?.apiKey, readString(legacyApiKey, DEFAULT_TOKENDANCE_CONFIG.apiKey)),
+    model: normalizeTokenDanceModel(raw?.model ?? legacyModel ?? DEFAULT_TOKENDANCE_CONFIG.model),
   }
 }
 
@@ -241,6 +277,15 @@ export function resolveLLMConnection(config: LLMRefineConfig): ResolvedLLMConnec
     }
   }
 
+  if (config.provider === 'tokendance') {
+    return {
+      provider: 'tokendance',
+      endpoint: LLM_PROVIDERS.TOKENDANCE_ENDPOINT,
+      model: config.tokendance.model,
+      apiKey: config.tokendance.apiKey,
+    }
+  }
+
   return {
     provider: 'custom-compatible',
     endpoint: config.custom.endpoint,
@@ -258,6 +303,7 @@ export function normalizeLLMRefineConfig(config?: Partial<LLMRefineConfig>): LLM
   const openai = normalizeOpenAIConfig(rawConfig?.openai, rawConfig, provider)
   const deepseek = normalizeDeepSeekConfig(rawConfig?.deepseek, rawConfig, provider)
   const openrouter = normalizeOpenRouterConfig(rawConfig?.openrouter, rawConfig, provider)
+  const tokendance = normalizeTokenDanceConfig(rawConfig?.tokendance, rawConfig, provider)
   const custom = normalizeCustomConfig(rawConfig?.custom, rawConfig, provider)
   const activeConnection = resolveLLMConnection({
     ...defaultLLMRefineConfig,
@@ -265,6 +311,7 @@ export function normalizeLLMRefineConfig(config?: Partial<LLMRefineConfig>): LLM
     openai,
     deepseek,
     openrouter,
+    tokendance,
     custom,
   })
 
@@ -279,8 +326,23 @@ export function normalizeLLMRefineConfig(config?: Partial<LLMRefineConfig>): LLM
     openai,
     deepseek,
     openrouter,
+    tokendance,
     custom,
   }
+}
+
+/**
+ * Per-request app attribution headers. TokenDance attributes calls via the
+ * X-App-URL request header, which overrides any App URL stored on the API key.
+ */
+export function buildLLMAttributionHeaders(
+  connection: ResolvedLLMConnection,
+): Record<string, string> {
+  if (connection.provider === 'tokendance') {
+    return { 'X-App-URL': LLM_PROVIDERS.TOKENDANCE_APP_URL }
+  }
+
+  return {}
 }
 
 export function selectReasoningLevel(text: string): LLMReasoningLevel {

@@ -1,6 +1,9 @@
 import axios from 'axios'
 import type { LLMRefineConfig, RefineConnectionResult } from '../../shared/types'
-import { buildDisabledReasoningPayloadFields } from '../../shared/llm-config'
+import {
+  buildDisabledReasoningPayloadFields,
+  buildLLMAttributionHeaders,
+} from '../../shared/llm-config'
 import {
   extractAxiosErrorMessage,
   extractMessageContent,
@@ -86,6 +89,7 @@ export class RefineService implements TextRefiner {
         resolvedConfig.apiKey,
         payload,
         resolvedConfig.timeoutMs,
+        buildLLMAttributionHeaders(resolvedConfig.connection),
       )
       const refinedText = extractMessageContent(response)
       if (!refinedText) {
@@ -130,6 +134,7 @@ export class RefineService implements TextRefiner {
           ...buildDisabledReasoningPayloadFields(resolvedConfig.connection),
         },
         resolvedConfig.timeoutMs,
+        buildLLMAttributionHeaders(resolvedConfig.connection),
       )
 
       return { ok: true }

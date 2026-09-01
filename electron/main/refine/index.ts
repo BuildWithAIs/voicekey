@@ -10,3 +10,4 @@ export {
   type ResolvedRefineRequestConfig,
   type ResolveRefineRequestConfigOptions,
 } from './config-resolver'
+export { authorizeTokenDanceApiKey } from './tokendance-oauth'

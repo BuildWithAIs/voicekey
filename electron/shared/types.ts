@@ -50,7 +50,7 @@ export interface HostCapabilities {
   meetsStreamingAsrRecommendation: boolean
 }
 
-export type LLMProvider = 'openai' | 'deepseek' | 'openrouter' | 'custom-compatible'
+export type LLMProvider = 'openai' | 'deepseek' | 'openrouter' | 'tokendance' | 'custom-compatible'
 
 export type OpenAIModel = typeof import('./constants').LLM_PROVIDERS.DEFAULT_OPENAI_MODEL
 
@@ -58,6 +58,9 @@ export type DeepSeekModel = (typeof import('./constants').LLM_PROVIDERS.DEEPSEEK
 
 export type OpenRouterModel =
   (typeof import('./constants').LLM_PROVIDERS.OPENROUTER_MODELS)[number]['id']
+
+export type TokenDanceModel =
+  (typeof import('./constants').LLM_PROVIDERS.TOKENDANCE_MODELS)[number]['id']
 
 export type LLMReasoningLevel = 'off' | 'medium' | 'high'
 
@@ -74,6 +77,11 @@ export interface DeepSeekConfig {
 export interface OpenRouterConfig {
   apiKey: string
   model: OpenRouterModel
+}
+
+export interface TokenDanceConfig {
+  apiKey: string
+  model: TokenDanceModel
 }
 
 export interface CustomCompatibleLLMConfig {
@@ -93,6 +101,7 @@ export interface LLMRefineConfig {
   openai: OpenAIConfig
   deepseek: DeepSeekConfig
   openrouter: OpenRouterConfig
+  tokendance: TokenDanceConfig
   custom: CustomCompatibleLLMConfig
 }
 
@@ -180,6 +189,11 @@ export interface RefineConnectionResult {
   message?: string
 }
 
+export interface TokenDanceAuthResult {
+  ok: boolean
+  message?: string
+}
+
 export interface RecordingStartPayload {
   sessionId: string
   microphoneDeviceId?: string
@@ -212,6 +226,7 @@ export const IPC_CHANNELS = {
   CONFIG_SET: 'config:set',
   CONFIG_SECRET_GET: 'config:secret:get',
   CONFIG_REFINE_TEST: 'config:refine:test',
+  TOKENDANCE_AUTH_CONNECT: 'tokendance:auth:connect',
   LOCAL_ASR_STATUS: 'local-asr:status',
   LOCAL_ASR_DOWNLOAD: 'local-asr:download',
   LOCAL_ASR_DELETE: 'local-asr:delete',

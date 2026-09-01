@@ -105,6 +105,7 @@ function migrateLLMRefineConfig(config: unknown): LLMRefineConfig | null {
     'openai' in rawConfig ||
     'deepseek' in rawConfig ||
     'openrouter' in rawConfig ||
+    'tokendance' in rawConfig ||
     'custom' in rawConfig ||
     'translateOutput' in rawConfig ||
     'translateToEnglish' in rawConfig ||
@@ -183,6 +184,10 @@ export class ConfigManager {
         ...normalized.openrouter,
         apiKey: this.resolveStoredKey(normalized.openrouter.apiKey),
       },
+      tokendance: {
+        ...normalized.tokendance,
+        apiKey: this.resolveStoredKey(normalized.tokendance.apiKey),
+      },
       custom: {
         ...normalized.custom,
         apiKey: this.resolveStoredKey(normalized.custom.apiKey),
@@ -216,6 +221,13 @@ export class ConfigManager {
         apiKey: this.prepareKeyForStorage(
           normalized.openrouter.apiKey,
           normalizedStored.openrouter.apiKey,
+        ),
+      },
+      tokendance: {
+        ...normalized.tokendance,
+        apiKey: this.prepareKeyForStorage(
+          normalized.tokendance.apiKey,
+          normalizedStored.tokendance.apiKey,
         ),
       },
       custom: {
@@ -297,6 +309,12 @@ export class ConfigManager {
           ? STORED_SECRET_PLACEHOLDER
           : '',
       },
+      tokendance: {
+        ...storedLLMRefine.tokendance,
+        apiKey: isUsableStoredKey(storedLLMRefine.tokendance.apiKey)
+          ? STORED_SECRET_PLACEHOLDER
+          : '',
+      },
       custom: {
         ...storedLLMRefine.custom,
         apiKey: isUsableStoredKey(storedLLMRefine.custom.apiKey) ? STORED_SECRET_PLACEHOLDER : '',
@@ -368,10 +386,11 @@ export class ConfigManager {
       openai: { ...stored.openai, ...(config.openai ?? {}) },
       deepseek: { ...stored.deepseek, ...(config.deepseek ?? {}) },
       openrouter: { ...stored.openrouter, ...(config.openrouter ?? {}) },
+      tokendance: { ...stored.tokendance, ...(config.tokendance ?? {}) },
       custom: { ...stored.custom, ...(config.custom ?? {}) },
     })
 
-    for (const provider of ['openai', 'deepseek', 'openrouter', 'custom'] as const) {
+    for (const provider of ['openai', 'deepseek', 'openrouter', 'tokendance', 'custom'] as const) {
       if (merged[provider].apiKey === STORED_SECRET_PLACEHOLDER) {
         merged[provider].apiKey = stored[provider].apiKey
       }
@@ -397,6 +416,10 @@ export class ConfigManager {
       openrouter: {
         ...current.openrouter,
         ...(config.openrouter ?? {}),
+      },
+      tokendance: {
+        ...current.tokendance,
+        ...(config.tokendance ?? {}),
       },
       custom: {
         ...current.custom,

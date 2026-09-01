@@ -20,6 +20,7 @@ import {
   Folder,
   Trash2,
   Monitor,
+  KeyRound,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -423,6 +424,7 @@ export default function SettingsPage() {
   const [logDialogOpen, setLogDialogOpen] = useState(false)
   const [testingRefine, setTestingRefine] = useState(false)
   const [refineTestStatus, setRefineTestStatus] = useState<TestStatus>(null)
+  const [connectingTokenDance, setConnectingTokenDance] = useState(false)
   const [checkingUpdate, setCheckingUpdate] = useState(false)
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null)
   const [localAsrStatus, setLocalAsrStatus] = useState<LocalASRStatus | null>(null)
@@ -1450,6 +1452,93 @@ export default function SettingsPage() {
     }))
   }
 
+  const handleTokenDanceApiKeyChange = (value: string) => {
+    disableRefineDependentFeatures()
+    setVisibleSecret((current) =>
+      current?.id === 'llm-refine:tokendance' ? { id: current.id } : current,
+    )
+    setConfig((prev) => ({
+      ...prev,
+      llmRefine: normalizeLLMRefineConfig({
+        ...prev.llmRefine,
+        tokendance: {
+          ...prev.llmRefine.tokendance,
+          apiKey: value,
+        },
+      }),
+    }))
+  }
+
+  const handleTokenDanceModelChange = (value: string) => {
+    const model = LLM_PROVIDERS.TOKENDANCE_MODELS.find((option) => option.id === value)?.id
+    if (!model) return
+
+    disableRefineDependentFeatures()
+    setConfig((prev) => ({
+      ...prev,
+      llmRefine: normalizeLLMRefineConfig({
+        ...prev.llmRefine,
+        tokendance: {
+          ...prev.llmRefine.tokendance,
+          model,
+        },
+      }),
+    }))
+  }
+
+  const handleTokenDanceConnect = async () => {
+    if (connectingTokenDance) return
+
+    setConnectingTokenDance(true)
+    setRefineTestStatus(null)
+    try {
+      // Persist pending edits first so the reload below reflects the latest settings.
+      await flushAutoSaveRef.current()
+
+      const result = await window.electronAPI.connectTokenDance()
+      if (!result.ok) {
+        setRefineTestStatus({
+          type: 'error',
+          message: t('settings.tokenDanceConnectFailed', {
+            message: result.message ?? t('common.unknownError'),
+          }),
+        })
+        return
+      }
+
+      // The main process stored the authorized key; reload so it shows as the placeholder.
+      const persistedConfig = normalizeRendererConfig(await window.electronAPI.getConfig())
+      latestOriginalConfigRef.current = persistedConfig
+      setOriginalConfig(persistedConfig)
+      setConfig((current) => {
+        const next = { ...current, llmRefine: persistedConfig.llmRefine }
+        latestConfigRef.current = next
+        return next
+      })
+      setVisibleSecret(null)
+
+      // The stored key changed behind the same masked placeholder, so any cached
+      // validation for this connection fingerprint belongs to the previous key.
+      invalidateRefineConnection(
+        refineConnectionValidationCacheRef.current,
+        getRefineConnectionFingerprint(normalizeLLMRefineConfig(persistedConfig.llmRefine)),
+      )
+
+      setRefineTestStatus({
+        type: 'success',
+        message: t('settings.tokenDanceConnectSuccess'),
+      })
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : t('common.unknownError')
+      setRefineTestStatus({
+        type: 'error',
+        message: t('settings.tokenDanceConnectFailed', { message: errorMessage }),
+      })
+    } finally {
+      setConnectingTokenDance(false)
+    }
+  }
+
   const handleCustomConfigChange = (key: 'endpoint' | 'model' | 'apiKey', value: string) => {
     disableRefineDependentFeatures()
     if (key === 'apiKey') {
@@ -1594,6 +1683,7 @@ export default function SettingsPage() {
   const isCustomLLMProvider = currentLLMProvider === 'custom-compatible'
   const builtInDeepSeekModels: string[] = [...LLM_PROVIDERS.DEEPSEEK_MODELS]
   const llmProviderOptions = [
+    { value: 'tokendance', label: 'TokenDance' },
     { value: 'openai', label: 'OpenAI' },
     { value: 'deepseek', label: 'DeepSeek' },
     { value: 'openrouter', label: 'OpenRouter' },
@@ -2061,6 +2151,49 @@ export default function SettingsPage() {
               </div>
             )}
 
+            {currentLLMProvider === 'tokendance' && (
+              <div className="mt-4 space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="tokenDanceModel">
+                    {t('settings.refineModel')} <span className="text-primary">*</span>
+                  </Label>
+                  <Select
+                    value={normalizedLLMRefineConfig.tokendance.model}
+                    onValueChange={handleTokenDanceModelChange}
+                  >
+                    <SelectTrigger id="tokenDanceModel" className="no-drag w-full cursor-pointer">
+                      <SelectValue placeholder={LLM_PROVIDERS.DEFAULT_TOKENDANCE_MODEL} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {LLM_PROVIDERS.TOKENDANCE_MODELS.map((model) => (
+                        <SelectItem key={model.id} value={model.id}>
+                          {model.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void handleTokenDanceConnect()}
+                    disabled={connectingTokenDance}
+                    className="no-drag cursor-pointer"
+                  >
+                    <KeyRound className="h-4 w-4" />
+                    {connectingTokenDance
+                      ? t('settings.tokenDanceConnecting')
+                      : t('settings.tokenDanceConnect')}
+                  </Button>
+                  <p className="text-xs text-muted-foreground">
+                    {t('settings.tokenDanceConnectHelp')}
+                  </p>
+                </div>
+              </div>
+            )}
+
             {isCustomLLMProvider && (
               <div className="mt-4 space-y-4">
                 <div className="space-y-2">
@@ -2110,6 +2243,8 @@ export default function SettingsPage() {
                       handleDeepSeekApiKeyChange(e.target.value)
                     } else if (currentLLMProvider === 'openrouter') {
                       handleOpenRouterApiKeyChange(e.target.value)
+                    } else if (currentLLMProvider === 'tokendance') {
+                      handleTokenDanceApiKeyChange(e.target.value)
                     } else {
                       handleCustomConfigChange('apiKey', e.target.value)
                     }
@@ -2124,9 +2259,11 @@ export default function SettingsPage() {
                       ? 'settings.openAIApiKeyPlaceholder'
                       : currentLLMProvider === 'openrouter'
                         ? 'settings.openRouterApiKeyPlaceholder'
-                        : currentLLMProvider === 'deepseek'
-                          ? 'settings.deepSeekApiKeyPlaceholder'
-                          : 'settings.refineApiKeyPlaceholder',
+                        : currentLLMProvider === 'tokendance'
+                          ? 'settings.tokenDanceApiKeyPlaceholder'
+                          : currentLLMProvider === 'deepseek'
+                            ? 'settings.deepSeekApiKeyPlaceholder'
+                            : 'settings.refineApiKeyPlaceholder',
                   )}
                   className="no-drag pr-10 font-mono"
                 />

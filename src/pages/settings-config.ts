@@ -2,7 +2,7 @@ import { LLM_REFINE, TRANSLATION } from '@electron/shared/constants'
 import { normalizeLLMRefineConfig, resolveLLMConnection } from '@electron/shared/llm-config'
 import type { AppConfig, LLMRefineConfig } from '@electron/shared/types'
 
-const LLM_CONNECTION_KEYS = ['openai', 'deepseek', 'openrouter', 'custom'] as const
+const LLM_CONNECTION_KEYS = ['openai', 'deepseek', 'openrouter', 'tokendance', 'custom'] as const
 
 export type RefineFeatureFlags = {
   enabled: boolean
@@ -199,6 +199,7 @@ export function applyPersistedSecretState(
       openai: { ...llmRefine.openai },
       deepseek: { ...llmRefine.deepseek },
       openrouter: { ...llmRefine.openrouter },
+      tokendance: { ...llmRefine.tokendance },
       custom: { ...llmRefine.custom },
     }
 

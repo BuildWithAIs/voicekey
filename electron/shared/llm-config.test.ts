@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { LLM_PROVIDERS } from './constants'
 import {
   buildDisabledReasoningPayloadFields,
+  buildLLMAttributionHeaders,
   buildReasoningPayloadFields,
   normalizeLLMRefineConfig,
   resolveLLMConnection,
@@ -91,6 +92,7 @@ describe('dictation refinement reasoning policy', () => {
     ['openai', { reasoning_effort: 'none' }],
     ['deepseek', { thinking: { type: 'disabled' } }],
     ['openrouter', { reasoning: { enabled: false, exclude: true } }],
+    ['tokendance', {}],
     ['custom-compatible', {}],
   ] as const)(
     'always disables reasoning for %s regardless of transcript length',
@@ -167,5 +169,66 @@ describe('fixed OpenRouter model policy', () => {
         '这是一段足够长的文本，理论上会触发推理。',
       ),
     ).toEqual({ level: 'off', fields: {} })
+  })
+})
+
+describe('TokenDance provider', () => {
+  it('uses the gateway endpoint with the curated default model', () => {
+    const config = normalizeLLMRefineConfig({
+      provider: 'tokendance',
+      tokendance: { apiKey: 'td-key', model: 'deepseek-v4-flash-0731' },
+    })
+
+    expect(resolveLLMConnection(config)).toEqual({
+      provider: 'tokendance',
+      endpoint: LLM_PROVIDERS.TOKENDANCE_ENDPOINT,
+      apiKey: 'td-key',
+      model: LLM_PROVIDERS.DEFAULT_TOKENDANCE_MODEL,
+    })
+  })
+
+  it('replaces unapproved TokenDance models with the curated default', () => {
+    const config = normalizeLLMRefineConfig({
+      provider: 'tokendance',
+      tokendance: { apiKey: 'td-key', model: 'vendor/unapproved-model' },
+    } as unknown as Partial<LLMRefineConfig>)
+
+    expect(config.tokendance.model).toBe(LLM_PROVIDERS.DEFAULT_TOKENDANCE_MODEL)
+  })
+
+  it('infers the tokendance provider from a legacy gateway endpoint', () => {
+    const config = normalizeLLMRefineConfig({
+      endpoint: 'https://tokendance.space/gateway/v1',
+      model: 'deepseek-v4-flash-0731',
+      apiKey: 'td-key',
+    })
+
+    expect(config.provider).toBe('tokendance')
+    expect(resolveLLMConnection(config)).toMatchObject({
+      provider: 'tokendance',
+      endpoint: LLM_PROVIDERS.TOKENDANCE_ENDPOINT,
+      apiKey: 'td-key',
+      model: 'deepseek-v4-flash-0731',
+    })
+  })
+
+  it('sends the X-App-URL attribution header only for tokendance connections', () => {
+    const tokendanceConnection = resolveLLMConnection(
+      normalizeLLMRefineConfig({
+        provider: 'tokendance',
+        tokendance: { apiKey: 'td-key', model: 'deepseek-v4-flash-0731' },
+      }),
+    )
+    expect(buildLLMAttributionHeaders(tokendanceConnection)).toEqual({
+      'X-App-URL': LLM_PROVIDERS.TOKENDANCE_APP_URL,
+    })
+
+    const deepseekConnection = resolveLLMConnection(
+      normalizeLLMRefineConfig({
+        provider: 'deepseek',
+        deepseek: { apiKey: 'test-key', model: 'deepseek-v4-flash' },
+      }),
+    )
+    expect(buildLLMAttributionHeaders(deepseekConnection)).toEqual({})
   })
 })

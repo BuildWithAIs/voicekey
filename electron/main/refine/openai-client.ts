@@ -33,11 +33,13 @@ export async function requestChatCompletion(
   apiKey: string,
   payload: Record<string, unknown>,
   timeoutMs: number,
+  extraHeaders?: Record<string, string>,
 ): Promise<OpenAIResponse> {
   const response = await axios.post<OpenAIResponse>(endpoint, payload, {
     headers: {
       Authorization: `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
+      ...extraHeaders,
     },
     timeout: timeoutMs,
     responseType: 'json',
@@ -45,6 +47,31 @@ export async function requestChatCompletion(
   })
 
   return response.data
+}
+
+/**
+ * TokenDance signals a confirmed recovery path for failed authorized-key calls via the
+ * `TokenDance-Recovery-Action` response header. Map it to a user-actionable hint.
+ */
+const TOKENDANCE_RECOVERY_HINTS: Record<string, string> = {
+  top_up_balance: 'TokenDance balance is insufficient. Top up your TokenDance account, then retry.',
+  reauthorize_api_key:
+    'TokenDance API key is missing, disabled, or expired. Reconnect TokenDance or enter a new key.',
+  api_key_quota:
+    'TokenDance API key quota reached. Wait for the quota to refresh, or reconnect TokenDance.',
+}
+
+export function extractTokenDanceRecoveryHint(error: unknown): string {
+  if (!axios.isAxiosError(error)) {
+    return ''
+  }
+
+  const action = error.response?.headers?.['tokendance-recovery-action']
+  if (typeof action !== 'string') {
+    return ''
+  }
+
+  return TOKENDANCE_RECOVERY_HINTS[action] ?? ''
 }
 
 export function extractAxiosErrorMessage(error: unknown): string {
@@ -62,10 +89,14 @@ export function extractAxiosErrorMessage(error: unknown): string {
     'message' in responseError.error &&
     typeof responseError.error.message === 'string'
   ) {
-    return responseError.error.message
+    const recoveryHint = extractTokenDanceRecoveryHint(error)
+    return recoveryHint
+      ? `${responseError.error.message} ${recoveryHint}`
+      : responseError.error.message
   }
 
-  return error.message
+  const recoveryHint = extractTokenDanceRecoveryHint(error)
+  return recoveryHint ? `${error.message} ${recoveryHint}` : error.message
 }
 
 export function extractMessageContent(data: OpenAIResponse): string {

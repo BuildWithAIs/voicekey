@@ -246,6 +246,18 @@ export const LLM_PROVIDERS = {
     },
   ],
   DEFAULT_OPENROUTER_MODEL: 'openai/gpt-5.6-luna',
+  TOKENDANCE_ENDPOINT: 'https://tokendance.space/gateway/v1',
+  /** Stable App URL used for TokenDance app attribution (X-App-URL header and OAuth app_url). */
+  TOKENDANCE_APP_URL: 'https://voicekey.buildwithais.com/',
+  TOKENDANCE_AUTH_URL: 'https://tokendance.space/auth',
+  TOKENDANCE_KEY_EXCHANGE_URL: 'https://tokendance.space/portal/api/v1/auth/keys',
+  TOKENDANCE_KEY_NAME: 'Voice Key',
+  // Curated chat models from the live TokenDance catalog (https://tokendance.space/gateway/v1/models).
+  TOKENDANCE_MODELS: [
+    { id: 'deepseek-v4-flash-0731', label: 'DeepSeek · V4 Flash' },
+    { id: 'glm-5.3-flash', label: 'Z.ai · GLM 5.3 Flash' },
+  ],
+  DEFAULT_TOKENDANCE_MODEL: 'deepseek-v4-flash-0731',
 } as const
 
 export const LLM_REASONING = {

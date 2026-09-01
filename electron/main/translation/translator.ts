@@ -7,6 +7,7 @@ import { requestChatCompletion, extractMessageContent } from '../refine/openai-c
 import { buildRefineChatEndpoint, normalizeRefineBaseUrl } from '../../shared/refine-url'
 import { buildTranslationSystemPrompt } from '../../shared/constants'
 import {
+  buildLLMAttributionHeaders,
   buildReasoningPayloadFields,
   getReasoningTimeoutMs,
   resolveLLMConnection,
@@ -245,6 +246,7 @@ export class Translator {
       resolved.apiKey,
       payload,
       getReasoningTimeoutMs(reasoning.level),
+      buildLLMAttributionHeaders(resolved.connection),
     )
 
     return extractMessageContent(response)
