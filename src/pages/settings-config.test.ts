@@ -11,6 +11,7 @@ import {
   markRefineConnectionValidated,
   readRefineFeatureFlags,
   reconcileRefineFeaturesAfterConnectionChange,
+  resolveMicrophoneDeviceMigration,
   type RefineConnectionValidationCache,
 } from './settings-config'
 
@@ -54,6 +55,53 @@ function createOpenRouterConfig(options?: {
   config.translation.enabled = options?.translationEnabled ?? false
   return config
 }
+
+describe('microphone device migration', () => {
+  const currentDevices = [
+    { deviceId: 'current-realtek-id', label: '麦克风 (Realtek High Definition Audio)' },
+    { deviceId: 'usb-id', label: 'USB Microphone' },
+  ]
+
+  it('rebinds a missing device ID when exactly one current label matches', () => {
+    expect(
+      resolveMicrophoneDeviceMigration(
+        'stale-realtek-id',
+        '麦克风 (Realtek High Definition Audio)',
+        currentDevices,
+      ),
+    ).toEqual(currentDevices[0])
+  })
+
+  it('normalizes harmless label casing and whitespace changes', () => {
+    expect(
+      resolveMicrophoneDeviceMigration('stale-usb-id', '  usb   MICROPHONE ', currentDevices),
+    ).toEqual(currentDevices[1])
+  })
+
+  it('does nothing while the selected device ID is still available', () => {
+    expect(
+      resolveMicrophoneDeviceMigration(
+        'current-realtek-id',
+        '麦克风 (Realtek High Definition Audio)',
+        currentDevices,
+      ),
+    ).toBeNull()
+  })
+
+  it('does not guess when multiple devices expose the same label', () => {
+    expect(
+      resolveMicrophoneDeviceMigration('stale-id', 'USB Microphone', [
+        { deviceId: 'usb-1', label: 'USB Microphone' },
+        { deviceId: 'usb-2', label: 'USB Microphone' },
+      ]),
+    ).toBeNull()
+  })
+
+  it('does not migrate without a persisted ID and exposed label', () => {
+    expect(resolveMicrophoneDeviceMigration('', 'USB Microphone', currentDevices)).toBeNull()
+    expect(resolveMicrophoneDeviceMigration('stale-id', '', currentDevices)).toBeNull()
+  })
+})
 
 describe('settings persisted secret state', () => {
   it('replaces a successfully saved plaintext LLM key with the renderer placeholder', () => {

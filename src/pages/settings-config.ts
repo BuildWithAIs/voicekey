@@ -10,6 +10,36 @@ export type RefineFeatureFlags = {
   translationEnabled: boolean
 }
 
+export type MicrophoneDeviceIdentity = {
+  deviceId: string
+  label: string
+}
+
+function normalizeMicrophoneLabel(label: string): string {
+  return label.trim().replace(/\s+/g, ' ').toLowerCase()
+}
+
+/**
+ * A Chromium media-device ID can change when its origin/salt or the OS audio endpoint changes.
+ * Rebind only when the stored ID is gone and one current device has the same exposed label.
+ * Duplicate labels intentionally require an explicit user choice.
+ */
+export function resolveMicrophoneDeviceMigration(
+  selectedDeviceId: string,
+  selectedDeviceLabel: string,
+  devices: MicrophoneDeviceIdentity[],
+): MicrophoneDeviceIdentity | null {
+  const normalizedDeviceId = selectedDeviceId.trim()
+  const normalizedLabel = normalizeMicrophoneLabel(selectedDeviceLabel)
+  if (!normalizedDeviceId || !normalizedLabel) return null
+  if (devices.some((device) => device.deviceId === normalizedDeviceId)) return null
+
+  const labelMatches = devices.filter(
+    (device) => device.deviceId && normalizeMicrophoneLabel(device.label) === normalizedLabel,
+  )
+  return labelMatches.length === 1 ? labelMatches[0] : null
+}
+
 export function isRefineConfigComplete(config: LLMRefineConfig): boolean {
   const connection = resolveLLMConnection(config)
   return Boolean(connection.endpoint.trim() && connection.model.trim() && connection.apiKey.trim())

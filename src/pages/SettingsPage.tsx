@@ -77,6 +77,7 @@ import {
   markRefineConnectionValidated,
   normalizeRendererConfig,
   reconcileRefineFeaturesAfterConnectionChange,
+  resolveMicrophoneDeviceMigration,
   type RefineConnectionValidationCache,
   type RefineFeatureFlags,
 } from './settings-config'
@@ -87,6 +88,7 @@ const NO_MICROPHONE_SELECT_VALUE = '__no-microphones__'
 type AudioInputDevice = {
   deviceId: string
   label: string
+  identityLabel: string
 }
 
 const defaultTranslationConfig: TranslationConfig = {
@@ -450,6 +452,7 @@ export default function SettingsPage() {
   const shouldRunAutoSaveAgainRef = useRef(false)
   const flushAutoSaveRef = useRef<() => Promise<void>>(async () => {})
   const revealRequestIdRef = useRef(0)
+  const microphoneLoadRequestIdRef = useRef(0)
   /**
    * Recently validated LLM connections keyed by fingerprint. Switching providers back
    * and forth within the TTL reuses the cached result instead of re-testing.
@@ -610,9 +613,15 @@ export default function SettingsPage() {
   }, [downloadingStreamingAsr])
 
   const loadMicrophoneDevices = useCallback(async () => {
+    const requestId = ++microphoneLoadRequestIdRef.current
+    const isLatestRequest = () => microphoneLoadRequestIdRef.current === requestId
+
     if (!navigator.mediaDevices?.enumerateDevices) {
-      setMicrophoneDevices([])
-      setMicrophoneError(t('settings.microphone.unsupported'))
+      if (isLatestRequest()) {
+        setMicrophoneDevices([])
+        setMicrophoneError(t('settings.microphone.unsupported'))
+        setLoadingMicrophones(false)
+      }
       return
     }
 
@@ -643,7 +652,9 @@ export default function SettingsPage() {
               device.deviceId !== 'communications',
           )
         } catch {
-          setMicrophoneError(t('settings.microphone.permissionHelp'))
+          if (isLatestRequest()) {
+            setMicrophoneError(t('settings.microphone.permissionHelp'))
+          }
         }
       }
 
@@ -653,6 +664,7 @@ export default function SettingsPage() {
         seenDeviceIds.add(device.deviceId)
         result.push({
           deviceId: device.deviceId,
+          identityLabel: device.label,
           label:
             device.label ||
             t('settings.microphone.deviceFallback', {
@@ -662,15 +674,59 @@ export default function SettingsPage() {
         return result
       }, [])
 
-      setMicrophoneDevices(nextDevices)
+      if (isLatestRequest()) {
+        setMicrophoneDevices(nextDevices)
+      }
     } catch (error) {
       console.error('Failed to enumerate microphone devices:', error)
-      setMicrophoneDevices([])
-      setMicrophoneError(t('settings.microphone.detectFailed'))
+      if (isLatestRequest()) {
+        setMicrophoneDevices([])
+        setMicrophoneError(t('settings.microphone.detectFailed'))
+      }
     } finally {
-      setLoadingMicrophones(false)
+      if (isLatestRequest()) {
+        setLoadingMicrophones(false)
+      }
     }
   }, [t])
+
+  useEffect(() => {
+    if (isConfigLoading) return
+
+    const deviceIdentities = microphoneDevices.map((device) => ({
+      deviceId: device.deviceId,
+      label: device.identityLabel,
+    }))
+    const migratedDevice = resolveMicrophoneDeviceMigration(
+      config.asr.microphoneDeviceId ?? '',
+      config.asr.microphoneDeviceLabel ?? '',
+      deviceIdentities,
+    )
+    if (!migratedDevice) return
+
+    setConfig((prev) => {
+      const latestMigration = resolveMicrophoneDeviceMigration(
+        prev.asr.microphoneDeviceId ?? '',
+        prev.asr.microphoneDeviceLabel ?? '',
+        deviceIdentities,
+      )
+      if (latestMigration?.deviceId !== migratedDevice.deviceId) return prev
+
+      return {
+        ...prev,
+        asr: {
+          ...prev.asr,
+          microphoneDeviceId: latestMigration.deviceId,
+          microphoneDeviceLabel: latestMigration.label,
+        },
+      }
+    })
+  }, [
+    config.asr.microphoneDeviceId,
+    config.asr.microphoneDeviceLabel,
+    isConfigLoading,
+    microphoneDevices,
+  ])
 
   useEffect(() => {
     void loadMicrophoneDevices()
@@ -685,6 +741,7 @@ export default function SettingsPage() {
     mediaDevices.addEventListener('devicechange', handleDeviceChange)
     return () => {
       mediaDevices.removeEventListener('devicechange', handleDeviceChange)
+      microphoneLoadRequestIdRef.current += 1
     }
   }, [loadMicrophoneDevices])
 

@@ -4,7 +4,10 @@
 
 `SettingsPage.tsx` detects available audio-input devices in the renderer, lets
 the user persist a selected microphone, and keeps the system default as the
-unchanged fallback.
+unchanged fallback. If Chromium or the OS replaces a saved device ID,
+Settings automatically rebinds it only when exactly one currently available
+device has the same exposed label; ambiguous duplicate labels still require an
+explicit user choice.
 
 路由页面组件目录。
 
