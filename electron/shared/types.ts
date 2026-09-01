@@ -43,6 +43,13 @@ export interface LocalASRStatus {
   error?: string
 }
 
+export interface HostCapabilities {
+  available: boolean
+  logicalCpuCount: number
+  memoryBytes: number
+  meetsStreamingAsrRecommendation: boolean
+}
+
 export type LLMProvider = 'openai' | 'deepseek' | 'openrouter' | 'custom-compatible'
 
 export type OpenAIModel = typeof import('./constants').LLM_PROVIDERS.DEFAULT_OPENAI_MODEL
@@ -214,6 +221,7 @@ export const IPC_CHANNELS = {
   STREAMING_ASR_DELETE: 'streaming-asr:delete',
   STREAMING_ASR_DOWNLOAD_PROGRESS: 'streaming-asr:download-progress',
   ASR_MODEL_DIRECTORY_OPEN: 'asr-model-directory:open',
+  HOST_CAPABILITIES_GET: 'host-capabilities:get',
   APP_LANGUAGE_GET: 'app:language:get',
   APP_LANGUAGE_CHANGED: 'app:language:changed',
   LINUX_INTEGRATION_STATUS: 'linux-integration:status',

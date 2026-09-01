@@ -28,6 +28,13 @@ describe('streaming ASR assets', () => {
     expect(STREAMING_ASR.FINAL_TAIL_PADDING_MS).toBe(500)
     expect(STREAMING_ASR.WORKER_IDLE_TIMEOUT_MS).toBe(20 * 60 * 1000)
   })
+
+  it('recommends 6 logical CPU cores and 16 GB-class memory', () => {
+    expect(STREAMING_ASR.MIN_LOGICAL_CPU_CORES).toBe(6)
+    expect(STREAMING_ASR.MIN_MEMORY_BYTES).toBe(16 * 1024 * 1024 * 1024)
+    expect(STREAMING_ASR.MEMORY_CLASS_BYTES).toBe(15 * 1024 * 1024 * 1024)
+    expect(STREAMING_ASR.MEMORY_CLASS_BYTES).toBeLessThan(STREAMING_ASR.MIN_MEMORY_BYTES)
+  })
 })
 
 describe('refinement prompt', () => {

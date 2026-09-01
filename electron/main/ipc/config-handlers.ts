@@ -9,16 +9,20 @@
  * - LOCAL_ASR_STATUS / LOCAL_ASR_DOWNLOAD / LOCAL_ASR_DELETE: 经典模型管理
  * - STREAMING_ASR_STATUS / STREAMING_ASR_DOWNLOAD / STREAMING_ASR_DELETE: 实时模型管理
  * - ASR_MODEL_DIRECTORY_OPEN: 打开统一模型存储目录
+ * - HOST_CAPABILITIES_GET: 读取本机逻辑核数与内存，供实时识别性能提示使用
  *
  * @module electron/main/ipc/config-handlers
  */
 
+import os from 'node:os'
 import { ipcMain, type BrowserWindow, type IpcMainInvokeEvent } from 'electron'
+import { evaluateStreamingAsrHost } from '../../shared/host-capabilities'
 import {
   IPC_CHANNELS,
   type AppPreferences,
   type ASRConfig,
   type ConfigSecretRequest,
+  type HostCapabilities,
   type HotkeyConfig,
   type LLMRefineConfig,
   type TranslationConfig,
@@ -67,6 +71,38 @@ let deps: ConfigHandlersDeps
 // IPC 载荷可能来自被破坏的渲染进程，先做廉价的形状校验
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+}
+
+const UNAVAILABLE_HOST_CAPABILITIES: HostCapabilities = {
+  available: false,
+  logicalCpuCount: 0,
+  memoryBytes: 0,
+  meetsStreamingAsrRecommendation: true,
+}
+
+function readHostCapabilities(): HostCapabilities {
+  try {
+    const logicalCpuCount = os.cpus().length
+    const memoryBytes = os.totalmem()
+    if (
+      !Number.isFinite(logicalCpuCount) ||
+      logicalCpuCount <= 0 ||
+      !Number.isFinite(memoryBytes) ||
+      memoryBytes <= 0
+    ) {
+      return UNAVAILABLE_HOST_CAPABILITIES
+    }
+
+    const evaluation = evaluateStreamingAsrHost({ logicalCpuCount, memoryBytes })
+    return {
+      available: true,
+      logicalCpuCount: evaluation.logicalCpuCount,
+      memoryBytes: evaluation.memoryBytes,
+      meetsStreamingAsrRecommendation: evaluation.meetsStreamingAsrRecommendation,
+    }
+  } catch {
+    return UNAVAILABLE_HOST_CAPABILITIES
+  }
 }
 
 function isConfigSecretRequest(value: unknown): value is ConfigSecretRequest {
@@ -283,5 +319,9 @@ export function registerConfigHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.ASR_MODEL_DIRECTORY_OPEN, async (event) => {
     assertSettingsWindowSender(event, 'ASR model directory access')
     await openASRModelStorageDir()
+  })
+
+  ipcMain.handle(IPC_CHANNELS.HOST_CAPABILITIES_GET, () => {
+    return readHostCapabilities()
   })
 }

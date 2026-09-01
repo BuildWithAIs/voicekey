@@ -12,6 +12,7 @@ import {
   type LLMRefineConfig,
   type LocalASRDownloadProgress,
   type LocalASRStatus,
+  type HostCapabilities,
   type LinuxIntegrationStatus,
   type RefineConnectionResult,
   type RecordingStartPayload,
@@ -41,6 +42,7 @@ export interface ElectronAPI {
     callback: (progress: LocalASRDownloadProgress) => void,
   ) => () => void
   openASRModelDirectory: () => Promise<void>
+  getHostCapabilities: () => Promise<HostCapabilities>
   getAppLanguage: () => Promise<LanguageSnapshot>
   onAppLanguageChanged: (callback: (snapshot: LanguageSnapshot) => void) => () => void
   getLinuxIntegrationStatus: () => Promise<LinuxIntegrationStatus>
@@ -128,6 +130,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return () => ipcRenderer.removeListener(IPC_CHANNELS.STREAMING_ASR_DOWNLOAD_PROGRESS, listener)
   },
   openASRModelDirectory: () => ipcRenderer.invoke(IPC_CHANNELS.ASR_MODEL_DIRECTORY_OPEN),
+  getHostCapabilities: () => ipcRenderer.invoke(IPC_CHANNELS.HOST_CAPABILITIES_GET),
   getAppLanguage: () => ipcRenderer.invoke(IPC_CHANNELS.APP_LANGUAGE_GET),
   onAppLanguageChanged: (callback: (snapshot: LanguageSnapshot) => void) => {
     const listener = (_event: IpcRendererEvent, snapshot: LanguageSnapshot) => callback(snapshot)

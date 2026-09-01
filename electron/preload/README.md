@@ -11,7 +11,7 @@ Electron 预加载脚本目录，作为主进程与渲染进程之间的安全�
 
 ### `preload.ts`
 
-通过 `contextBridge` 暴露 `window.electronAPI`，封装配置、两套本地 ASR 模型下载/删除、模型目录打开、经典/流式录音、Linux/Omarchy 集成、历史、日志与更新相关 IPC。
+通过 `contextBridge` 暴露 `window.electronAPI`，封装配置、两套本地 ASR 模型下载/删除、模型目录打开、本机能力读取、经典/流式录音、Linux/Omarchy 集成、历史、日志与更新相关 IPC。
 
 ## 录音相关 API
 
@@ -30,6 +30,7 @@ Electron 预加载脚本目录，作为主进程与渲染进程之间的安全�
 - `getLocalASRStatus()` / `downloadLocalASR()` / `deleteLocalASR()` / `onLocalASRDownloadProgress(callback)` - 经典本地模型状态、下载、删除与进度监听。
 - `getStreamingASRStatus()` / `downloadStreamingASR()` / `deleteStreamingASR()` / `onStreamingASRDownloadProgress(callback)` - 实时识别组件的组合状态、缺失权重下载、成组删除与进度监听。
 - `openASRModelDirectory()` - 在文件管理器打开统一的本地模型存储目录，不接受渲染进程传入路径。
+- `getHostCapabilities()` - 读取本机逻辑核数与内存，以及是否达到实时识别建议配置。
 - `testRefineConnection(config)` - 文本润色连接校验。
 - `getHistory()` / `clearHistory()` / `deleteHistoryItem(id)` - 管理转录历史。
 - `checkForUpdates()` / `getUpdateStatus()` / `openExternal(url)` - 更新相关接口。

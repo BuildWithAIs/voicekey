@@ -30,10 +30,10 @@ import {
   LLM_PROVIDERS,
   MICROPHONE_INPUT,
   STORED_SECRET_PLACEHOLDER,
-  STREAMING_ASR,
   TRANSLATION,
   TARGET_LANGUAGES,
 } from '@electron/shared/constants'
+import { formatHostMemoryGiB } from '@electron/shared/host-capabilities'
 import { normalizeRefineBaseUrl } from '@electron/shared/refine-url'
 import {
   defaultLLMRefineConfig,
@@ -45,6 +45,7 @@ import type {
   ConfigSecretRequest,
   LLMRefineConfig,
   LLMProvider,
+  HostCapabilities,
   LocalASRDownloadProgress,
   LocalASRStatus,
   LinuxIntegrationStatus,
@@ -136,18 +137,6 @@ function isTranslationConfigDirty(
   original: TranslationConfig,
 ): boolean {
   return current.enabled !== original.enabled || current.targetLanguage !== original.targetLanguage
-}
-
-function formatBytes(bytes: number): string {
-  if (!Number.isFinite(bytes) || bytes <= 0) return '0 MB'
-  const units = ['B', 'KB', 'MB', 'GB']
-  let value = bytes
-  let unitIndex = 0
-  while (value >= 1024 && unitIndex < units.length - 1) {
-    value /= 1024
-    unitIndex += 1
-  }
-  return `${value >= 10 ? value.toFixed(0) : value.toFixed(1)} ${units[unitIndex]}`
 }
 
 function mergeConfigPatch(config: AppConfig, patch: Partial<AppConfig>): AppConfig {
@@ -444,6 +433,7 @@ export default function SettingsPage() {
   )
   const [downloadingStreamingAsr, setDownloadingStreamingAsr] = useState(false)
   const [deletingStreamingAsr, setDeletingStreamingAsr] = useState(false)
+  const [hostCapabilities, setHostCapabilities] = useState<HostCapabilities | null>(null)
   const [microphoneDevices, setMicrophoneDevices] = useState<AudioInputDevice[]>([])
   const [loadingMicrophones, setLoadingMicrophones] = useState(false)
   const [microphoneError, setMicrophoneError] = useState<string | null>(null)
@@ -586,6 +576,12 @@ export default function SettingsPage() {
     }
 
     void loadStreamingAsrStatus()
+    void window.electronAPI
+      .getHostCapabilities()
+      .then(setHostCapabilities)
+      .catch((error) => {
+        console.error('Failed to load host capabilities:', error)
+      })
     return window.electronAPI.onStreamingASRDownloadProgress((progress) => {
       setStreamingAsrProgress(progress)
       setDownloadingStreamingAsr(true)
@@ -918,6 +914,16 @@ export default function SettingsPage() {
   }
 
   const handleDownloadStreamingASR = async () => {
+    if (hostCapabilities?.available && !hostCapabilities.meetsStreamingAsrRecommendation) {
+      const confirmed = window.confirm(
+        t('settings.streamingAsr.downloadConfirmWeak', {
+          cpu: hostCapabilities.logicalCpuCount,
+          memory: formatHostMemoryGiB(hostCapabilities.memoryBytes),
+        }),
+      )
+      if (!confirmed) return
+    }
+
     setDownloadingStreamingAsr(true)
     setAsrTestStatus(null)
     try {
@@ -1804,9 +1810,7 @@ export default function SettingsPage() {
               <ModelCard
                 icon={<HardDrive className="h-4 w-4" />}
                 title={t('settings.localAsr.title')}
-                desc={t('settings.localAsr.help', {
-                  size: formatBytes(localAsrStatus?.downloadSizeBytes ?? 240 * 1024 * 1024),
-                })}
+                desc={t('settings.localAsr.help')}
                 ready={localAsrReady}
                 readyLabel={t('settings.localAsr.ready')}
                 downloading={downloadingLocalAsr}
@@ -1827,11 +1831,7 @@ export default function SettingsPage() {
               <ModelCard
                 icon={<Activity className="h-4 w-4" />}
                 title={t('settings.streamingAsr.title')}
-                desc={t('settings.streamingAsr.help', {
-                  size: formatBytes(
-                    streamingAsrStatus?.downloadSizeBytes ?? STREAMING_ASR.DOWNLOAD_SIZE_BYTES,
-                  ),
-                })}
+                desc={t('settings.streamingAsr.help')}
                 ready={streamingAsrReady}
                 readyLabel={t('settings.streamingAsr.ready')}
                 downloading={downloadingStreamingAsr}
@@ -1882,6 +1882,7 @@ export default function SettingsPage() {
             <div className="mt-4 border-t pt-4">
               <ToggleRow
                 title={t('settings.streamingAsr.enabled')}
+                desc={t('settings.streamingAsr.enabledHelp')}
                 checked={streamingEnabled}
                 onChange={handleStreamingEnabledChange}
                 disabled={!streamingAsrSupported || downloadingStreamingAsr || deletingStreamingAsr}
@@ -1891,9 +1892,7 @@ export default function SettingsPage() {
 
             <div className="mt-4 flex items-start gap-2 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-3 py-2.5 text-xs leading-relaxed text-muted-foreground">
               <AlertTriangle className="mt-px h-4 w-4 shrink-0 text-yellow-600 dark:text-yellow-500" />
-              {t(
-                streamingEnabled ? 'settings.durationWarningStreaming' : 'settings.durationWarning',
-              )}
+              {t('settings.durationWarning')}
             </div>
 
             <div className="mt-4 border-t pt-4">
