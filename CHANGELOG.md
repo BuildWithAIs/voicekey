@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [0.3.0](https://github.com/BuildWithAIs/voicekey/compare/v0.2.1...v0.3.0) (2026-09-01)
+
+### Features
+
+- migrate streaming ASR to X-ASR ([bdfc35e](https://github.com/BuildWithAIs/voicekey/commit/bdfc35ea1c75dd179adff455f17e74285a75c629))
+- **refine:** add TokenDance LLM provider with OAuth key authorization ([8fa9ac4](https://github.com/BuildWithAIs/voicekey/commit/8fa9ac436ff2facc58483ea2a600f04047aad745))
+- **settings:** simplify ASR copy and warn on weak hosts ([1a8578a](https://github.com/BuildWithAIs/voicekey/commit/1a8578a6b8a84f63ef20d24c975b145c4d4632ee))
+- **website:** deploy site on Cloudflare ([8271aec](https://github.com/BuildWithAIs/voicekey/commit/8271aeca46859cdb24806ec83d531a17080c5dd7))
+
+### Bug Fixes
+
+- **release:** generate portable checksums ([56b9269](https://github.com/BuildWithAIs/voicekey/commit/56b9269bf4ddae946807c099ed07a7b1c73df052))
+- **settings:** rebind changed microphone device ids ([323c595](https://github.com/BuildWithAIs/voicekey/commit/323c59509736dcb0ede861d994d32fbe7e8fc7a3))
+
 ### [0.2.1](https://github.com/BuildWithAIs/voicekey/compare/v0.2.0...v0.2.1) (2026-08-27)
 
 ### Features
