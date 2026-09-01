@@ -18,11 +18,11 @@ const {
 } = Astro.props
 
 const siteName = 'Voice Key'
-const fallbackSite = 'https://buildwithais.github.io'
+const fallbackSite = 'https://voicekey.buildwithais.com'
 const rawBasePath = import.meta.env.BASE_URL ?? '/'
 const basePath = rawBasePath.endsWith('/') ? rawBasePath.slice(0, -1) : rawBasePath
 const siteRoot = Astro.site ?? new URL(fallbackSite)
-const siteUrl = new URL(`${basePath || '/'}/`, siteRoot).toString().replace(/\/$/u, '')
+const siteUrl = new URL(basePath ? `${basePath}/` : '/', siteRoot).toString().replace(/\/$/u, '')
 
 const canonicalURL = (() => {
   try {

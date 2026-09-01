@@ -5,8 +5,7 @@ import react from '@astrojs/react'
 import sitemap from '@astrojs/sitemap'
 
 export default defineConfig({
-  site: 'https://buildwithais.github.io',
-  base: '/voicekey',
+  site: 'https://voicekey.buildwithais.com',
   output: 'static',
 
   vite: {

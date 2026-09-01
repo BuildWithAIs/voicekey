@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://buildwithais.github.io/voicekey/sitemap-index.xml
+Sitemap: https://voicekey.buildwithais.com/sitemap-index.xml

@@ -14,7 +14,7 @@
 
   <p>
     <a href="README.zh-CN.md">简体中文</a>
-    · <a href="https://buildwithais.github.io/voicekey/">Website</a>
+    · <a href="https://voicekey.buildwithais.com/">Website</a>
     · <a href="https://github.com/BuildWithAIs/voicekey/releases/latest">Download</a>
     · <a href="https://github.com/BuildWithAIs/voicekey/issues">Issues</a>
   </p>
@@ -199,7 +199,8 @@ npm run build         # production build and platform package
 ```
 
 Packaged artifacts are written to `release/<version>/`. The marketing website is an independent
-Astro project under `website/`; use the `website:*` npm scripts to work on it.
+Astro project under `website/` and is deployed with Cloudflare Workers Static Assets; use the
+`website:*` npm scripts to work on it.
 
 ## Project structure
 
@@ -211,7 +212,7 @@ electron/
 src/
   components/ React UI, recorder bridge, HUD, charts, and reusable primitives
   pages/      Home, Settings, and History screens
-website/      Astro marketing site for GitHub Pages
+website/      Astro marketing site deployed with Cloudflare Workers Static Assets
 public/       Runtime assets used by the desktop renderer
 build/        Installer icons and packaging resources
 ```
