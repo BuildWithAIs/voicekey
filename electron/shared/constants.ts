@@ -47,41 +47,53 @@ export const LOCAL_ASR = {
 } as const
 
 export const STREAMING_ASR = {
-  MODEL_NAME: 'Streaming Paraformer bilingual int8',
-  MODEL_VERSION: 'streaming-paraformer-int8-2023-08-14',
+  MODEL_NAME: 'X-ASR-zh-en 480 ms',
+  MODEL_VERSION: 'x-asr-zh-en-480ms-fp32-689ff18c',
   MODEL_FILES: [
     {
-      name: 'encoder.int8.onnx',
+      name: 'encoder-480ms.onnx',
       urls: [
-        'https://huggingface.co/csukuangfj/sherpa-onnx-streaming-paraformer-bilingual-zh-en/resolve/main/encoder.int8.onnx',
-        'https://hf-mirror.com/csukuangfj/sherpa-onnx-streaming-paraformer-bilingual-zh-en/resolve/main/encoder.int8.onnx',
+        'https://www.modelscope.ai/models/Gilgamesh-J/X-ASR-zh-en/resolve/master/deployment/models/chunk-480ms-model/encoder-480ms.onnx',
+        'https://huggingface.co/GilgameshWind/X-ASR-zh-en/resolve/689ff18c584d29910da37b6fe904db0c1489c9d1/deployment/models/chunk-480ms-model/encoder-480ms.onnx',
       ],
-      sizeBytes: 165_462_184,
-      sha256: '81a70226a8934e6ed92aa1d4fc486b428b5398e2f2619ed4897b7294cab90e9a',
+      sizeBytes: 592_968_361,
+      sha256: '0c3454033d249081df124ddcd7adaf3deca07d0b999b26f2ee5d2475d37abc74',
     },
     {
-      name: 'decoder.int8.onnx',
+      name: 'decoder-480ms.onnx',
       urls: [
-        'https://huggingface.co/csukuangfj/sherpa-onnx-streaming-paraformer-bilingual-zh-en/resolve/main/decoder.int8.onnx',
-        'https://hf-mirror.com/csukuangfj/sherpa-onnx-streaming-paraformer-bilingual-zh-en/resolve/main/decoder.int8.onnx',
+        'https://www.modelscope.ai/models/Gilgamesh-J/X-ASR-zh-en/resolve/master/deployment/models/chunk-480ms-model/decoder-480ms.onnx',
+        'https://huggingface.co/GilgameshWind/X-ASR-zh-en/resolve/689ff18c584d29910da37b6fe904db0c1489c9d1/deployment/models/chunk-480ms-model/decoder-480ms.onnx',
       ],
-      sizeBytes: 71_664_561,
-      sha256: 'f3cca9f77bb9d93c8fcbfb63ae617b6b1ee96818df3aa3b151c40658fe38594f',
+      sizeBytes: 11_309_084,
+      sha256: '3658368d274a5d5fd39a7ac20c46bed0ad9cfea1f0feddef30d5d89797c1f499',
+    },
+    {
+      name: 'joiner-480ms.onnx',
+      urls: [
+        'https://www.modelscope.ai/models/Gilgamesh-J/X-ASR-zh-en/resolve/master/deployment/models/chunk-480ms-model/joiner-480ms.onnx',
+        'https://huggingface.co/GilgameshWind/X-ASR-zh-en/resolve/689ff18c584d29910da37b6fe904db0c1489c9d1/deployment/models/chunk-480ms-model/joiner-480ms.onnx',
+      ],
+      sizeBytes: 10_260_467,
+      sha256: '03781c98165a2385024c9cecdd2b6b13310d81db23a62c7da420782c2915cf81',
     },
     {
       name: 'tokens.txt',
       urls: [
-        'https://huggingface.co/csukuangfj/sherpa-onnx-streaming-paraformer-bilingual-zh-en/resolve/main/tokens.txt',
-        'https://hf-mirror.com/csukuangfj/sherpa-onnx-streaming-paraformer-bilingual-zh-en/resolve/main/tokens.txt',
+        'https://www.modelscope.ai/models/Gilgamesh-J/X-ASR-zh-en/resolve/master/deployment/models/chunk-480ms-model/tokens.txt',
+        'https://huggingface.co/GilgameshWind/X-ASR-zh-en/resolve/689ff18c584d29910da37b6fe904db0c1489c9d1/deployment/models/chunk-480ms-model/tokens.txt',
       ],
-      sizeBytes: 75_756,
-      sha256: '59aba8873a2ed1e122c25fee421e25f283b63290efbde85c1f01a853d83cb6e6',
+      sizeBytes: 58_806,
+      sha256: 'b818a60878b9aae978cbb8ad594acbd403d76d1af2e31ef4197c84e2dbdba27c',
     },
   ],
-  ENCODER_FILE: 'encoder.int8.onnx',
-  DECODER_FILE: 'decoder.int8.onnx',
+  ENCODER_FILE: 'encoder-480ms.onnx',
+  DECODER_FILE: 'decoder-480ms.onnx',
+  JOINER_FILE: 'joiner-480ms.onnx',
   TOKENS_FILE: 'tokens.txt',
-  DOWNLOAD_SIZE_BYTES: 237_202_501,
+  MODEL_TYPE: 'zipformer2',
+  DOWNLOAD_SIZE_BYTES: 614_596_718,
+  FINAL_TAIL_PADDING_MS: 500,
   WORKER_IDLE_TIMEOUT_MS: 20 * 60 * 1000,
   HEALTH_CHECK_VERSION: 1,
   ENDPOINT_RULES: {
@@ -89,27 +101,6 @@ export const STREAMING_ASR = {
     rule2MinTrailingSilence: 1.2,
     rule3MinUtteranceLength: 20,
   },
-} as const
-
-export const STREAMING_PUNCTUATION = {
-  MODEL_NAME: 'CT-Transformer punctuation zh-en int8',
-  MODEL_VERSION: 'ct-transformer-zh-en-int8-2024-04-12',
-  MODEL_FILES: [
-    {
-      name: 'model.int8.onnx',
-      // This is the single-file mirror of the official sherpa-onnx punctuation release. The
-      // pinned size and SHA-256 below match the model extracted from that release archive.
-      urls: [
-        'https://huggingface.co/ranger810/sherpa-onnx-punct-ct-transformer-zh-en-vocab272727-2024-04-12-int8/resolve/main/model.int8.onnx',
-        'https://hf-mirror.com/ranger810/sherpa-onnx-punct-ct-transformer-zh-en-vocab272727-2024-04-12-int8/resolve/main/model.int8.onnx',
-      ],
-      sizeBytes: 75_519_198,
-      sha256: '65a3fb9f5ad7bfb96bf69e0dc4481df97f6ee60513c1d94ce981ba6effd524b1',
-    },
-  ],
-  MODEL_FILE: 'model.int8.onnx',
-  DOWNLOAD_SIZE_BYTES: 75_519_198,
-  HEALTH_CHECK_VERSION: 1,
 } as const
 
 const BASE_REFINE_SYSTEM_PROMPT = `

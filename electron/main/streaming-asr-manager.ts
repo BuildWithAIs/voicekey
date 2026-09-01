@@ -7,24 +7,17 @@ import { createRequire } from 'node:module'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { Worker } from 'node:worker_threads'
-import { AUDIO_CONFIG, STREAMING_ASR, STREAMING_PUNCTUATION } from '../shared/constants'
+import { AUDIO_CONFIG, STREAMING_ASR } from '../shared/constants'
 import type {
   LocalASRDownloadProgress,
   LocalASRStatus,
   StreamingAudioFramePayload,
 } from '../shared/types'
 import { getASRModelStorageDir, removeManagedASRInstallDir } from './asr-model-storage'
+import { detectPublicIpCountryCode, orderDownloadSourcesForCountry } from './download-region'
 import { downloadFromSources } from './download-sources'
-import {
-  punctuateStreamingText,
-  releaseStreamingPunctuation,
-  verifyStreamingPunctuation,
-  warmStreamingPunctuation,
-} from './streaming-punctuation-manager'
 
-type ModelFile =
-  | (typeof STREAMING_ASR.MODEL_FILES)[number]
-  | (typeof STREAMING_PUNCTUATION.MODEL_FILES)[number]
+type ModelFile = (typeof STREAMING_ASR.MODEL_FILES)[number]
 
 type ModelBundlePaths = {
   modelDir: string
@@ -34,24 +27,20 @@ type ModelBundlePaths = {
 
 type StreamingASRPaths = {
   installDir: string
-  punctuationInstallDir: string
   asr: ModelBundlePaths
-  punctuation: ModelBundlePaths
 }
 
 type ReadyModelDirs = {
   asrModelDir: string
-  punctuationModelDir: string
 }
 
 type ModelBundle = {
-  label: 'ASR' | 'punctuation'
+  label: 'ASR'
   modelVersion: string
   healthCheckVersion: number
   files: readonly ModelFile[]
   downloadSizeBytes: number
   paths: ModelBundlePaths
-  kind: 'asr' | 'punctuation'
 }
 
 type ProgressCallback = (progress: LocalASRDownloadProgress) => void
@@ -86,7 +75,6 @@ type ActiveStreamingSession = {
   lastSequence: number
   failure: Error | null
   errorReported: boolean
-  punctuationModelDir: string
   callbacks: StreamingSessionCallbacks
 }
 
@@ -112,15 +100,14 @@ export function getStreamingASRStatus(): LocalASRStatus {
     supported: true,
     ready: Boolean(modelDirs),
     downloading: Boolean(activeDownload),
-    modelName: `${STREAMING_ASR.MODEL_NAME} + ${STREAMING_PUNCTUATION.MODEL_NAME}`,
+    modelName: STREAMING_ASR.MODEL_NAME,
     installDir: paths.installDir,
     storageDir: getASRModelStorageDir(),
     modelPath: modelDirs
       ? path.join(modelDirs.asrModelDir, STREAMING_ASR.ENCODER_FILE)
       : paths.asr.modelPath,
     missing,
-    downloadSizeBytes:
-      STREAMING_ASR.DOWNLOAD_SIZE_BYTES + STREAMING_PUNCTUATION.DOWNLOAD_SIZE_BYTES,
+    downloadSizeBytes: STREAMING_ASR.DOWNLOAD_SIZE_BYTES,
     progress: currentProgress,
     error: lastError,
   }
@@ -143,7 +130,7 @@ export async function startStreamingASRSession(
   const paths = ensureStreamingASRReady()
   const modelDirs = getReadyModelDirs(paths)
   if (!modelDirs) {
-    throw new Error('Streaming ASR or punctuation model is not downloaded yet')
+    throw new Error('Streaming ASR model is not downloaded yet')
   }
 
   const session: ActiveStreamingSession = {
@@ -153,7 +140,6 @@ export async function startStreamingASRSession(
     lastSequence: -1,
     failure: null,
     errorReported: false,
-    punctuationModelDir: modelDirs.punctuationModelDir,
     callbacks,
   }
   activeSession = session
@@ -165,13 +151,6 @@ export async function startStreamingASRSession(
   }).catch((error) => {
     reportSessionError(session, error)
     throw error
-  })
-
-  void warmStreamingPunctuation(modelDirs.punctuationModelDir).catch((error: unknown) => {
-    console.error(
-      '[ASR:Streaming] Failed to prewarm local punctuation; finalization will use raw text if retry fails:',
-      error instanceof Error ? error.message : error,
-    )
   })
 
   await session.ready
@@ -186,7 +165,7 @@ export async function warmStreamingASR(): Promise<void> {
   const paths = ensureStreamingASRReady()
   const modelDirs = getReadyModelDirs(paths)
   if (!modelDirs) {
-    throw new Error('Streaming ASR or punctuation model is not downloaded yet')
+    throw new Error('Streaming ASR model is not downloaded yet')
   }
 
   try {
@@ -239,40 +218,13 @@ export async function finishStreamingASRSession(sessionId: string): Promise<stri
     if (session.failure) throw session.failure
 
     const result = await callWorker<StreamingASRFinalResult>({ command: 'finish', sessionId })
-    const finalText = await addPunctuationOrFallback(result.text, session.punctuationModelDir)
-    session.callbacks.onPartial(finalText)
-    return finalText
+    session.callbacks.onPartial(result.text)
+    return result.text
   } finally {
-    await releaseSessionPunctuationSafely('finalization')
     if (activeSession === session) {
       activeSession = null
     }
     scheduleWorkerIdleTermination()
-  }
-}
-
-async function addPunctuationOrFallback(text: string, modelDir: string): Promise<string> {
-  if (!text.trim()) return text
-
-  try {
-    return await punctuateStreamingText(text, modelDir)
-  } catch (error) {
-    console.error(
-      '[ASR:Streaming] Local punctuation failed; using the unpunctuated transcript:',
-      error instanceof Error ? error.message : error,
-    )
-    return text
-  }
-}
-
-async function releaseSessionPunctuationSafely(reason: string): Promise<void> {
-  try {
-    await releaseStreamingPunctuation()
-  } catch (error) {
-    console.error(
-      `[ASR:Streaming] Failed to release punctuation worker after ${reason}:`,
-      error instanceof Error ? error.message : error,
-    )
   }
 }
 
@@ -285,7 +237,6 @@ export async function cancelStreamingASRSession(sessionId: string): Promise<void
     await session.ready.catch(() => undefined)
     await callWorker<void>({ command: 'cancel', sessionId })
   } finally {
-    await releaseSessionPunctuationSafely('cancellation')
     scheduleWorkerIdleTermination()
   }
 }
@@ -294,7 +245,7 @@ export async function releaseStreamingASR(): Promise<void> {
   if (activeSession) {
     throw new Error('Cannot release streaming ASR while a session is active')
   }
-  await Promise.all([terminateWorker(), releaseStreamingPunctuation()])
+  await terminateWorker()
 }
 
 export async function deleteStreamingASRAssets(): Promise<LocalASRStatus> {
@@ -314,7 +265,6 @@ export async function deleteStreamingASRAssets(): Promise<LocalASRStatus> {
     await releaseStreamingASR()
     const paths = getStreamingASRPaths()
     removeManagedASRInstallDir(paths.installDir)
-    removeManagedASRInstallDir(paths.punctuationInstallDir)
     currentProgress = undefined
     lastError = undefined
     return getStreamingASRStatus()
@@ -344,7 +294,7 @@ function ensureStreamingASRReady(): StreamingASRPaths {
     throw new Error(status.error || 'Streaming ASR runtime is not available')
   }
   if (!status.ready) {
-    throw new Error('Streaming ASR or punctuation model is not downloaded yet')
+    throw new Error('Streaming ASR model is not downloaded yet')
   }
   return getStreamingASRPaths()
 }
@@ -365,11 +315,12 @@ async function downloadStreamingASRAssetsInternal(
     .reduce((total, bundle) => total + bundle.downloadSizeBytes, 0)
 
   try {
-    await Promise.all([terminateWorker(), releaseStreamingPunctuation()])
+    await terminateWorker()
+    const sourceCountryCode = await detectPublicIpCountryCode()
 
     updateDownloadProgress(completedBytes, onProgress)
     for (const bundle of pendingBundles) {
-      await installModelBundle(bundle, completedBytes, onProgress)
+      await installModelBundle(bundle, completedBytes, sourceCountryCode, onProgress)
       completedBytes += bundle.downloadSizeBytes
     }
 
@@ -383,26 +334,14 @@ async function downloadStreamingASRAssetsInternal(
 
 function getStreamingASRPaths(): StreamingASRPaths {
   const storageDir = getASRModelStorageDir()
-  const installDir = path.join(storageDir, 'streaming-paraformer')
+  const installDir = path.join(storageDir, 'x-asr-480ms')
   const asrModelDir = path.join(installDir, 'models', STREAMING_ASR.MODEL_VERSION)
-  const punctuationInstallDir = path.join(storageDir, 'streaming-punctuation')
-  const punctuationModelDir = path.join(
-    punctuationInstallDir,
-    'models',
-    STREAMING_PUNCTUATION.MODEL_VERSION,
-  )
   return {
     installDir,
-    punctuationInstallDir,
     asr: {
       modelDir: asrModelDir,
       manifestPath: path.join(asrModelDir, 'model.json'),
       modelPath: path.join(asrModelDir, STREAMING_ASR.ENCODER_FILE),
-    },
-    punctuation: {
-      modelDir: punctuationModelDir,
-      manifestPath: path.join(punctuationModelDir, 'model.json'),
-      modelPath: path.join(punctuationModelDir, STREAMING_PUNCTUATION.MODEL_FILE),
     },
   }
 }
@@ -416,25 +355,14 @@ function getModelBundles(paths: StreamingASRPaths): ModelBundle[] {
       files: STREAMING_ASR.MODEL_FILES,
       downloadSizeBytes: STREAMING_ASR.DOWNLOAD_SIZE_BYTES,
       paths: paths.asr,
-      kind: 'asr',
-    },
-    {
-      label: 'punctuation',
-      modelVersion: STREAMING_PUNCTUATION.MODEL_VERSION,
-      healthCheckVersion: STREAMING_PUNCTUATION.HEALTH_CHECK_VERSION,
-      files: STREAMING_PUNCTUATION.MODEL_FILES,
-      downloadSizeBytes: STREAMING_PUNCTUATION.DOWNLOAD_SIZE_BYTES,
-      paths: paths.punctuation,
-      kind: 'punctuation',
     },
   ]
 }
 
 function getReadyModelDirs(paths: StreamingASRPaths): ReadyModelDirs | null {
-  const [asrBundle, punctuationBundle] = getModelBundles(paths)
+  const [asrBundle] = getModelBundles(paths)
   const asrModelDir = getReadyBundleModelDir(asrBundle)
-  const punctuationModelDir = getReadyBundleModelDir(punctuationBundle)
-  return asrModelDir && punctuationModelDir ? { asrModelDir, punctuationModelDir } : null
+  return asrModelDir ? { asrModelDir } : null
 }
 
 function getReadyBundleModelDir(bundle: ModelBundle): string | null {
@@ -446,16 +374,10 @@ function getReadyBundleModelDir(bundle: ModelBundle): string | null {
 function getDevelopmentModelDir(bundle: ModelBundle): string | null {
   if (app.isPackaged) return null
 
-  const candidates =
-    bundle.label === 'ASR'
-      ? [
-          process.env.VOICEKEY_STREAMING_ASR_MODEL_DIR,
-          path.join(process.cwd(), 'resources', 'asr', 'streaming-paraformer'),
-        ]
-      : [
-          process.env.VOICEKEY_STREAMING_PUNCTUATION_MODEL_DIR,
-          path.join(process.cwd(), 'resources', 'asr', 'streaming-punctuation'),
-        ]
+  const candidates = [
+    process.env.VOICEKEY_STREAMING_ASR_MODEL_DIR,
+    path.join(process.cwd(), 'resources', 'asr', 'x-asr-480ms'),
+  ]
 
   return (
     candidates
@@ -494,15 +416,14 @@ function getMissingModelFiles(paths: StreamingASRPaths): string[] {
 
   for (const bundle of getModelBundles(paths)) {
     if (getReadyBundleModelDir(bundle)) continue
-    const prefix = bundle.label === 'ASR' ? 'asr' : 'punctuation'
     const missingFiles = bundle.files
       .filter((file) => !fileHasSize(path.join(bundle.paths.modelDir, file.name), file))
-      .map((file) => `${prefix}/${file.name}`)
+      .map((file) => `asr/${file.name}`)
 
     if (missingFiles.length > 0) {
       missing.push(...missingFiles)
     } else if (!isModelManifestReady(bundle)) {
-      missing.push(`${prefix}/model.json`)
+      missing.push('asr/model.json')
     }
   }
 
@@ -520,6 +441,7 @@ function fileHasSize(filePath: string, modelFile: ModelFile): boolean {
 async function installModelBundle(
   bundle: ModelBundle,
   completedBefore: number,
+  sourceCountryCode: string | null,
   onProgress?: ProgressCallback,
 ): Promise<void> {
   const stagingDir = `${bundle.paths.modelDir}.download`
@@ -551,11 +473,12 @@ async function installModelBundle(
         file,
         stagingFile,
         completedBefore + completedInBundle,
+        sourceCountryCode,
         onProgress,
       )
     }
 
-    await verifyModelBundle(bundle.kind, stagingDir)
+    await verifyModelBundle(stagingDir)
     writeModelManifest(path.join(stagingDir, 'model.json'), bundle)
 
     fs.rmSync(bundle.paths.modelDir, { recursive: true, force: true })
@@ -567,12 +490,7 @@ async function installModelBundle(
   }
 }
 
-async function verifyModelBundle(kind: ModelBundle['kind'], modelDir: string): Promise<void> {
-  if (kind === 'punctuation') {
-    await verifyStreamingPunctuation(modelDir)
-    return
-  }
-
+async function verifyModelBundle(modelDir: string): Promise<void> {
   try {
     await callWorker<void>({ command: 'verify', modelDir })
   } finally {
@@ -590,7 +508,10 @@ function getWorker(): Worker {
       model: {
         encoderFile: STREAMING_ASR.ENCODER_FILE,
         decoderFile: STREAMING_ASR.DECODER_FILE,
+        joinerFile: STREAMING_ASR.JOINER_FILE,
         tokensFile: STREAMING_ASR.TOKENS_FILE,
+        modelType: STREAMING_ASR.MODEL_TYPE,
+        finalTailPaddingMs: STREAMING_ASR.FINAL_TAIL_PADDING_MS,
         endpointRules: STREAMING_ASR.ENDPOINT_RULES,
       },
     },
@@ -670,12 +591,6 @@ function callWorker<T extends StreamingASRFinalResult | void>(
 
 function reportSessionError(session: ActiveStreamingSession, error: Error): void {
   if (!session.failure) session.failure = error
-  void releaseStreamingPunctuation().catch((releaseError: unknown) => {
-    console.error(
-      '[ASR:Streaming] Failed to release punctuation worker after session error:',
-      releaseError instanceof Error ? releaseError.message : releaseError,
-    )
-  })
   if (session.errorReported) return
   session.errorReported = true
   session.callbacks.onError(error)
@@ -747,6 +662,7 @@ async function downloadModelFile(
   file: ModelFile,
   outputPath: string,
   downloadedBefore: number,
+  sourceCountryCode: string | null,
   onProgress?: ProgressCallback,
 ): Promise<number> {
   fs.mkdirSync(path.dirname(outputPath), { recursive: true })
@@ -754,7 +670,7 @@ async function downloadModelFile(
   fs.rmSync(tempPath, { force: true })
 
   const downloadedBytes = await downloadFromSources(
-    file.urls,
+    orderDownloadSourcesForCountry(file.urls, sourceCountryCode),
     async (source) => {
       fs.rmSync(tempPath, { force: true })
       updateDownloadProgress(downloadedBefore, onProgress)
@@ -781,7 +697,7 @@ async function downloadModelFile(
 }
 
 function updateDownloadProgress(receivedBytes: number, onProgress?: ProgressCallback): void {
-  const totalBytes = STREAMING_ASR.DOWNLOAD_SIZE_BYTES + STREAMING_PUNCTUATION.DOWNLOAD_SIZE_BYTES
+  const totalBytes = STREAMING_ASR.DOWNLOAD_SIZE_BYTES
   currentProgress = {
     phase: 'model',
     receivedBytes,
@@ -871,10 +787,7 @@ function requestDownload(
         response.on('data', (chunk: Buffer) => {
           receivedBytes += chunk.length
           updateDownloadProgress(
-            Math.min(
-              STREAMING_ASR.DOWNLOAD_SIZE_BYTES + STREAMING_PUNCTUATION.DOWNLOAD_SIZE_BYTES,
-              downloadedBefore + receivedBytes,
-            ),
+            Math.min(STREAMING_ASR.DOWNLOAD_SIZE_BYTES, downloadedBefore + receivedBytes),
             onProgress,
           )
         })

@@ -21,12 +21,13 @@ export default defineConfig(({ mode }) => {
             main: 'electron/main/main.ts',
             'local-asr-worker': 'electron/main/local-asr-worker.ts',
             'streaming-asr-worker': 'electron/main/streaming-asr-worker.ts',
-            'streaming-punctuation-worker': 'electron/main/streaming-punctuation-worker.ts',
           },
           vite: {
             build: {
               outDir: 'dist-electron',
-              emptyOutDir: false,
+              // Production main builds run before preload builds, so clear stale worker entries here.
+              // Watch mode must preserve preload.cjs while either Electron build is refreshed.
+              emptyOutDir: !isDev,
               rolldownOptions: {
                 output: {
                   format: 'esm',

@@ -216,8 +216,8 @@
       }
     },
     "streamingAsr": {
-      "title": "Realtime speech recognition",
-      "help": "First use requires downloading a local model of about {{size}}. Speech stays on this device.",
+      "title": "X-ASR bilingual realtime (480 ms)",
+      "help": "First use downloads about {{size}} for local Chinese-English X-ASR. Before downloading, the app chooses ModelScope or Hugging Face from the public-IP country without storing the IP. Live text, punctuation, and English casing are supported; model memory is released after 20 idle minutes.",
       "ready": "Ready",
       "download": "Download local model",
       "downloading": "Downloading...",

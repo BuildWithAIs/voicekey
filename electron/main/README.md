@@ -20,16 +20,18 @@ Electron 主进程目录，负责窗口管理、IPC、录音编排、ASR/润色�
 - `hotkey-manager.ts` - Electron `globalShortcut` 管理。
 - `iohook-manager.ts` - Windows、macOS 与 Linux X11 的 `uiohook-napi` 键盘监听；原生模块按需加载，Hyprland Wayland 不初始化该后端。
 - `asr-provider.ts` - 本地 ASR Provider 入口，调用 SenseVoiceSmall int8 并规范化识别结果。
-- `asr-model-storage.ts` - 统一管理 `userData/local-asr` 模型根目录；支持从设置页打开目录，并仅允许递归删除白名单中的直接子目录。
-- `asr-model-storage.test.ts` - 模型删除路径保护回归测试，覆盖允许的直接子目录以及根目录、嵌套目录和目录外路径拒绝。
-- `download-sources.ts` - 按配置顺序尝试模型下载源；首选源失败后自动切换备用源，全部失败才返回错误。
+- `asr-model-storage.ts` - 统一管理 `userData/local-asr` 模型根目录；支持从设置页打开目录，仅允许递归删除白名单中的直接子目录，并在启动时幂等清理已退役的 Paraformer/独立标点模型目录。
+- `asr-model-storage.test.ts` - 模型删除路径保护与旧流式资产清理回归测试，确保只保留 SenseVoice/X-ASR 活跃目录，并拒绝根目录、嵌套目录和目录外路径。
+- `download-region.ts` - 模型实际下载前通过 Cloudflare trace 静默解析公网出口的两位国家码；不存储、不记录公网 IP，4 秒内检测失败则保持配置顺序。`CN` 优先 ModelScope，其他已知国家优先 Hugging Face。
+- `download-region.test.ts` - 公网国家码解析、检测失败降级，以及中国/美国/其他海外下载源排序的回归测试。
+- `download-sources.ts` - 按地域排序后的顺序尝试模型下载源；首选源失败后自动切换备用源，全部失败才返回错误。
 - `local-asr-manager.ts` - 经典模式的 SenseVoiceSmall int8 ONNX 模型状态检测、原路径按需下载、SHA-256 校验、显式删除与 worker 线程中文识别；连续 20 分钟无任务时释放模型内存，删除前也会先终止 worker。
 - `local-asr-worker.ts` - Worker 线程内创建并缓存 `sherpa-onnx` recognizer，执行模型校验与本地 WAV 转写，避免阻塞主进程。
-- `streaming-asr-manager.ts` - 管理 Streaming Paraformer 与 CT-Transformer 标点模型目录，复用已安装权重并只补下载缺少的组件；负责校验、显式成组删除、流式会话、PCM 队列、最终标点编排和 Paraformer worker 的 20 分钟空闲卸载。
-- `streaming-asr-worker.ts` - Worker 线程内缓存在线 Paraformer recognizer，顺序接收 PCM、处理端点、合并分段并输出低延迟 partial 与原始 final text。
-- `streaming-punctuation-manager.ts` - 录音开始时并行预热独立标点 worker，final text 补标点后立即终止 worker 归还 WASM 内存；校验、失败和取消路径也保证释放。
-- `streaming-punctuation-worker.ts` - Worker 线程内运行 CT-Transformer 中英标点模型；规范化异常重复的句末标点，并校验去除标点后的文本内容完全一致，避免模型误删词语。
-- `streaming-punctuation-text.ts` - 标点输出规范化和内容一致性校验的纯函数，便于独立回归测试。
+- `streaming-asr-manager.ts` - 管理 X-ASR-zh-en 480 ms 模型目录与可恢复下载；公网国家为中国时 ModelScope 优先，美国及其他海外网络时 Hugging Face 优先，两源均会完整回退并校验每个文件；负责流式会话、PCM 队列、显式删除和 worker 的 20 分钟空闲卸载。
+- `streaming-asr-audio.ts` - 维护单次流式会话的真实输入采样率，阻止中途切换，并按该采样率计算收尾静音的样本数。
+- `streaming-asr-audio.test.ts` - 覆盖 48 kHz 输入采样率保持、异常采样率切换拒绝，以及 500 ms 收尾静音样本数。
+- `streaming-asr-worker.ts` - Worker 线程内缓存在线 Zipformer2 Transducer recognizer，顺序接收 PCM、处理端点、合并分段；结束时沿用该会话真实输入采样率补 500 ms 静音刷新末词，并输出带模型原生标点与英文大小写的 partial/final text。
+- `streaming-asr-text.ts` - 对齐 X-ASR 官方部署层的文本规范化：只清理中文字符/标点和 ASCII 标点前的模型 token 空格，不改写词语或中英边界。
 - `refine/` - 文本润色模块，使用 OpenAI-compatible Chat Completions 做后处理、动态 prompt 组装、远程术语表缓存刷新与连接校验。
 - `translation/` - 文本翻译模块，通过快捷键复制选中文本 → LLM API 翻译 → 粘贴替换，复用润色 API 配置。
 - `text-injector.ts` - 跨平台文本注入入口；Windows/macOS/Linux X11 按需加载 `@nut-tree-fork/nut-js`，Omarchy/Hyprland 使用短暂存活的 `wl-copy --sensitive` 剪贴板与 `wtype` Wayland 虚拟键盘以保证多语言和多行文本保真，并避开 Electron Wayland 剪贴板所有权及输入法虚拟键盘导致的 Hyprland 按键名解析失败。

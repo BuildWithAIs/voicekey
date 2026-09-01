@@ -1,10 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import {
-  buildRefineSystemPrompt,
-  RECORDING,
-  STREAMING_ASR,
-  STREAMING_PUNCTUATION,
-} from './constants'
+import { buildRefineSystemPrompt, RECORDING, STREAMING_ASR } from './constants'
 
 describe('recording limits', () => {
   it('uses 30-second chunks within a five-minute session', () => {
@@ -15,22 +10,23 @@ describe('recording limits', () => {
 })
 
 describe('streaming ASR assets', () => {
-  it('keeps the declared total equal to the three verified model files', () => {
+  it('keeps the declared total equal to the four verified X-ASR model files', () => {
     const assetTotal = STREAMING_ASR.MODEL_FILES.reduce((total, file) => {
       expect(file.sha256).toMatch(/^[a-f0-9]{64}$/u)
+      expect(file.urls).toHaveLength(2)
+      expect(new URL(file.urls[0]).host).toBe('www.modelscope.ai')
+      expect(new URL(file.urls[1]).host).toBe('huggingface.co')
       return total + file.sizeBytes
     }, 0)
 
     expect(assetTotal).toBe(STREAMING_ASR.DOWNLOAD_SIZE_BYTES)
   })
 
-  it('keeps the punctuation asset metadata internally consistent', () => {
-    const assetTotal = STREAMING_PUNCTUATION.MODEL_FILES.reduce((total, file) => {
-      expect(file.sha256).toMatch(/^[a-f0-9]{64}$/u)
-      return total + file.sizeBytes
-    }, 0)
-
-    expect(assetTotal).toBe(STREAMING_PUNCTUATION.DOWNLOAD_SIZE_BYTES)
+  it('uses the 480 ms X-ASR model and releases its worker after 20 idle minutes', () => {
+    expect(STREAMING_ASR.MODEL_NAME).toContain('480 ms')
+    expect(STREAMING_ASR.MODEL_TYPE).toBe('zipformer2')
+    expect(STREAMING_ASR.FINAL_TAIL_PADDING_MS).toBe(500)
+    expect(STREAMING_ASR.WORKER_IDLE_TIMEOUT_MS).toBe(20 * 60 * 1000)
   })
 })
 

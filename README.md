@@ -39,8 +39,8 @@ cursor is active.
 
 - **Local-first transcription** — raw audio is processed on your device with downloadable ONNX
   models; no ASR API key is required.
-- **Two recognition modes** — choose a compact classic workflow or live partial transcription with
-  local punctuation.
+- **Two recognition modes** — choose compact SenseVoice final transcription or bilingual X-ASR
+  partial transcription with punctuation and English casing.
 - **Optional text cleanup** — connect OpenAI, DeepSeek, OpenRouter, or a custom OpenAI-compatible
   endpoint using your own API key.
 - **Translation in place** — translate selected text and replace it in the current application with
@@ -71,14 +71,17 @@ block the application UI.
 
 ### Recognition modes
 
-| Mode          | Local models                                                     | Experience                                                                                | Approximate download |
-| ------------- | ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------- | -------------------- |
-| **Classic**   | SenseVoiceSmall int8                                             | Transcribes after recording; best for a compact, simple setup                             | 240 MB               |
-| **Streaming** | Streaming Paraformer bilingual int8 + CT-Transformer punctuation | Shows partial text while speaking and adds Chinese/English punctuation locally at the end | 298 MB               |
+| Mode          | Local models         | Experience                                                                    | Approximate download |
+| ------------- | -------------------- | ----------------------------------------------------------------------------- | -------------------- |
+| **Classic**   | SenseVoiceSmall int8 | Transcribes after recording; best for a compact, simple setup                 | 240 MB               |
+| **Streaming** | X-ASR-zh-en 480 ms   | Shows bilingual partial text with model-native punctuation and English casing | 586 MB               |
 
 The modes are mutually exclusive. Model files are downloaded only when requested from Settings,
 stored under Electron's per-user application data directory, and verified against pinned file sizes
-and SHA-256 hashes.
+and SHA-256 hashes. Before a Streaming model download, Voice Key reads the two-letter country code
+for the current public connection without storing or logging its IP address. Mainland China prefers
+ModelScope, while the United States and other overseas connections prefer Hugging Face; either
+source remains available as a fallback.
 
 ## Installation
 

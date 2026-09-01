@@ -57,6 +57,7 @@ import {
 } from './audio'
 // 环境模块
 import { initEnv, VITE_DEV_SERVER_URL } from './env'
+import { removeLegacyStreamingASRInstallDirs } from './asr-model-storage'
 import { getStreamingASRStatus, warmStreamingASR } from './streaming-asr-manager'
 import { hyprlandIntegration } from './platform/hyprland-integration'
 import {
@@ -166,6 +167,14 @@ async function registerHotkeys(): Promise<void> {
 app.whenReady().then(async () => {
   initEnv() // 必须第一个调用
   initializeLogger()
+  try {
+    removeLegacyStreamingASRInstallDirs()
+  } catch (error) {
+    console.warn(
+      '[ASR] Failed to remove retired streaming model assets; cleanup will retry next launch:',
+      error instanceof Error ? error.message : error,
+    )
+  }
   if (process.platform !== 'darwin') {
     Menu.setApplicationMenu(null)
   }

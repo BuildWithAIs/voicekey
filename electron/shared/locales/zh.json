@@ -216,8 +216,8 @@
       }
     },
     "streamingAsr": {
-      "title": "实时语音识别",
-      "help": "首次使用需要下载约 {{size}} 的本地模型，语音全程在设备本地处理。",
+      "title": "X-ASR 中英实时识别（480 ms）",
+      "help": "首次使用需要下载约 {{size}} 的 X-ASR 中英本地模型；下载前会根据公网国家自动选择 ModelScope 或 Hugging Face，不存储 IP。支持实时文字、标点与英文大小写，空闲 20 分钟后释放模型内存。",
       "ready": "已就绪",
       "download": "下载本地模型",
       "downloading": "下载中...",

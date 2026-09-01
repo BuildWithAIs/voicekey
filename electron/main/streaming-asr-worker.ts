@@ -2,6 +2,11 @@ import { createRequire } from 'node:module'
 import { cpus } from 'node:os'
 import path from 'node:path'
 import { parentPort, workerData } from 'node:worker_threads'
+import {
+  getStreamingTailPaddingSampleCount,
+  resolveStreamingInputSampleRate,
+} from './streaming-asr-audio'
+import { normalizeStreamingASRText } from './streaming-asr-text'
 
 type StreamingASRWorkerData = {
   sherpaModulePath: string
@@ -9,7 +14,10 @@ type StreamingASRWorkerData = {
   model: {
     encoderFile: string
     decoderFile: string
+    joinerFile: string
     tokensFile: string
+    modelType: string
+    finalTailPaddingMs: number
     endpointRules: {
       rule1MinTrailingSilence: number
       rule2MinTrailingSilence: number
@@ -59,6 +67,7 @@ type ActiveSession = {
   committedSegments: string[]
   lastPartialText: string
   lastSequence: number
+  inputSampleRate: number | null
 }
 
 if (!parentPort) {
@@ -82,14 +91,16 @@ function createRecognizer(modelDir: string): OnlineRecognizer {
   return sherpa.createOnlineRecognizer({
     featConfig: { sampleRate: data.audioConfig.sampleRate, featureDim: 80 },
     modelConfig: {
-      paraformer: {
+      transducer: {
         encoder: path.join(modelDir, data.model.encoderFile),
         decoder: path.join(modelDir, data.model.decoderFile),
+        joiner: path.join(modelDir, data.model.joinerFile),
       },
       tokens: path.join(modelDir, data.model.tokensFile),
       numThreads: recognizerThreadCount(),
       provider: 'cpu',
       debug: 0,
+      modelType: data.model.modelType,
       modelingUnit: 'cjkchar',
     },
     decodingMethod: 'greedy_search',
@@ -142,9 +153,11 @@ function mergeSegments(segments: readonly string[]): string {
 }
 
 function getCurrentText(session: ActiveSession): string {
-  if (!cachedRecognizer) return mergeSegments(session.committedSegments)
+  if (!cachedRecognizer) {
+    return normalizeStreamingASRText(mergeSegments(session.committedSegments))
+  }
   const current = cachedRecognizer.getResult(session.stream).text?.trim() ?? ''
-  return mergeSegments([...session.committedSegments, current])
+  return normalizeStreamingASRText(mergeSegments([...session.committedSegments, current]))
 }
 
 function emitPartial(session: ActiveSession, force = false): void {
@@ -169,7 +182,9 @@ function decodeReadyFrames(session: ActiveSession): void {
   emitPartial(session)
 
   if (cachedRecognizer.isEndpoint(session.stream)) {
-    const endpointText = cachedRecognizer.getResult(session.stream).text?.trim() ?? ''
+    const endpointText = normalizeStreamingASRText(
+      cachedRecognizer.getResult(session.stream).text?.trim() ?? '',
+    )
     if (endpointText) {
       session.committedSegments.push(endpointText)
     }
@@ -187,6 +202,7 @@ function startSession(sessionId: string, modelDir: string): void {
     committedSegments: [],
     lastPartialText: '',
     lastSequence: -1,
+    inputSampleRate: null,
   }
 }
 
@@ -198,8 +214,12 @@ function acceptAudio(message: Extract<WorkerCommand, { command: 'audio' }>): voi
   const samples = new Float32Array(message.buffer)
   if (samples.length === 0) return
 
+  session.inputSampleRate = resolveStreamingInputSampleRate(
+    session.inputSampleRate,
+    message.sampleRate,
+  )
   session.lastSequence = message.sequence
-  session.stream.acceptWaveform(message.sampleRate, samples)
+  session.stream.acceptWaveform(session.inputSampleRate, samples)
   decodeReadyFrames(session)
 }
 
@@ -210,6 +230,14 @@ function finishSession(sessionId: string): { text: string } {
   }
 
   try {
+    const inputSampleRate = session.inputSampleRate ?? data.audioConfig.sampleRate
+    const tailPaddingSamples = getStreamingTailPaddingSampleCount(
+      inputSampleRate,
+      data.model.finalTailPaddingMs,
+    )
+    if (tailPaddingSamples > 0) {
+      session.stream.acceptWaveform(inputSampleRate, new Float32Array(tailPaddingSamples))
+    }
     session.stream.inputFinished()
     decodeReadyFrames(session)
     return { text: getCurrentText(session) }

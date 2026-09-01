@@ -2,14 +2,17 @@ import { app, shell } from 'electron'
 import fs from 'fs'
 import path from 'node:path'
 
-const MANAGED_INSTALL_DIR_NAMES = new Set([
-  'sensevoice',
-  'streaming-paraformer',
-  'streaming-punctuation',
-])
+const MANAGED_INSTALL_DIR_NAMES = new Set(['sensevoice', 'x-asr-480ms'])
+const LEGACY_STREAMING_INSTALL_DIR_NAMES = ['streaming-paraformer', 'streaming-punctuation']
 
 export function getASRModelStorageDir(): string {
   return path.join(app.getPath('userData'), 'local-asr')
+}
+
+export function removeLegacyStreamingASRInstallDirs(storageDir = getASRModelStorageDir()): void {
+  for (const directoryName of LEGACY_STREAMING_INSTALL_DIR_NAMES) {
+    fs.rmSync(path.join(storageDir, directoryName), { recursive: true, force: true })
+  }
 }
 
 export async function openASRModelStorageDir(): Promise<void> {

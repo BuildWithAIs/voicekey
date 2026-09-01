@@ -31,7 +31,6 @@ import {
   MICROPHONE_INPUT,
   STORED_SECRET_PLACEHOLDER,
   STREAMING_ASR,
-  STREAMING_PUNCTUATION,
   TRANSLATION,
   TARGET_LANGUAGES,
 } from '@electron/shared/constants'
@@ -1830,8 +1829,7 @@ export default function SettingsPage() {
                 title={t('settings.streamingAsr.title')}
                 desc={t('settings.streamingAsr.help', {
                   size: formatBytes(
-                    streamingAsrStatus?.downloadSizeBytes ??
-                      STREAMING_ASR.DOWNLOAD_SIZE_BYTES + STREAMING_PUNCTUATION.DOWNLOAD_SIZE_BYTES,
+                    streamingAsrStatus?.downloadSizeBytes ?? STREAMING_ASR.DOWNLOAD_SIZE_BYTES,
                   ),
                 })}
                 ready={streamingAsrReady}
