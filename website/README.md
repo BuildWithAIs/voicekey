@@ -16,5 +16,5 @@ npm run deploy
 `npm run deploy` builds the site, uploads the static assets, and updates the
 `voicekey.buildwithais.com/*` Worker route from an authenticated workstation.
 
-The version badge reads the root `package.json` version at build time, then may
-refresh in the browser from the latest GitHub release.
+The version badge reads the root `package.json` version at build time, then checks
+the latest GitHub release in the browser with a one-hour local cache.

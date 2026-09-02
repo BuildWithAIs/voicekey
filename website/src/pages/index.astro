@@ -7,56 +7,54 @@ import BaseLayout from '@layouts/BaseLayout.astro'
 import logoImage from '../assets/logo.png'
 import rootPackage from '../../../package.json'
 import {
+  Cpu,
   Download,
   Github,
+  History,
   Keyboard,
   Globe,
-  Shield,
-  Zap,
   Monitor,
-  LayoutTemplate,
-  Cpu,
   Command,
 } from 'lucide-react'
 import LanguageSwitch from '@components/LanguageSwitch.astro'
 import ThemeToggle from '@components/ThemeToggle.astro'
 
-const title = 'Voice Key - Voice to Text, One Key to Input'
+const title = 'Voice Key - Free, Open-Source Voice Typing That Works Offline'
 const description =
-  'Press hotkey to speak, release to type anywhere. Voice Key is a cross-platform app (macOS & Windows) that converts your voice to text instantly.'
+  'Voice Key is a free, open-source voice typing app for Windows, macOS, and Linux. Download a local speech model once to keep using it offline; up to 90 days of input history stays on your computer.'
 const latestVersion = `v${rootPackage.version}`
 
 // Feature data
 const features = [
   {
+    icon: Github,
+    title: 'Free and Open Source',
+    desc: 'Voice Key itself is free to download and use. The source is public under the MIT License, so you can inspect, modify, or build it yourself.',
+  },
+  {
+    icon: Cpu,
+    title: 'Works Offline',
+    desc: 'Download a local speech model once, then basic dictation keeps working without an internet connection. Turn off optional cloud refinement and translation for a fully offline workflow.',
+  },
+  {
+    icon: History,
+    title: 'History Stays Local',
+    desc: 'Recent transcripts stay on your computer for up to 90 days—no cloud history account required. Search, copy, or delete them whenever you need.',
+  },
+  {
     icon: Keyboard,
-    title: 'Push-to-Talk',
-    desc: 'Hold hotkey to speak, release to input. Zero latency workflow.',
+    title: 'Hold to Talk, Release to Type',
+    desc: 'Hold your chosen shortcut while speaking. Release it and the text appears in the app where your cursor is active.',
   },
   {
     icon: Globe,
-    title: 'Multi-language',
-    desc: 'Support Chinese, English and more. Auto-detect context.',
-  },
-  {
-    icon: Shield,
-    title: 'Privacy First',
-    desc: 'Local-first architecture. Your voice data stays on your device.',
-  },
-  {
-    icon: Zap,
-    title: 'Lightning Fast',
-    desc: 'Sub-second recognition. Type faster than you can think.',
+    title: 'Chinese and English Input',
+    desc: 'Choose classic transcription, which returns the full text when you finish speaking, or streaming Chinese and English recognition. Models download only when you ask for them.',
   },
   {
     icon: Monitor,
-    title: 'Cross Platform',
-    desc: 'Native support for macOS & Windows. Consistent experience.',
-  },
-  {
-    icon: LayoutTemplate,
-    title: 'Modern HUD',
-    desc: 'Non-intrusive floating overlay. Visual feedback for recording.',
+    title: 'Type Into the Apps You Use',
+    desc: 'Use Voice Key in chat apps, documents, browsers, or code editors. If your cursor is in a text field, Voice Key can put your words there.',
   },
 ]
 ---
@@ -92,7 +90,7 @@ const features = [
         </span>
         <span class="latest-version-text">{latestVersion}</span>
         <span class="w-px h-3 bg-border mx-1"></span>
-        <span class="text-foreground">Stable Build</span>
+        <span class="text-foreground">Free &amp; Open Source</span>
       </div>
 
       <!-- Hero Content -->
@@ -125,10 +123,10 @@ const features = [
       <p
         class="text-xl md:text-2xl text-muted-foreground mb-10 max-w-2xl animate-slide-up leading-relaxed"
       >
-        Voice to text, one key to input.
+        Voice typing without a subscription.
         <br />
         <span class="text-foreground/80 font-medium"
-          >Press hotkey to speak. Release to type.</span
+          >Hold a shortcut to speak, then release to type—even offline with a local model.</span
         >
       </p>
 
@@ -161,6 +159,7 @@ const features = [
       <div class="mt-8 flex gap-4 text-xs font-mono text-muted-foreground opacity-60">
         <span class="flex items-center gap-1.5"><Command className="w-3 h-3"/> macOS (Universal)</span>
         <span class="flex items-center gap-1.5"><Monitor className="w-3 h-3"/> Windows (x64)</span>
+        <span class="flex items-center gap-1.5"><Monitor className="w-3 h-3"/> Linux (x64)</span>
       </div>
     </div>
   </section>
@@ -175,10 +174,11 @@ const features = [
     <div class="max-w-6xl mx-auto relative z-10">
       <div class="text-center mb-16">
         <h2 class="text-3xl md:text-4xl font-bold text-foreground mb-4 tracking-tight">
-          System Capabilities
+          Why Voice Key
         </h2>
-        <p class="font-mono text-xs text-primary/80 uppercase tracking-widest">
-          // Core Modules Loaded
+        <p class="max-w-2xl mx-auto text-sm md:text-base text-muted-foreground leading-relaxed">
+          If you want free voice typing that works offline after a one-time model download and keeps
+          recent history on your own computer, Voice Key is built for that.
         </p>
       </div>
 
@@ -214,7 +214,7 @@ const features = [
     <div class="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6 text-sm text-muted-foreground font-mono">
       <div class="flex items-center gap-2">
         <span class="w-2 h-2 bg-green-500 rounded-full"></span>
-        <span>System Operational</span>
+        <span>Free and open source · History stays local</span>
       </div>
       
       <p>© 2026 Voice Key Open Source Project</p>
@@ -232,7 +232,7 @@ const features = [
   <script is:inline>
     (async function updateVersion() {
       const STORAGE_KEY = 'voice-key-version';
-      const CACHE_TIME = 24 * 60 * 60 * 1000; // 24 hours
+      const CACHE_TIME = 60 * 60 * 1000; // 1 hour
 
       function updateDOM(version) {
         if (!version) return;
