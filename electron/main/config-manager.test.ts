@@ -70,6 +70,22 @@ function createManager(initialData: Record<string, unknown>): ConfigManager {
   return new ConfigManager()
 }
 
+describe('ConfigManager dictation processing flags', () => {
+  it('treats refinement and dictation translation as independent triggers', () => {
+    const manager = createManager({})
+
+    expect(manager.isDictationProcessingEnabled()).toBe(false)
+    manager.setLLMRefineConfig({ translateOutput: true })
+    expect(manager.isDictationProcessingEnabled()).toBe(true)
+    expect(manager.getLLMRefineConfig().enabled).toBe(false)
+
+    manager.setLLMRefineConfig({ translateOutput: false, enabled: true })
+    expect(manager.isDictationProcessingEnabled()).toBe(true)
+    manager.setLLMRefineConfig({ enabled: false })
+    expect(manager.isDictationProcessingEnabled()).toBe(false)
+  })
+})
+
 describe('ConfigManager local ASR migration', () => {
   beforeEach(() => {
     mocks.initialData = {}

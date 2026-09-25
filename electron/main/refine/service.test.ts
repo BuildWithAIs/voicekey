@@ -13,10 +13,11 @@ vi.mock('./openai-client', async (importOriginal) => {
 
 const requestChatCompletionMock = vi.mocked(requestChatCompletion)
 
-function createService() {
+function createService(flags: { enabled?: boolean; translateOutput?: boolean } = {}) {
   const config = normalizeLLMRefineConfig({
     ...defaultLLMRefineConfig,
-    enabled: true,
+    enabled: flags.enabled ?? true,
+    translateOutput: flags.translateOutput ?? false,
     provider: 'deepseek',
     deepseek: {
       ...defaultLLMRefineConfig.deepseek,
@@ -26,7 +27,7 @@ function createService() {
 
   return new RefineService({
     getRefineConfig: () => config,
-    getTargetLanguage: () => 'en',
+    getTargetLanguage: () => 'english',
   })
 }
 
@@ -55,6 +56,40 @@ describe('RefineService dictation requests', () => {
       thinking: { type: 'disabled' },
     })
     expect(requestChatCompletionMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('cleans up and translates dictation when only translation is enabled', async () => {
+    const service = createService({ enabled: false, translateOutput: true })
+
+    expect(service.isEnabled()).toBe(true)
+    expect(service.isDictationTranslationEnabled()).toBe(true)
+    await service.refineText('嗯，我想说这个方案可以做。')
+
+    expect(requestChatCompletionMock).toHaveBeenCalledTimes(1)
+    const payload = requestChatCompletionMock.mock.calls[0]?.[2]
+    expect(payload).toMatchObject({
+      messages: expect.arrayContaining([
+        expect.objectContaining({
+          content: expect.stringContaining(
+            'First apply the transcript cleanup rules, then translate',
+          ),
+        }),
+      ]),
+    })
+    expect(payload).toMatchObject({
+      messages: expect.arrayContaining([
+        expect.objectContaining({ content: expect.stringContaining('only in English') }),
+      ]),
+    })
+  })
+
+  it('skips the LLM when both dictation options are disabled', async () => {
+    const service = createService({ enabled: false, translateOutput: false })
+
+    expect(service.isEnabled()).toBe(false)
+    expect(service.isDictationTranslationEnabled()).toBe(false)
+    await expect(service.refineText('raw transcript')).resolves.toBe('raw transcript')
+    expect(requestChatCompletionMock).not.toHaveBeenCalled()
   })
 })
 

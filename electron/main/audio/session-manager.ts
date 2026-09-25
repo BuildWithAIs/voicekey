@@ -73,7 +73,7 @@ export function handleBackgroundRendererGone(): void {
 }
 
 type HandleStopRecordingOptions = {
-  willRunRefine?: boolean
+  willProcessDictation?: boolean
 }
 
 export function getCurrentSession(): VoiceSession | null {
@@ -191,7 +191,7 @@ export async function handleStopRecording(options: HandleStopRecordingOptions = 
     updateOverlay({
       status: 'processing',
       processingStage: 'transcribing',
-      processingTotalStages: options.willRunRefine ? 2 : 1,
+      processingTotalStages: options.willProcessDictation ? 2 : 1,
       transcript: currentSession.transcription,
     })
 
@@ -237,5 +237,5 @@ export async function handleCancelSession(): Promise<void> {
 }
 
 function optionsForOverlayTotalStages(): 1 | 2 {
-  return configManager.isLLMRefineEnabled() ? 2 : 1
+  return configManager.isDictationProcessingEnabled() ? 2 : 1
 }

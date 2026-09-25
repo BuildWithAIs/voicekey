@@ -808,7 +808,10 @@ export default function SettingsPage() {
   }
 
   const getRefineErrorMessage = (refineConfig: LLMRefineConfig): string | null => {
-    if (refineConfig.enabled && !isRefineConfigComplete(refineConfig)) {
+    if (
+      (refineConfig.enabled || refineConfig.translateOutput) &&
+      !isRefineConfigComplete(refineConfig)
+    ) {
       return t('settings.result.refineConfigRequired')
     }
     return null
@@ -1242,7 +1245,7 @@ export default function SettingsPage() {
       clearRefineFeatureFlagsSnapshot()
       setConfig((prev) => ({
         ...prev,
-        llmRefine: { ...prev.llmRefine, enabled: false, translateOutput: false },
+        llmRefine: { ...prev.llmRefine, enabled: false },
       }))
       return
     }
@@ -1284,11 +1287,6 @@ export default function SettingsPage() {
     }
 
     if (!(await verifyRefineConnection(true))) return
-    if (!latestConfigRef.current.llmRefine.enabled) {
-      toast.warning(t('settings.result.enableRefineBeforeTranslateOutput'))
-      return
-    }
-
     clearRefineFeatureFlagsSnapshot()
     setConfig((prev) => ({
       ...prev,
@@ -1830,6 +1828,15 @@ export default function SettingsPage() {
   const activeTargetLanguage = TARGET_LANGUAGES.find(
     (lang) => lang.value === config.translation.targetLanguage,
   )
+  const translationModes = [
+    translateOutput ? t('settings.health.dictationTranslation') : null,
+    config.translation.enabled ? t('settings.health.selectedTextTranslation') : null,
+  ]
+    .filter(Boolean)
+    .join(' · ')
+  const targetLanguageLabel = activeTargetLanguage
+    ? t(`settings.translation.languages.${activeTargetLanguage.value}`)
+    : config.translation.targetLanguage
   const linuxIntegrationReady = Boolean(
     linuxIntegrationStatus?.available &&
     linuxIntegrationStatus.installed &&
@@ -2348,7 +2355,6 @@ export default function SettingsPage() {
                       translation: { ...prev.translation, targetLanguage: value },
                     }))
                   }
-                  disabled={!config.translation.enabled && !translateOutput}
                 >
                   <SelectTrigger id="targetLanguage" className="no-drag w-full cursor-pointer">
                     <SelectValue placeholder="English" />
@@ -2365,20 +2371,21 @@ export default function SettingsPage() {
 
               <div className="mt-4">
                 <ToggleRow
-                  title={t('settings.translation.enable')}
-                  checked={config.translation.enabled}
-                  disabled={testingRefine}
-                  onChange={(checked) => void handleTranslationEnabledChange(checked)}
-                />
-              </div>
-
-              <div className="mt-4">
-                <ToggleRow
                   title={t('settings.translateOutput')}
                   desc={t('settings.translateOutputHelp')}
                   checked={translateOutput}
                   disabled={testingRefine}
                   onChange={(checked) => void handleTranslateOutputChange(checked)}
+                />
+              </div>
+
+              <div className="mt-4">
+                <ToggleRow
+                  title={t('settings.translation.enable')}
+                  desc={t('settings.translation.enableHelp')}
+                  checked={config.translation.enabled}
+                  disabled={testingRefine}
+                  onChange={(checked) => void handleTranslationEnabledChange(checked)}
                 />
               </div>
             </div>
@@ -2604,8 +2611,8 @@ export default function SettingsPage() {
                 on={translationActive}
                 title={t('settings.health.translation')}
                 status={
-                  translationActive && activeTargetLanguage
-                    ? `→ ${t(`settings.translation.languages.${activeTargetLanguage.value}`)}`
+                  translationActive
+                    ? `${translationModes} → ${targetLanguageLabel}`
                     : t('settings.health.translationOff')
                 }
               />

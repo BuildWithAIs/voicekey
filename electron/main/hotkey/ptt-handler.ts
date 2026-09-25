@@ -8,7 +8,7 @@ import { hyprlandIntegration } from '../platform/hyprland-integration'
 import { parseAccelerator } from './parser'
 
 type RegisterGlobalHotkeysOptions = {
-  getWillRunRefine?: () => boolean
+  getWillProcessDictation?: () => boolean
 }
 
 /**
@@ -44,7 +44,7 @@ export async function registerGlobalHotkeys(
     const session = getCurrentSession()
     if (session?.status === 'recording') {
       handleStopRecording({
-        willRunRefine: options.getWillRunRefine?.() ?? false,
+        willProcessDictation: options.getWillProcessDictation?.() ?? false,
       })
     }
   }

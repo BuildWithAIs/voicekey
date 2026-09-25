@@ -171,7 +171,7 @@ export function HUD() {
   const currentProcessingIndex = processingStage ? PROCESSING_STEPS.indexOf(processingStage) : -1
 
   const meta = processingStage ? STAGE_META[processingStage] : null
-  const showStepPills = showDetailedProcessing && (!transcript || processingStage === 'translating')
+  const showStepPills = showDetailedProcessing && !transcript
 
   return (
     <div className="pointer-events-none fixed inset-0 flex items-center justify-center">
@@ -281,7 +281,7 @@ export function HUD() {
             ))}
 
           {status === 'processing' &&
-            (transcript && processingStage !== 'translating' ? (
+            (transcript ? (
               /* 展示已识别文本 + 当前阶段 */
               <div className="flex min-w-0 flex-col gap-2">
                 <p className="line-clamp-3 text-[14px] leading-5 text-neutral-100">{transcript}</p>
@@ -294,6 +294,7 @@ export function HUD() {
                   <PulseDot
                     className={cn(
                       processingStage === 'refining' && 'bg-violet-400',
+                      processingStage === 'translating' && 'bg-cyan-400',
                       processingStage === 'transcribing' && 'bg-indigo-400',
                       !processingStage && 'bg-indigo-400',
                     )}

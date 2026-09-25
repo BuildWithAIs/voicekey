@@ -223,9 +223,9 @@ export function registerConfigHandlers(): void {
         }
       }
       if (isPlainObject(config.llmRefine)) {
-        const wasRefineEnabled = configManager.isLLMRefineEnabled()
+        const wasDictationProcessingEnabled = configManager.isDictationProcessingEnabled()
         configManager.setLLMRefineConfig(config.llmRefine)
-        if (!wasRefineEnabled && configManager.isLLMRefineEnabled()) {
+        if (!wasDictationProcessingEnabled && configManager.isDictationProcessingEnabled()) {
           const refineService = deps.getRefineService()
           void refineService?.refreshRemoteGlossary()
         }

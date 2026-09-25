@@ -72,7 +72,9 @@ const STARTUP_HIDDEN_ARG = '--startup-hidden'
 if (process.platform === 'linux') {
   app.commandLine.appendSwitch('ozone-platform-hint', 'auto')
   app.commandLine.appendSwitch('class', 'voice-key')
-  app.setDesktopName('voice-key.desktop')
+  if ('setDesktopName' in app && typeof app.setDesktopName === 'function') {
+    app.setDesktopName('voice-key.desktop')
+  }
 }
 
 // 设置开机自启
@@ -146,20 +148,20 @@ function initializeRefineService() {
 }
 
 function refreshRemoteGlossaryIfEnabled(): void {
-  if (!refineService || !configManager.isLLMRefineEnabled()) {
+  if (!refineService || !configManager.isDictationProcessingEnabled()) {
     return
   }
 
   void refineService.refreshRemoteGlossary()
 }
 
-function willRunRefine(): boolean {
+function willProcessDictation(): boolean {
   return Boolean(refineService?.isEnabled() && refineService.hasValidConfig())
 }
 
 async function registerHotkeys(): Promise<void> {
   await registerGlobalHotkeys({
-    getWillRunRefine: willRunRefine,
+    getWillProcessDictation: willProcessDictation,
   })
 }
 
@@ -247,7 +249,7 @@ app.whenReady().then(async () => {
       handleStartRecording,
       handleStopRecording: () =>
         handleStopRecording({
-          willRunRefine: willRunRefine(),
+          willProcessDictation: willProcessDictation(),
         }),
       handleAudioChunk,
       handleStreamingAudioFrame,

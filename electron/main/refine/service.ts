@@ -14,6 +14,7 @@ import { RefineGlossaryCache } from './glossary-cache'
 
 export interface TextRefiner {
   isEnabled: () => boolean
+  isDictationTranslationEnabled: () => boolean
   hasValidConfig: (configOverride?: LLMRefineConfig) => boolean
   refineText: (input: string) => Promise<string>
   testConnection: (configOverride: LLMRefineConfig) => Promise<RefineConnectionResult>
@@ -50,7 +51,12 @@ export class RefineService implements TextRefiner {
   }
 
   isEnabled(): boolean {
-    return this.deps.getRefineConfig().enabled
+    const config = this.deps.getRefineConfig()
+    return config.enabled || config.translateOutput
+  }
+
+  isDictationTranslationEnabled(): boolean {
+    return this.deps.getRefineConfig().translateOutput
   }
 
   hasValidConfig(configOverride?: LLMRefineConfig): boolean {
@@ -59,7 +65,7 @@ export class RefineService implements TextRefiner {
 
   async refineText(input: string): Promise<string> {
     const refineConfig = this.deps.getRefineConfig()
-    if (!refineConfig.enabled) {
+    if (!refineConfig.enabled && !refineConfig.translateOutput) {
       return input
     }
 

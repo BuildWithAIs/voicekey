@@ -96,7 +96,7 @@ export interface LLMRefineConfig {
   endpoint: string
   model: string
   apiKey: string
-  /** When true, the refined dictation output is translated into the shared TranslationConfig.targetLanguage. */
+  /** Independently enables cleanup and translation of dictation into TranslationConfig.targetLanguage. */
   translateOutput: boolean
   openai: OpenAIConfig
   deepseek: DeepSeekConfig

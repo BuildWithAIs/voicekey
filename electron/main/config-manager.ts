@@ -429,8 +429,9 @@ export class ConfigManager {
     this.store.set('llmRefine', this.prepareLLMRefineConfigForStorage(merged, stored))
   }
 
-  isLLMRefineEnabled(): boolean {
-    return normalizeLLMRefineConfig(this.store.get('llmRefine', defaultConfig.llmRefine)).enabled
+  isDictationProcessingEnabled(): boolean {
+    const config = normalizeLLMRefineConfig(this.store.get('llmRefine', defaultConfig.llmRefine))
+    return config.enabled || config.translateOutput
   }
 
   getHotkeyConfig(): HotkeyConfig {

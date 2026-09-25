@@ -252,26 +252,27 @@ async function finalizeTranscription(sessionId: string, rawText: string): Promis
       if (!isSessionUsable(sessionId)) return
 
       try {
+        const translating = refineService.isDictationTranslationEnabled()
         updateOverlay({
           status: 'processing',
-          processingStage: 'refining',
+          processingStage: translating ? 'translating' : 'refining',
           processingTotalStages: 2,
           transcript: rawText,
         })
-        console.log('[Audio:Processor] Refining aggregated transcription...')
+        console.log('[Audio:Processor] Processing aggregated transcription...')
         const refined = await refineService.refineText(rawText)
         if (refined.trim().length > 0) {
           finalText = refined
         } else {
           console.warn(
-            '[Audio:Processor] Text refinement returned empty text, using raw transcription',
+            '[Audio:Processor] Text processing returned empty text, using raw transcription',
           )
         }
       } catch (error) {
-        console.error('[Audio:Processor] Text refinement failed, using raw transcription:', error)
+        console.error('[Audio:Processor] Text processing failed, using raw transcription:', error)
       }
     } else {
-      console.warn('[Audio:Processor] Text refinement enabled but config is incomplete, skipped')
+      console.warn('[Audio:Processor] Text processing enabled but config is incomplete, skipped')
     }
   }
 
