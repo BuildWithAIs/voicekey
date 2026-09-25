@@ -302,9 +302,6 @@
     "title": "Hotkey Settings",
     "description": "Configure global hotkeys to control recording and open settings",
     "pttLabel": "Recording hotkey (Push-to-Talk)",
-    "preset": "Preset",
-    "custom": "Custom",
-    "select": "Select a hotkey",
     "pttHint": "Hold to record, release to stop and send",
     "settingsLabel": "Open settings window",
     "settingsHint": "Press this hotkey to open or close the settings window",
@@ -337,16 +334,6 @@
       "saveFailed": "Save failed",
       "reset": "Reset to default",
       "resetDesc": "Click save to apply changes"
-    },
-    "presets": {
-      "command": "⌘ Command (recommended)",
-      "control": "⌃ Control",
-      "option": "⌥ Option",
-      "shift": "⇧ Shift",
-      "commandSpace": "⌘ + Space",
-      "controlSpace": "Ctrl + Space",
-      "f13": "F13",
-      "f14": "F14"
     }
   },
   "history": {

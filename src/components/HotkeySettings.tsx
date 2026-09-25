@@ -4,20 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import {
-  formatHotkey,
-  PTT_PRESETS,
-  type HotkeyValidationMessage,
-  validateHotkey,
-} from '@/lib/hotkey-utils'
+import { type HotkeyValidationMessage, validateHotkey } from '@/lib/hotkey-utils'
 import { HotkeyRecorder } from './HotkeyRecorder'
 
 interface HotkeyConfig {
@@ -50,7 +37,6 @@ export function HotkeySettings({
   onChange,
 }: HotkeySettingsProps) {
   const { t } = useTranslation()
-  const [pttInputMode, setPttInputMode] = useState<'preset' | 'record'>('preset')
   const [errors, setErrors] = useState<Record<string, string>>({})
 
   const isDirty =
@@ -123,9 +109,6 @@ export function HotkeySettings({
     )
   }
 
-  const platform = window.electronAPI?.platform
-  const filteredPresets = PTT_PRESETS.filter((p) => p.platform === 'all' || p.platform === platform)
-
   return (
     <Card className="rounded-2xl">
       <CardHeader>
@@ -141,60 +124,15 @@ export function HotkeySettings({
       </CardHeader>
 
       <CardContent className="space-y-6">
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <label className="text-sm font-medium">{t('hotkey.pttLabel')}</label>
-            <Tabs
-              value={pttInputMode}
-              onValueChange={(value) => setPttInputMode(value as 'preset' | 'record')}
-              className="w-auto"
-            >
-              <TabsList className="h-7">
-                <TabsTrigger value="preset" className="text-xs px-2 py-1">
-                  {t('hotkey.preset')}
-                </TabsTrigger>
-                <TabsTrigger value="record" className="text-xs px-2 py-1">
-                  {t('hotkey.custom')}
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-          </div>
-
-          {pttInputMode === 'preset' ? (
-            <div className="space-y-2">
-              <Select
-                value={config.pttKey}
-                onValueChange={(value) => handleHotkeyChange('pttKey', value)}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder={t('hotkey.select')}>
-                    {config.pttKey && (
-                      <span className="font-mono">{formatHotkey(config.pttKey)}</span>
-                    )}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {filteredPresets.map((preset) => (
-                    <SelectItem key={preset.value} value={preset.value}>
-                      {t(preset.labelKey)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">{t('hotkey.pttHint')}</p>
-            </div>
-          ) : (
-            <HotkeyRecorder
-              label=""
-              value={config.pttKey}
-              onChange={(value) => handleHotkeyChange('pttKey', value)}
-              description={t('hotkey.pttHint')}
-              hasError={!!errors.pttKey}
-              errorMessage={errors.pttKey}
-              allowModifierOnly
-            />
-          )}
-        </div>
+        <HotkeyRecorder
+          label={t('hotkey.pttLabel')}
+          value={config.pttKey}
+          onChange={(value) => handleHotkeyChange('pttKey', value)}
+          description={t('hotkey.pttHint')}
+          hasError={!!errors.pttKey}
+          errorMessage={errors.pttKey}
+          allowModifierOnly
+        />
 
         <div className="border-t border-border" />
 

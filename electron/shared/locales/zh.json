@@ -302,9 +302,6 @@
     "title": "快捷键设置",
     "description": "配置全局快捷键以控制录音和打开设置",
     "pttLabel": "录音快捷键（Push-to-Talk）",
-    "preset": "预设",
-    "custom": "自定义",
-    "select": "选择快捷键",
     "pttHint": "按住录音，松开停止并发送",
     "settingsLabel": "打开设置窗口",
     "settingsHint": "按下此快捷键打开或关闭设置窗口",
@@ -337,16 +334,6 @@
       "saveFailed": "保存失败",
       "reset": "已重置为默认",
       "resetDesc": "点击保存以应用更改"
-    },
-    "presets": {
-      "command": "⌘ Command（推荐）",
-      "control": "⌃ Control",
-      "option": "⌥ Option",
-      "shift": "⇧ Shift",
-      "commandSpace": "⌘ + Space",
-      "controlSpace": "Ctrl + Space",
-      "f13": "F13",
-      "f14": "F14"
     }
   },
   "history": {

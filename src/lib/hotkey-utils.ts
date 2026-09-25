@@ -24,18 +24,6 @@ export const RESERVED_HOTKEYS = [
   'Control+Tab',
 ]
 
-// PTT 快捷键预设选项
-export const PTT_PRESETS = [
-  { value: 'Command', labelKey: 'hotkey.presets.command', platform: 'darwin' },
-  { value: 'Control', labelKey: 'hotkey.presets.control', platform: 'all' },
-  { value: 'Alt', labelKey: 'hotkey.presets.option', platform: 'darwin' },
-  { value: 'Shift', labelKey: 'hotkey.presets.shift', platform: 'all' },
-  { value: 'Command+Space', labelKey: 'hotkey.presets.commandSpace', platform: 'darwin' },
-  { value: 'Control+Space', labelKey: 'hotkey.presets.controlSpace', platform: 'win32' },
-  { value: 'F13', labelKey: 'hotkey.presets.f13', platform: 'all' },
-  { value: 'F14', labelKey: 'hotkey.presets.f14', platform: 'all' },
-] as const
-
 export type HotkeyValidationMessage = 'missing' | 'conflict' | 'multiple' | 'modifierOnly'
 
 export interface HotkeyValidationOptions {
