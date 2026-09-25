@@ -185,7 +185,7 @@ describe('ConfigManager LLM API key storage without system Keychain', () => {
         enabled: true,
         provider: 'deepseek',
         openai: { apiKey: 'openai-key', model: LLM_PROVIDERS.DEFAULT_OPENAI_MODEL },
-        deepseek: { apiKey: 'llm-key', model: 'deepseek-v4-flash' },
+        deepseek: { apiKey: 'llm-key', model: 'deepseek-flash' },
         openrouter: { apiKey: 'openrouter-key', model: LLM_PROVIDERS.DEFAULT_OPENROUTER_MODEL },
         custom: {
           endpoint: 'https://example.com/v1',
@@ -216,7 +216,7 @@ describe('ConfigManager LLM API key storage without system Keychain', () => {
       llmRefine: {
         enabled: true,
         provider: 'deepseek',
-        deepseek: { apiKey: llmCipherText, model: 'deepseek-v4-flash' },
+        deepseek: { apiKey: llmCipherText, model: 'deepseek-flash' },
       },
     })
 
@@ -240,7 +240,7 @@ describe('ConfigManager LLM API key storage without system Keychain', () => {
           apiKey: encrypted('openai-key'),
           model: LLM_PROVIDERS.DEFAULT_OPENAI_MODEL,
         },
-        deepseek: { apiKey: llmCipherText, model: 'deepseek-v4-flash' },
+        deepseek: { apiKey: llmCipherText, model: 'deepseek-flash' },
         openrouter: { apiKey: encrypted('openrouter-key'), model: 'openai/gpt-4o-mini' },
         custom: {
           endpoint: 'https://example.com/v1',
@@ -268,7 +268,7 @@ describe('ConfigManager LLM API key storage without system Keychain', () => {
         enabled: true,
         provider: 'deepseek',
         translateOutput: false,
-        deepseek: { apiKey: 'llm-key', model: 'deepseek-v4-flash' },
+        deepseek: { apiKey: 'llm-key', model: 'deepseek-flash' },
       },
     })
     const rendererConfig = manager.getConfig()
@@ -283,12 +283,12 @@ describe('ConfigManager LLM API key storage without system Keychain', () => {
       llmRefine: {
         enabled: true,
         provider: 'deepseek',
-        deepseek: { apiKey: encrypted('old-llm-key'), model: 'deepseek-v4-flash' },
+        deepseek: { apiKey: encrypted('old-llm-key'), model: 'deepseek-flash' },
       },
     })
 
     manager.setLLMRefineConfig({
-      deepseek: { apiKey: 'new-llm-key', model: 'deepseek-v4-flash' },
+      deepseek: { apiKey: 'new-llm-key', model: 'deepseek-flash' },
     })
 
     expect(getPath(mocks.lastStoreData, 'llmRefine.deepseek.apiKey')).toBe('new-llm-key')
@@ -302,7 +302,7 @@ describe('ConfigManager LLM API key storage without system Keychain', () => {
         apiKey: 'recoverable-llm-key',
         deepseek: {
           apiKey: encrypted('unreadable-llm-key'),
-          model: 'deepseek-v4-flash',
+          model: 'deepseek-flash',
         },
       },
     })
@@ -317,7 +317,7 @@ describe('ConfigManager LLM API key storage without system Keychain', () => {
       llmRefine: {
         enabled: true,
         provider: 'deepseek',
-        deepseek: { apiKey: 'llm-key', model: 'deepseek-v4-flash' },
+        deepseek: { apiKey: 'llm-key', model: 'deepseek-flash' },
       },
     })
     const rendererConfig = manager.getConfig()
@@ -330,12 +330,12 @@ describe('ConfigManager LLM API key storage without system Keychain', () => {
       llmRefine: {
         enabled: true,
         provider: 'deepseek',
-        deepseek: { apiKey: 'llm-key', model: 'deepseek-v4-flash' },
+        deepseek: { apiKey: 'llm-key', model: 'deepseek-flash' },
       },
     })
 
     manager.setLLMRefineConfig({
-      deepseek: { apiKey: '', model: 'deepseek-v4-flash' },
+      deepseek: { apiKey: '', model: 'deepseek-flash' },
     })
 
     expect(getPath(mocks.lastStoreData, 'llmRefine.deepseek.apiKey')).toBe('')

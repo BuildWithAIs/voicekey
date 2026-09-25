@@ -5,11 +5,10 @@ import { configManager } from '../config-manager'
 import { showOverlay, updateOverlay, hideOverlay } from '../window/overlay'
 import { requestChatCompletion, extractMessageContent } from '../refine/openai-client'
 import { buildRefineChatEndpoint, normalizeRefineBaseUrl } from '../../shared/refine-url'
-import { buildTranslationSystemPrompt } from '../../shared/constants'
+import { buildTranslationSystemPrompt, OPENAI_CHAT } from '../../shared/constants'
 import {
   buildLLMAttributionHeaders,
-  buildReasoningPayloadFields,
-  getReasoningTimeoutMs,
+  buildDisabledReasoningPayloadFields,
   resolveLLMConnection,
   type ResolvedLLMConnection,
 } from '../../shared/llm-config'
@@ -230,22 +229,24 @@ export class Translator {
   ): Promise<string> {
     const systemPrompt = buildTranslationSystemPrompt(targetLanguage)
 
-    const reasoning = buildReasoningPayloadFields(resolved.connection, originalText)
     const payload = {
       model: resolved.model,
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: originalText },
       ],
-      ...reasoning.fields,
+      ...buildDisabledReasoningPayloadFields(resolved.connection),
     }
+    const characterCount = Array.from(originalText.trim()).length
+    const timeoutMs =
+      characterCount <= 10 ? OPENAI_CHAT.TIMEOUT_MS : characterCount <= 30 ? 60_000 : 90_000
 
     console.log('[Translator] Calling LLM API for translation...')
     const response = await requestChatCompletion(
       resolved.endpoint,
       resolved.apiKey,
       payload,
-      getReasoningTimeoutMs(reasoning.level),
+      timeoutMs,
       buildLLMAttributionHeaders(resolved.connection),
     )
 

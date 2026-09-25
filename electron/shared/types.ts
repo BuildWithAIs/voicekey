@@ -62,8 +62,6 @@ export type OpenRouterModel =
 export type TokenDanceModel =
   (typeof import('./constants').LLM_PROVIDERS.TOKENDANCE_MODELS)[number]['id']
 
-export type LLMReasoningLevel = 'off' | 'medium' | 'high'
-
 export interface OpenAIConfig {
   apiKey: string
   model: OpenAIModel

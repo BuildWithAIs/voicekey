@@ -1681,9 +1681,9 @@ export default function SettingsPage() {
   const isCustomLLMProvider = currentLLMProvider === 'custom-compatible'
   const builtInDeepSeekModels: string[] = [...LLM_PROVIDERS.DEEPSEEK_MODELS]
   const llmProviderOptions = [
+    { value: 'deepseek', label: 'DeepSeek' },
     { value: 'tokendance', label: 'TokenDance' },
     { value: 'openai', label: 'OpenAI' },
-    { value: 'deepseek', label: 'DeepSeek' },
     { value: 'openrouter', label: 'OpenRouter' },
     ...(isCustomLLMProvider
       ? [{ value: 'custom-compatible', label: t('settings.llmProviderCustom') }]
@@ -2119,12 +2119,12 @@ export default function SettingsPage() {
                     onValueChange={handleDeepSeekModelChange}
                   >
                     <SelectTrigger id="deepSeekModel" className="no-drag w-full cursor-pointer">
-                      <SelectValue placeholder={LLM_PROVIDERS.DEFAULT_DEEPSEEK_MODEL} />
+                      <SelectValue placeholder="DeepSeek · V4.1 Flash" />
                     </SelectTrigger>
                     <SelectContent>
                       {builtInDeepSeekModels.map((model) => (
                         <SelectItem key={model} value={model}>
-                          {model}
+                          DeepSeek · V4.1 Flash
                         </SelectItem>
                       ))}
                     </SelectContent>

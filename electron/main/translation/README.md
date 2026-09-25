@@ -1,6 +1,6 @@
 # Translation Module
 
-- `translator.ts` — Core translation/polishing service: captures selected text via the platform clipboard shortcut, calls the configured OpenAI/DeepSeek/OpenRouter/custom-compatible LLM API with the built-in native-quality translation prompt and the shared target language, applies the same Provider-aware reasoning policy used by refinement, and replaces the selection via a plain-text paste (clipboard save/restore). Omarchy/Hyprland follows its universal clipboard convention (`Ctrl+C/V` for GUI apps, `Ctrl/Shift+Insert` for terminals); other platforms keep the native keyboard backend.
+- `translator.ts` — Core translation/polishing service: captures selected text via the platform clipboard shortcut, calls the configured LLM API with the built-in native-quality translation prompt and the shared target language, explicitly disables reasoning where the selected model supports it, and replaces the selection via a plain-text paste (clipboard save/restore). Omarchy/Hyprland follows its universal clipboard convention (`Ctrl+C/V` for GUI apps, `Ctrl/Shift+Insert` for terminals); other platforms keep the native keyboard backend.
 
 ## Architecture
 

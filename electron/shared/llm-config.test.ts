@@ -3,17 +3,16 @@ import { LLM_PROVIDERS } from './constants'
 import {
   buildDisabledReasoningPayloadFields,
   buildLLMAttributionHeaders,
-  buildReasoningPayloadFields,
   normalizeLLMRefineConfig,
   resolveLLMConnection,
 } from './llm-config'
 import type { LLMRefineConfig } from './types'
 
-describe('automatic LLM reasoning policy', () => {
-  it('uses the official OpenAI endpoint and fixed GPT-5.6 Luna model', () => {
+describe('LLM model selection', () => {
+  it('uses the official OpenAI endpoint and fixed GPT-6 Luna model', () => {
     const config = normalizeLLMRefineConfig({
       provider: 'openai',
-      openai: { apiKey: 'openai-key', model: 'gpt-5.6-luna' },
+      openai: { apiKey: 'openai-key', model: 'gpt-6-luna' },
     })
 
     expect(resolveLLMConnection(config)).toEqual({
@@ -22,98 +21,86 @@ describe('automatic LLM reasoning policy', () => {
       apiKey: 'openai-key',
       model: LLM_PROVIDERS.DEFAULT_OPENAI_MODEL,
     })
-    expect(buildReasoningPayloadFields(resolveLLMConnection(config), '短文本')).toEqual({
-      level: 'off',
-      fields: { reasoning_effort: 'none' },
+    expect(buildDisabledReasoningPayloadFields(resolveLLMConnection(config))).toEqual({
+      reasoning_effort: 'none',
     })
-    expect(
-      buildReasoningPayloadFields(
-        resolveLLMConnection(config),
-        '这是一段超过三十个字符的长文本，用来确认OpenAI官方接口使用低档推理。',
-      ),
-    ).toEqual({ level: 'high', fields: { reasoning_effort: 'low' } })
   })
 
-  it('replaces unsupported OpenAI models with GPT-5.6 Luna', () => {
+  it('migrates saved GPT-5.6 Luna settings to GPT-6 Luna', () => {
     const config = normalizeLLMRefineConfig({
       provider: 'openai',
-      openai: { apiKey: 'openai-key', model: 'gpt-5.6-sol' },
+      openai: { apiKey: 'openai-key', model: 'gpt-5.6-luna' },
     } as unknown as Partial<LLMRefineConfig>)
 
     expect(config.openai.model).toBe(LLM_PROVIDERS.DEFAULT_OPENAI_MODEL)
+    expect(config.apiKey).toBe('openai-key')
   })
 
-  it('ignores the removed legacy reasoning switch and enables long-text reasoning at low effort', () => {
-    const legacyConfig = normalizeLLMRefineConfig({
-      provider: 'deepseek',
-      reasoning: { enabled: false },
-      deepseek: { apiKey: 'test-key', model: 'deepseek-v4-flash' },
-    } as unknown as Partial<LLMRefineConfig>)
-
-    const result = buildReasoningPayloadFields(
-      resolveLLMConnection(legacyConfig),
-      '这是一段超过三十个字符的长文本，用来确认内部推理策略会自动启用而不再受旧开关控制。',
-    )
-
-    expect(result).toEqual({
-      level: 'high',
-      fields: {
-        thinking: { type: 'enabled' },
-        reasoning_effort: 'low',
-      },
-    })
-  })
-
-  it('keeps short supported DeepSeek requests on the non-reasoning path', () => {
+  it('migrates saved DeepSeek V4 Flash settings to the official V4.1 Flash ID', () => {
     const config = normalizeLLMRefineConfig({
       provider: 'deepseek',
       deepseek: { apiKey: 'test-key', model: 'deepseek-v4-flash' },
-    })
-
-    expect(buildReasoningPayloadFields(resolveLLMConnection(config), '短文本')).toEqual({
-      level: 'off',
-      fields: { thinking: { type: 'disabled' } },
-    })
-  })
-
-  it('replaces removed DeepSeek models with V4 Flash', () => {
-    const config = normalizeLLMRefineConfig({
-      provider: 'deepseek',
-      deepseek: { apiKey: 'test-key', model: 'deepseek-v4-pro' },
     } as unknown as Partial<LLMRefineConfig>)
 
-    expect(LLM_PROVIDERS.DEEPSEEK_MODELS).toEqual(['deepseek-v4-flash'])
-    expect(config.deepseek.model).toBe(LLM_PROVIDERS.DEFAULT_DEEPSEEK_MODEL)
+    expect(LLM_PROVIDERS.DEEPSEEK_MODELS).toEqual(['deepseek-flash'])
+    expect(resolveLLMConnection(config)).toEqual({
+      provider: 'deepseek',
+      endpoint: LLM_PROVIDERS.DEEPSEEK_ENDPOINT,
+      apiKey: 'test-key',
+      model: 'deepseek-flash',
+    })
+    expect(buildDisabledReasoningPayloadFields(resolveLLMConnection(config))).toEqual({
+      thinking: { type: 'disabled' },
+    })
   })
 })
 
-describe('dictation refinement reasoning policy', () => {
+describe('built-in LLM reasoning policy', () => {
   it.each([
     ['openai', { reasoning_effort: 'none' }],
     ['deepseek', { thinking: { type: 'disabled' } }],
     ['openrouter', { reasoning: { enabled: false, exclude: true } }],
-    ['tokendance', {}],
-    ['custom-compatible', {}],
-  ] as const)(
-    'always disables reasoning for %s regardless of transcript length',
-    (provider, fields) => {
-      expect(
-        buildDisabledReasoningPayloadFields({
-          provider,
-          endpoint: 'https://example.com/v1',
-          apiKey: 'test-key',
-          model: 'test-model',
-        }),
-      ).toEqual(fields)
-    },
-  )
+  ] as const)('explicitly disables reasoning for %s', (provider, fields) => {
+    expect(
+      buildDisabledReasoningPayloadFields({
+        provider,
+        endpoint: 'https://example.com/v1',
+        apiKey: 'test-key',
+        model: 'test-model',
+      }),
+    ).toEqual(fields)
+  })
+
+  it('disables thinking for TokenDance DeepSeek V4.1 Flash', () => {
+    const connection = resolveLLMConnection(
+      normalizeLLMRefineConfig({
+        provider: 'tokendance',
+        tokendance: { apiKey: 'td-key', model: 'deepseek-v4.1-flash' },
+      }),
+    )
+
+    expect(buildDisabledReasoningPayloadFields(connection)).toEqual({
+      thinking: { type: 'disabled' },
+    })
+  })
+
+  it('leaves custom-compatible request parameters to the custom provider', () => {
+    expect(
+      buildDisabledReasoningPayloadFields({
+        provider: 'custom-compatible',
+        endpoint: 'https://example.com/v1',
+        apiKey: 'test-key',
+        model: 'custom-model',
+      }),
+    ).toEqual({})
+  })
 })
 
 describe('fixed OpenRouter model policy', () => {
-  it('removes Hy3 and keeps the two approved models', () => {
+  it('keeps the two approved models with their provider-specific IDs', () => {
     const modelIds = LLM_PROVIDERS.OPENROUTER_MODELS.map((model) => model.id)
 
-    expect(modelIds).toEqual(['openai/gpt-5.6-luna', 'deepseek/deepseek-v4-flash-0731'])
+    expect(modelIds).toEqual(['openai/gpt-6-luna', 'deepseek/deepseek-v4.1-flash'])
     expect(modelIds).not.toContain('tencent/hy3')
   })
 
@@ -127,48 +114,19 @@ describe('fixed OpenRouter model policy', () => {
     expect(resolveLLMConnection(config).model).toBe(LLM_PROVIDERS.DEFAULT_OPENROUTER_MODEL)
   })
 
-  it.each(LLM_PROVIDERS.OPENROUTER_MODELS)(
-    'uses the supported short-text minimum and low for longer text with $label',
-    ({ id, shortTextReasoningEffort }) => {
-      const connection = resolveLLMConnection(
-        normalizeLLMRefineConfig({
-          provider: 'openrouter',
-          openrouter: { apiKey: 'test-key', model: id },
-        }),
-      )
+  it('migrates both older OpenRouter presets without changing the provider choice or API key', () => {
+    for (const [model, expected] of [
+      ['openai/gpt-5.6-luna', 'openai/gpt-6-luna'],
+      ['deepseek/deepseek-v4-flash-0731', 'deepseek/deepseek-v4.1-flash'],
+    ]) {
+      const config = normalizeLLMRefineConfig({
+        provider: 'openrouter',
+        openrouter: { apiKey: 'test-key', model },
+      } as unknown as Partial<LLMRefineConfig>)
 
-      expect(buildReasoningPayloadFields(connection, '短文本')).toEqual({
-        level: 'off',
-        fields: { reasoning: { effort: shortTextReasoningEffort, exclude: true } },
-      })
-      expect(buildReasoningPayloadFields(connection, '这是一段超过十个字符的文本内容')).toEqual({
-        level: 'medium',
-        fields: { reasoning: { effort: 'low', exclude: true } },
-      })
-      expect(
-        buildReasoningPayloadFields(
-          connection,
-          '这是一段超过三十个字符的长文本，用来确认OpenRouter无论文本多长都只使用低档推理。',
-        ),
-      ).toEqual({
-        level: 'high',
-        fields: { reasoning: { effort: 'low', exclude: true } },
-      })
-    },
-  )
-
-  it('refuses to emit reasoning fields for an unapproved runtime model', () => {
-    expect(
-      buildReasoningPayloadFields(
-        {
-          provider: 'openrouter',
-          endpoint: LLM_PROVIDERS.OPENROUTER_ENDPOINT,
-          apiKey: 'test-key',
-          model: 'vendor/unapproved-model',
-        },
-        '这是一段足够长的文本，理论上会触发推理。',
-      ),
-    ).toEqual({ level: 'off', fields: {} })
+      expect(config.openrouter.model).toBe(expected)
+      expect(config.openrouter.apiKey).toBe('test-key')
+    }
   })
 })
 
@@ -176,7 +134,7 @@ describe('TokenDance provider', () => {
   it('uses the gateway endpoint with the curated default model', () => {
     const config = normalizeLLMRefineConfig({
       provider: 'tokendance',
-      tokendance: { apiKey: 'td-key', model: 'deepseek-v4-flash-0731' },
+      tokendance: { apiKey: 'td-key', model: 'deepseek-v4.1-flash' },
     })
 
     expect(resolveLLMConnection(config)).toEqual({
@@ -196,10 +154,23 @@ describe('TokenDance provider', () => {
     expect(config.tokendance.model).toBe(LLM_PROVIDERS.DEFAULT_TOKENDANCE_MODEL)
   })
 
+  it.each(['deepseek-v4-flash-0731', 'glm-5.3-flash'])(
+    'migrates the saved %s TokenDance selection without changing the API key',
+    (model) => {
+      const config = normalizeLLMRefineConfig({
+        provider: 'tokendance',
+        tokendance: { apiKey: 'td-key', model },
+      } as unknown as Partial<LLMRefineConfig>)
+
+      expect(config.tokendance.model).toBe('deepseek-v4.1-flash')
+      expect(config.tokendance.apiKey).toBe('td-key')
+    },
+  )
+
   it('infers the tokendance provider from a legacy gateway endpoint', () => {
     const config = normalizeLLMRefineConfig({
       endpoint: 'https://tokendance.space/gateway/v1',
-      model: 'deepseek-v4-flash-0731',
+      model: 'deepseek-v4.1-flash',
       apiKey: 'td-key',
     })
 
@@ -208,7 +179,7 @@ describe('TokenDance provider', () => {
       provider: 'tokendance',
       endpoint: LLM_PROVIDERS.TOKENDANCE_ENDPOINT,
       apiKey: 'td-key',
-      model: 'deepseek-v4-flash-0731',
+      model: 'deepseek-v4.1-flash',
     })
   })
 
@@ -216,7 +187,7 @@ describe('TokenDance provider', () => {
     const tokendanceConnection = resolveLLMConnection(
       normalizeLLMRefineConfig({
         provider: 'tokendance',
-        tokendance: { apiKey: 'td-key', model: 'deepseek-v4-flash-0731' },
+        tokendance: { apiKey: 'td-key', model: 'deepseek-v4.1-flash' },
       }),
     )
     expect(buildLLMAttributionHeaders(tokendanceConnection)).toEqual({
@@ -226,7 +197,7 @@ describe('TokenDance provider', () => {
     const deepseekConnection = resolveLLMConnection(
       normalizeLLMRefineConfig({
         provider: 'deepseek',
-        deepseek: { apiKey: 'test-key', model: 'deepseek-v4-flash' },
+        deepseek: { apiKey: 'test-key', model: 'deepseek-flash' },
       }),
     )
     expect(buildLLMAttributionHeaders(deepseekConnection)).toEqual({})

@@ -1,10 +1,9 @@
-import { LLM_PROVIDERS, LLM_REASONING, LLM_REFINE } from './constants'
+import { LLM_PROVIDERS, LLM_REFINE } from './constants'
 import { normalizeRefineBaseUrl } from './refine-url'
 import type {
   CustomCompatibleLLMConfig,
   DeepSeekConfig,
   LLMProvider,
-  LLMReasoningLevel,
   LLMRefineConfig,
   OpenAIConfig,
   OpenRouterConfig,
@@ -142,22 +141,15 @@ function normalizeDeepSeekModel(value: unknown): DeepSeekConfig['model'] {
     : LLM_PROVIDERS.DEFAULT_DEEPSEEK_MODEL
 }
 
-function isBuiltInDeepSeekReasoningModel(model: string): boolean {
-  return LLM_PROVIDERS.DEEPSEEK_MODELS.includes(
-    model as (typeof LLM_PROVIDERS.DEEPSEEK_MODELS)[number],
-  )
-}
-
-function findBuiltInOpenRouterModel(model: string) {
-  return LLM_PROVIDERS.OPENROUTER_MODELS.find((option) => option.id === model)
-}
-
 function isBuiltInOpenRouterModel(model: string): model is OpenRouterModel {
-  return findBuiltInOpenRouterModel(model) !== undefined
+  return LLM_PROVIDERS.OPENROUTER_MODELS.some((option) => option.id === model)
 }
 
 function normalizeOpenRouterModel(value: unknown): OpenRouterModel {
   const model = readString(value).trim()
+  if (model === 'deepseek/deepseek-v4-flash-0731') {
+    return 'deepseek/deepseek-v4.1-flash'
+  }
   return isBuiltInOpenRouterModel(model) ? model : LLM_PROVIDERS.DEFAULT_OPENROUTER_MODEL
 }
 
@@ -345,78 +337,9 @@ export function buildLLMAttributionHeaders(
   return {}
 }
 
-export function selectReasoningLevel(text: string): LLMReasoningLevel {
-  const length = Array.from(text.trim()).length
-  if (length <= LLM_REASONING.OFF_MAX_CHARACTERS) {
-    return 'off'
-  }
-  if (length <= LLM_REASONING.MEDIUM_MAX_CHARACTERS) {
-    return 'medium'
-  }
-  return 'high'
-}
-
-export function getReasoningTimeoutMs(level: LLMReasoningLevel): number {
-  return LLM_REASONING.TIMEOUT_MS[level]
-}
-
-export function buildReasoningPayloadFields(
-  connection: ResolvedLLMConnection,
-  text: string,
-): { level: LLMReasoningLevel; fields: Record<string, unknown> } {
-  const level = selectReasoningLevel(text)
-
-  if (connection.provider === 'openai') {
-    return {
-      level,
-      fields: {
-        reasoning_effort: level === 'off' ? 'none' : 'low',
-      },
-    }
-  }
-
-  if (connection.provider === 'deepseek') {
-    if (!isBuiltInDeepSeekReasoningModel(connection.model)) {
-      return { level: 'off', fields: {} }
-    }
-
-    if (level === 'off') {
-      return { level, fields: { thinking: { type: 'disabled' } } }
-    }
-
-    return {
-      level,
-      fields: {
-        thinking: { type: 'enabled' },
-        reasoning_effort: 'low',
-      },
-    }
-  }
-
-  if (connection.provider === 'openrouter') {
-    const model = findBuiltInOpenRouterModel(connection.model)
-    if (!model) {
-      return { level: 'off', fields: {} }
-    }
-
-    return {
-      level,
-      fields: {
-        reasoning: {
-          effort: level === 'off' ? model.shortTextReasoningEffort : 'low',
-          exclude: true,
-        },
-      },
-    }
-  }
-
-  return { level: 'off', fields: {} }
-}
-
 /**
- * Dictation refinement is a bounded editing task. Keep provider-specific
- * switches explicit so reasoning-capable models cannot silently spend time on
- * hidden thinking, regardless of transcript length.
+ * Keep provider-specific switches explicit so reasoning-capable models cannot
+ * silently spend time on hidden thinking during refinement or translation.
  */
 export function buildDisabledReasoningPayloadFields(
   connection: ResolvedLLMConnection,
@@ -431,6 +354,10 @@ export function buildDisabledReasoningPayloadFields(
 
   if (connection.provider === 'openrouter') {
     return { reasoning: { enabled: false, exclude: true } }
+  }
+
+  if (connection.provider === 'tokendance' && connection.model === 'deepseek-v4.1-flash') {
+    return { thinking: { type: 'disabled' } }
   }
 
   return {}

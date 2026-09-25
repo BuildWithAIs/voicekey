@@ -226,26 +226,24 @@ export const OPENAI_CHAT = {
 
 export const LLM_PROVIDERS = {
   OPENAI_ENDPOINT: 'https://api.openai.com/v1',
-  DEFAULT_OPENAI_MODEL: 'gpt-5.6-luna',
+  DEFAULT_OPENAI_MODEL: 'gpt-6-luna',
   DEEPSEEK_ENDPOINT: 'https://api.deepseek.com',
   OPENROUTER_ENDPOINT: 'https://openrouter.ai/api/v1',
-  DEEPSEEK_MODELS: ['deepseek-v4-flash'],
-  DEFAULT_DEEPSEEK_MODEL: 'deepseek-v4-flash',
-  // Curated stable presets. Every model supports `low`; short requests use the lowest
-  // effort accepted by that model so unsupported `none` values are never sent.
+  // The official DeepSeek API serves V4.1 Flash under this stable ID.
+  DEEPSEEK_MODELS: ['deepseek-flash'],
+  DEFAULT_DEEPSEEK_MODEL: 'deepseek-flash',
+  // Curated stable presets for requests with reasoning explicitly disabled.
   OPENROUTER_MODELS: [
     {
-      id: 'openai/gpt-5.6-luna',
-      label: 'OpenAI · GPT-5.6 Luna',
-      shortTextReasoningEffort: 'none',
+      id: 'openai/gpt-6-luna',
+      label: 'OpenAI · GPT-6 Luna',
     },
     {
-      id: 'deepseek/deepseek-v4-flash-0731',
-      label: 'DeepSeek · V4 Flash',
-      shortTextReasoningEffort: 'low',
+      id: 'deepseek/deepseek-v4.1-flash',
+      label: 'DeepSeek · V4.1 Flash',
     },
   ],
-  DEFAULT_OPENROUTER_MODEL: 'openai/gpt-5.6-luna',
+  DEFAULT_OPENROUTER_MODEL: 'openai/gpt-6-luna',
   TOKENDANCE_ENDPOINT: 'https://tokendance.space/gateway/v1',
   /** Stable App URL used for TokenDance app attribution (X-App-URL header and OAuth app_url). */
   TOKENDANCE_APP_URL: 'https://voicekey.buildwithais.com/',
@@ -253,21 +251,8 @@ export const LLM_PROVIDERS = {
   TOKENDANCE_KEY_EXCHANGE_URL: 'https://tokendance.space/portal/api/v1/auth/keys',
   TOKENDANCE_KEY_NAME: 'Voice Key',
   // Curated chat models from the live TokenDance catalog (https://tokendance.space/gateway/v1/models).
-  TOKENDANCE_MODELS: [
-    { id: 'deepseek-v4-flash-0731', label: 'DeepSeek · V4 Flash' },
-    { id: 'glm-5.3-flash', label: 'Z.ai · GLM 5.3 Flash' },
-  ],
-  DEFAULT_TOKENDANCE_MODEL: 'deepseek-v4-flash-0731',
-} as const
-
-export const LLM_REASONING = {
-  OFF_MAX_CHARACTERS: 10,
-  MEDIUM_MAX_CHARACTERS: 30,
-  TIMEOUT_MS: {
-    off: OPENAI_CHAT.TIMEOUT_MS,
-    medium: 60000,
-    high: 90000,
-  },
+  TOKENDANCE_MODELS: [{ id: 'deepseek-v4.1-flash', label: 'DeepSeek · V4.1 Flash' }],
+  DEFAULT_TOKENDANCE_MODEL: 'deepseek-v4.1-flash',
 } as const
 
 export const LLM_REFINE = {
