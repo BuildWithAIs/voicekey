@@ -9,6 +9,7 @@ import {
   isRefineConfigComplete,
   isRefineConnectionCacheFresh,
   markRefineConnectionValidated,
+  normalizeRendererConfig,
   readRefineFeatureFlags,
   reconcileRefineFeaturesAfterConnectionChange,
   resolveMicrophoneDeviceMigration,
@@ -55,6 +56,21 @@ function createOpenRouterConfig(options?: {
   config.translation.enabled = options?.translationEnabled ?? false
   return config
 }
+
+describe('existing ASR mode selection', () => {
+  it.each([true, false])('preserves streamingEnabled=%s from saved config', (selected) => {
+    const saved = createConfig('')
+    saved.asr.streamingEnabled = selected
+
+    expect(normalizeRendererConfig(saved).asr.streamingEnabled).toBe(selected)
+  })
+
+  it('defaults older configs without a mode selection to standard recognition', () => {
+    const saved = createConfig('')
+
+    expect(normalizeRendererConfig(saved).asr.streamingEnabled).toBe(false)
+  })
+})
 
 describe('microphone device migration', () => {
   const currentDevices = [

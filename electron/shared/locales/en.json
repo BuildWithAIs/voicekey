@@ -182,7 +182,7 @@
     "testingRefineConnection": "Testing connection...",
     "durationWarning": "Each recording can last up to 5 minutes.",
     "lowVolumeMode": "Low-volume mode",
-    "lowVolumeModeHelp": "Boosts quiet speech, and may also boost background noise.",
+    "lowVolumeModeHelp": "For speaking softly in a relatively quiet café or office. Boosts your voice, but may also boost background noise.",
     "microphone": {
       "label": "Microphone",
       "placeholder": "Select microphone",
@@ -200,20 +200,22 @@
       "detectFailed": "Couldn't detect microphones."
     },
     "modelStorage": {
-      "title": "Model storage folder",
       "open": "Open folder",
       "openFailed": "Couldn't open the model folder: {{message}}",
+      "enable": "Enable",
+      "selected": "Selected",
       "delete": "Delete model",
       "deleting": "Deleting..."
     },
     "localAsr": {
       "title": "Standard recognition",
-      "help": "Text appears after you let go.",
+      "help": "Recognizes after recording ends. A little slower, but more accurate.",
       "ready": "Ready",
       "download": "Download model",
       "downloading": "Downloading...",
       "downloadComplete": "Standard recognition is ready",
       "downloadFailed": "Couldn't download the model: {{message}}",
+      "downloadBeforeEnable": "Download the standard recognition model first.",
       "deleteConfirm": "Delete the standard recognition model? You'll need to download it again to use standard recognition.",
       "deleteComplete": "The standard recognition model was deleted.",
       "deleteFailed": "Couldn't delete the model: {{message}}",
@@ -224,7 +226,7 @@
     },
     "streamingAsr": {
       "title": "Realtime recognition",
-      "help": "Text appears as you speak.",
+      "help": "Streaming output recognizes speech as you speak, with slightly lower accuracy.",
       "downloadConfirmWeak": "This computer has about {{cpu}} cores and {{memory}} GB of memory, below the recommended 6 cores and 16 GB. Realtime recognition may stutter. Download anyway?",
       "ready": "Ready",
       "download": "Download model",
@@ -236,8 +238,6 @@
       "deleteComplete": "The realtime recognition model was deleted.",
       "deleteFailed": "Couldn't delete the model: {{message}}",
       "unsupported": "Realtime recognition is not available on this platform.",
-      "enabled": "Use realtime recognition",
-      "enabledHelp": "When on, text appears as you speak. When off, standard recognition is used.",
       "phase": {
         "model": "Downloading model"
       }

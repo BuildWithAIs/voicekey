@@ -9,7 +9,7 @@
  * - TOKENDANCE_AUTH_CONNECT: 浏览器 OAuth 授权创建 TokenDance API Key 并保存（仅设置窗口）
  * - LOCAL_ASR_STATUS / LOCAL_ASR_DOWNLOAD / LOCAL_ASR_DELETE: 经典模型管理
  * - STREAMING_ASR_STATUS / STREAMING_ASR_DOWNLOAD / STREAMING_ASR_DELETE: 实时模型管理
- * - ASR_MODEL_DIRECTORY_OPEN: 打开统一模型存储目录
+ * - ASR_MODEL_DIRECTORY_OPEN: 按模型类型打开对应安装目录
  * - HOST_CAPABILITIES_GET: 读取本机逻辑核数与内存，供实时识别性能提示使用
  *
  * @module electron/main/ipc/config-handlers
@@ -34,7 +34,7 @@ import { configManager } from '../config-manager'
 import { broadcastLanguageSnapshot, getMainLanguageSnapshot, setMainLanguage } from '../i18n'
 import { hotkeyManager } from '../hotkey-manager'
 import { ioHookManager } from '../iohook-manager'
-import { openASRModelStorageDir } from '../asr-model-storage'
+import { openASRModelInstallDir } from '../asr-model-storage'
 import {
   deleteLocalASRAssets,
   downloadLocalASRAssets,
@@ -337,9 +337,12 @@ export function registerConfigHandlers(): void {
     return status
   })
 
-  ipcMain.handle(IPC_CHANNELS.ASR_MODEL_DIRECTORY_OPEN, async (event) => {
+  ipcMain.handle(IPC_CHANNELS.ASR_MODEL_DIRECTORY_OPEN, async (event, mode: unknown) => {
     assertSettingsWindowSender(event, 'ASR model directory access')
-    await openASRModelStorageDir()
+    if (mode !== 'classic' && mode !== 'streaming') {
+      throw new Error('Invalid ASR model directory type')
+    }
+    await openASRModelInstallDir(mode)
   })
 
   ipcMain.handle(IPC_CHANNELS.HOST_CAPABILITIES_GET, () => {

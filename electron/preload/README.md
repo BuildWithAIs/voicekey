@@ -29,7 +29,7 @@ Electron 预加载脚本目录，作为主进程与渲染进程之间的安全�
 - `getConfigSecret(request)` - 设置页点击显示时按 LLM Provider 请求当前版本保存的 API Key 原文，主进程会校验请求来源。
 - `getLocalASRStatus()` / `downloadLocalASR()` / `deleteLocalASR()` / `onLocalASRDownloadProgress(callback)` - 经典本地模型状态、下载、删除与进度监听。
 - `getStreamingASRStatus()` / `downloadStreamingASR()` / `deleteStreamingASR()` / `onStreamingASRDownloadProgress(callback)` - 实时识别组件的组合状态、缺失权重下载、成组删除与进度监听。
-- `openASRModelDirectory()` - 在文件管理器打开统一的本地模型存储目录，不接受渲染进程传入路径。
+- `openASRModelDirectory(mode)` - 在文件管理器打开标准或实时识别模型的安装目录，只接受模型类型，不接受渲染进程传入路径。
 - `getHostCapabilities()` - 读取本机逻辑核数与内存，以及是否达到实时识别建议配置。
 - `testRefineConnection(config)` - 文本润色连接校验。
 - `getHistory()` / `clearHistory()` / `deleteHistoryItem(id)` - 管理转录历史。

@@ -182,7 +182,7 @@
     "testingRefineConnection": "正在测试连接...",
     "durationWarning": "单次录音最长 5 分钟。",
     "lowVolumeMode": "低音量模式",
-    "lowVolumeModeHelp": "放大小声说话，也可能放大环境噪音。",
+    "lowVolumeModeHelp": "适合相对安静的咖啡店或办公室，想轻声语音输入时使用。会放大说话声，也可能放大环境噪音。",
     "microphone": {
       "label": "麦克风",
       "placeholder": "选择麦克风",
@@ -200,20 +200,22 @@
       "detectFailed": "无法检测麦克风。"
     },
     "modelStorage": {
-      "title": "模型存储目录",
       "open": "打开目录",
       "openFailed": "无法打开模型目录：{{message}}",
+      "enable": "启用",
+      "selected": "已选用",
       "delete": "删除模型",
       "deleting": "正在删除..."
     },
     "localAsr": {
       "title": "标准识别",
-      "help": "松开后再生成文字。",
+      "help": "录音结束后开始识别，速度稍慢，准确率更高。",
       "ready": "已就绪",
       "download": "下载模型",
       "downloading": "下载中...",
       "downloadComplete": "标准识别已就绪",
       "downloadFailed": "模型下载失败：{{message}}",
+      "downloadBeforeEnable": "请先下载标准识别模型。",
       "deleteConfirm": "确定删除标准识别模型吗？删除后再次使用需要重新下载。",
       "deleteComplete": "标准识别模型已删除。",
       "deleteFailed": "模型删除失败：{{message}}",
@@ -224,7 +226,7 @@
     },
     "streamingAsr": {
       "title": "实时识别",
-      "help": "说话过程中就会显示文字。",
+      "help": "流式输出，边说边识别，准确率略低。",
       "downloadConfirmWeak": "这台电脑当前约 {{cpu}} 核、{{memory}} GB 内存，低于建议配置（6 核 CPU、16 GB 内存），使用时可能卡顿。仍要下载吗？",
       "ready": "已就绪",
       "download": "下载模型",
@@ -236,8 +238,6 @@
       "deleteComplete": "实时识别模型已删除。",
       "deleteFailed": "模型删除失败：{{message}}",
       "unsupported": "当前平台暂不支持实时识别。",
-      "enabled": "使用实时识别",
-      "enabledHelp": "开启后边说边出字；关闭则使用标准识别。",
       "phase": {
         "model": "正在下载模型"
       }

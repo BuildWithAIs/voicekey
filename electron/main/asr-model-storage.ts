@@ -1,8 +1,13 @@
 import { app, shell } from 'electron'
 import fs from 'fs'
 import path from 'node:path'
+import type { ASRMode } from '../shared/types'
 
-const MANAGED_INSTALL_DIR_NAMES = new Set(['sensevoice', 'x-asr-480ms'])
+const ASR_INSTALL_DIR_NAMES: Record<ASRMode, string> = {
+  classic: 'sensevoice',
+  streaming: 'x-asr-480ms',
+}
+const MANAGED_INSTALL_DIR_NAMES = new Set(Object.values(ASR_INSTALL_DIR_NAMES))
 const LEGACY_STREAMING_INSTALL_DIR_NAMES = ['streaming-paraformer', 'streaming-punctuation']
 
 export function getASRModelStorageDir(): string {
@@ -15,10 +20,14 @@ export function removeLegacyStreamingASRInstallDirs(storageDir = getASRModelStor
   }
 }
 
-export async function openASRModelStorageDir(): Promise<void> {
-  const storageDir = getASRModelStorageDir()
-  fs.mkdirSync(storageDir, { recursive: true })
-  const errorMessage = await shell.openPath(storageDir)
+export function getASRModelInstallDir(mode: ASRMode): string {
+  return path.join(getASRModelStorageDir(), ASR_INSTALL_DIR_NAMES[mode])
+}
+
+export async function openASRModelInstallDir(mode: ASRMode): Promise<void> {
+  const installDir = getASRModelInstallDir(mode)
+  fs.mkdirSync(installDir, { recursive: true })
+  const errorMessage = await shell.openPath(installDir)
   if (errorMessage) {
     throw new Error(errorMessage)
   }

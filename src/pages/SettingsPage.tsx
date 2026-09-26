@@ -17,7 +17,6 @@ import {
   Download,
   HardDrive,
   FolderOpen,
-  Folder,
   Trash2,
   Monitor,
   KeyRound,
@@ -43,6 +42,7 @@ import {
 } from '@electron/shared/llm-config'
 import type {
   AppConfig,
+  ASRMode,
   ConfigSecretRequest,
   LLMRefineConfig,
   LLMProvider,
@@ -270,6 +270,12 @@ function ModelCard({
   deletingLabel,
   supported,
   unsupportedText,
+  selected,
+  enableLabel,
+  selectedLabel,
+  onSelect,
+  onOpenDirectory,
+  openDirectoryLabel,
 }: {
   icon: ReactNode
   title: string
@@ -289,10 +295,16 @@ function ModelCard({
   deletingLabel: string
   supported: boolean
   unsupportedText: string
+  selected: boolean
+  enableLabel: string
+  selectedLabel: string
+  onSelect: () => void
+  onOpenDirectory: () => void
+  openDirectoryLabel: string
 }) {
   return (
-    <div className="rounded-lg border bg-secondary/30 p-4">
-      <div className="flex items-center gap-3">
+    <div className={cn('rounded-lg border bg-secondary/30 p-4', selected && 'border-primary/40')}>
+      <div className="flex flex-wrap items-center gap-3">
         <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[10px] bg-card text-primary">
           {icon}
         </span>
@@ -308,37 +320,60 @@ function ModelCard({
           </div>
           <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{desc}</p>
         </div>
-        {ready ? (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Button
+            variant={selected ? 'default' : 'outline'}
+            size="sm"
+            onClick={onSelect}
+            aria-pressed={selected}
+            disabled={!supported || downloading || deleting}
+            className="no-drag h-8 shrink-0 cursor-pointer text-xs"
+          >
+            {selected ? <CheckCircle2 className="h-3.5 w-3.5" /> : null}
+            {selected ? selectedLabel : enableLabel}
+          </Button>
           <Button
             variant="ghost"
             size="sm"
-            onClick={onDelete}
-            disabled={deleting || downloading}
-            className="no-drag h-8 shrink-0 cursor-pointer px-2.5 text-xs text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+            onClick={onOpenDirectory}
+            disabled={deleting}
+            className="no-drag h-8 shrink-0 cursor-pointer px-2.5 text-xs text-muted-foreground"
           >
-            {deleting ? (
-              <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
-            ) : (
-              <Trash2 className="h-3.5 w-3.5" />
-            )}
-            {deleting ? deletingLabel : deleteLabel}
+            <FolderOpen className="h-3.5 w-3.5" />
+            {openDirectoryLabel}
           </Button>
-        ) : (
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={onDownload}
-            disabled={downloadDisabled}
-            className="no-drag h-8 shrink-0 cursor-pointer text-xs"
-          >
-            {downloading ? (
-              <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
-            ) : (
-              <Download className="h-3.5 w-3.5" />
-            )}
-            {downloading ? downloadingLabel : downloadLabel}
-          </Button>
-        )}
+          {ready ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onDelete}
+              disabled={deleting || downloading}
+              className="no-drag h-8 shrink-0 cursor-pointer px-2.5 text-xs text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+            >
+              {deleting ? (
+                <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+              ) : (
+                <Trash2 className="h-3.5 w-3.5" />
+              )}
+              {deleting ? deletingLabel : deleteLabel}
+            </Button>
+          ) : (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={onDownload}
+              disabled={downloadDisabled}
+              className="no-drag h-8 shrink-0 cursor-pointer text-xs"
+            >
+              {downloading ? (
+                <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+              ) : (
+                <Download className="h-3.5 w-3.5" />
+              )}
+              {downloading ? downloadingLabel : downloadLabel}
+            </Button>
+          )}
+        </div>
       </div>
       {downloading ? (
         <div className="mt-3 pl-12">
@@ -1009,10 +1044,10 @@ export default function SettingsPage() {
     }
   }
 
-  const handleOpenASRModelDirectory = async () => {
+  const handleOpenASRModelDirectory = async (mode: ASRMode) => {
     setAsrTestStatus(null)
     try {
-      await window.electronAPI.openASRModelDirectory()
+      await window.electronAPI.openASRModelDirectory(mode)
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : t('common.unknownError')
       setAsrTestStatus({
@@ -1076,18 +1111,26 @@ export default function SettingsPage() {
     }
   }
 
-  const handleStreamingEnabledChange = (checked: boolean) => {
-    if (checked && !streamingAsrStatus?.ready) {
+  const handleSelectASRMode = (mode: ASRMode) => {
+    const streamingEnabled = mode === 'streaming'
+    if ((config.asr.streamingEnabled ?? false) === streamingEnabled) return
+
+    if (!(streamingEnabled ? streamingAsrStatus : localAsrStatus)?.ready) {
       setAsrTestStatus({
         type: 'error',
-        message: t('settings.streamingAsr.downloadBeforeEnable'),
+        message: t(
+          streamingEnabled
+            ? 'settings.streamingAsr.downloadBeforeEnable'
+            : 'settings.localAsr.downloadBeforeEnable',
+        ),
       })
       return
     }
 
+    setAsrTestStatus(null)
     setConfig((prev) => ({
       ...prev,
-      asr: { ...prev.asr, streamingEnabled: checked },
+      asr: { ...prev.asr, streamingEnabled },
     }))
   }
 
@@ -1814,7 +1857,6 @@ export default function SettingsPage() {
     ? t(`settings.streamingAsr.phase.${streamingAsrProgressPhase}`)
     : t('settings.streamingAsr.downloading')
   const streamingEnabled = config.asr.streamingEnabled ?? false
-  const modelStorageDir = localAsrStatus?.storageDir ?? streamingAsrStatus?.storageDir
   const asrHealthReady = streamingEnabled ? streamingAsrReady : localAsrReady
   const asrHealthStatus = asrHealthReady
     ? streamingEnabled
@@ -1980,6 +2022,12 @@ export default function SettingsPage() {
                 deletingLabel={t('settings.modelStorage.deleting')}
                 supported={localAsrSupported}
                 unsupportedText={t('settings.localAsr.unsupported')}
+                selected={!streamingEnabled}
+                enableLabel={t('settings.modelStorage.enable')}
+                selectedLabel={t('settings.modelStorage.selected')}
+                onSelect={() => handleSelectASRMode('classic')}
+                onOpenDirectory={() => void handleOpenASRModelDirectory('classic')}
+                openDirectoryLabel={t('settings.modelStorage.open')}
               />
 
               <ModelCard
@@ -2001,47 +2049,15 @@ export default function SettingsPage() {
                 deletingLabel={t('settings.modelStorage.deleting')}
                 supported={streamingAsrSupported}
                 unsupportedText={t('settings.streamingAsr.unsupported')}
-              />
-
-              {modelStorageDir ? (
-                <div className="flex items-center gap-3 rounded-lg border bg-secondary/30 px-4 py-3">
-                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-card text-muted-foreground">
-                    <Folder className="h-4 w-4" />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-xs font-medium text-foreground">
-                      {t('settings.modelStorage.title')}
-                    </div>
-                    <code
-                      dir="ltr"
-                      title={modelStorageDir}
-                      className="mt-0.5 block truncate text-[11px] leading-relaxed text-muted-foreground"
-                    >
-                      {modelStorageDir}
-                    </code>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleOpenASRModelDirectory}
-                    className="no-drag h-8 shrink-0 cursor-pointer text-xs"
-                  >
-                    <FolderOpen className="h-3.5 w-3.5" />
-                    {t('settings.modelStorage.open')}
-                  </Button>
-                </div>
-              ) : null}
-            </div>
-
-            <div className="mt-4 border-t pt-4">
-              <ToggleRow
-                title={t('settings.streamingAsr.enabled')}
-                desc={t('settings.streamingAsr.enabledHelp')}
-                checked={streamingEnabled}
-                onChange={handleStreamingEnabledChange}
-                disabled={!streamingAsrSupported || downloadingStreamingAsr || deletingStreamingAsr}
+                selected={streamingEnabled}
+                enableLabel={t('settings.modelStorage.enable')}
+                selectedLabel={t('settings.modelStorage.selected')}
+                onSelect={() => handleSelectASRMode('streaming')}
+                onOpenDirectory={() => void handleOpenASRModelDirectory('streaming')}
+                openDirectoryLabel={t('settings.modelStorage.open')}
               />
             </div>
+
             <InlineFeedback status={asrTestStatus} testId="asr-test-status" />
 
             <div className="mt-4 flex items-start gap-2 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-3 py-2.5 text-xs leading-relaxed text-muted-foreground">

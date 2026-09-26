@@ -1,8 +1,10 @@
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { app, shell } from 'electron'
 import { describe, expect, it, vi } from 'vitest'
 import {
+  openASRModelInstallDir,
   removeLegacyStreamingASRInstallDirs,
   resolveManagedASRInstallDir,
 } from './asr-model-storage'
@@ -41,6 +43,28 @@ describe('ASR model storage path guard', () => {
       ).toThrow()
     },
   )
+})
+
+describe('ASR model folder opening', () => {
+  it.each([
+    ['classic', 'sensevoice'],
+    ['streaming', 'x-asr-480ms'],
+  ] as const)('opens the %s model install directory', async (mode, directoryName) => {
+    const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'voicekey-asr-open-'))
+    vi.mocked(app.getPath).mockReturnValue(userDataDir)
+    vi.mocked(shell.openPath).mockResolvedValue('')
+
+    try {
+      await openASRModelInstallDir(mode)
+
+      const installDir = path.join(userDataDir, 'local-asr', directoryName)
+      expect(fs.existsSync(installDir)).toBe(true)
+      expect(shell.openPath).toHaveBeenCalledWith(installDir)
+    } finally {
+      fs.rmSync(userDataDir, { recursive: true, force: true })
+      vi.clearAllMocks()
+    }
+  })
 })
 
 describe('legacy streaming ASR cleanup', () => {

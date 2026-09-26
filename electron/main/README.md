@@ -20,8 +20,8 @@ Electron 主进程目录，负责窗口管理、IPC、录音编排、ASR/润色�
 - `hotkey-manager.ts` - Electron `globalShortcut` 管理。
 - `iohook-manager.ts` - Windows、macOS 与 Linux X11 的 `uiohook-napi` 键盘监听；原生模块按需加载，Hyprland Wayland 不初始化该后端。
 - `asr-provider.ts` - 本地 ASR Provider 入口，调用 SenseVoiceSmall int8 并规范化识别结果。
-- `asr-model-storage.ts` - 统一管理 `userData/local-asr` 模型根目录；支持从设置页打开目录，仅允许递归删除白名单中的直接子目录，并在启动时幂等清理已退役的 Paraformer/独立标点模型目录。
-- `asr-model-storage.test.ts` - 模型删除路径保护与旧流式资产清理回归测试，确保只保留 SenseVoice/X-ASR 活跃目录，并拒绝根目录、嵌套目录和目录外路径。
+- `asr-model-storage.ts` - 统一管理 `userData/local-asr` 模型根目录；按识别模式打开对应的模型安装目录，仅允许递归删除白名单中的直接子目录，并在启动时幂等清理已退役的 Paraformer/独立标点模型目录。
+- `asr-model-storage.test.ts` - 模型目录打开映射、删除路径保护与旧流式资产清理回归测试，确保只保留 SenseVoice/X-ASR 活跃目录，并拒绝根目录、嵌套目录和目录外路径。
 - `download-region.ts` - 模型实际下载前通过 Cloudflare trace 静默解析公网出口的两位国家码；不存储、不记录公网 IP，4 秒内检测失败则保持配置顺序。`CN` 优先 ModelScope，其他已知国家优先 Hugging Face。
 - `download-region.test.ts` - 公网国家码解析、检测失败降级，以及中国/美国/其他海外下载源排序的回归测试。
 - `download-sources.ts` - 按地域排序后的顺序尝试模型下载源；首选源失败后自动切换备用源，全部失败才返回错误。

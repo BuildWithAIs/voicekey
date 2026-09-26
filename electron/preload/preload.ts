@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron'
 import {
   IPC_CHANNELS,
+  type ASRMode,
   type OverlayState,
   type HistoryItem,
   type AppConfig,
@@ -43,7 +44,7 @@ export interface ElectronAPI {
   onStreamingASRDownloadProgress: (
     callback: (progress: LocalASRDownloadProgress) => void,
   ) => () => void
-  openASRModelDirectory: () => Promise<void>
+  openASRModelDirectory: (mode: ASRMode) => Promise<void>
   getHostCapabilities: () => Promise<HostCapabilities>
   getAppLanguage: () => Promise<LanguageSnapshot>
   onAppLanguageChanged: (callback: (snapshot: LanguageSnapshot) => void) => () => void
@@ -132,7 +133,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on(IPC_CHANNELS.STREAMING_ASR_DOWNLOAD_PROGRESS, listener)
     return () => ipcRenderer.removeListener(IPC_CHANNELS.STREAMING_ASR_DOWNLOAD_PROGRESS, listener)
   },
-  openASRModelDirectory: () => ipcRenderer.invoke(IPC_CHANNELS.ASR_MODEL_DIRECTORY_OPEN),
+  openASRModelDirectory: (mode: ASRMode) =>
+    ipcRenderer.invoke(IPC_CHANNELS.ASR_MODEL_DIRECTORY_OPEN, mode),
   getHostCapabilities: () => ipcRenderer.invoke(IPC_CHANNELS.HOST_CAPABILITIES_GET),
   getAppLanguage: () => ipcRenderer.invoke(IPC_CHANNELS.APP_LANGUAGE_GET),
   onAppLanguageChanged: (callback: (snapshot: LanguageSnapshot) => void) => {
