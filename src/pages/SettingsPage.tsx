@@ -273,7 +273,7 @@ function ModelCard({
   selected,
   enableLabel,
   selectedLabel,
-  onSelect,
+  onToggle,
   onOpenDirectory,
   openDirectoryLabel,
 }: {
@@ -298,7 +298,7 @@ function ModelCard({
   selected: boolean
   enableLabel: string
   selectedLabel: string
-  onSelect: () => void
+  onToggle: (checked: boolean) => void
   onOpenDirectory: () => void
   openDirectoryLabel: string
 }) {
@@ -320,42 +320,35 @@ function ModelCard({
           </div>
           <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{desc}</p>
         </div>
-        <div className="flex flex-wrap items-center gap-1.5">
+        <div className="ml-auto flex shrink-0 items-center gap-1.5">
           <Button
-            variant={selected ? 'default' : 'outline'}
-            size="sm"
-            onClick={onSelect}
-            aria-pressed={selected}
-            disabled={!supported || downloading || deleting}
-            className="no-drag h-8 shrink-0 cursor-pointer text-xs"
-          >
-            {selected ? <CheckCircle2 className="h-3.5 w-3.5" /> : null}
-            {selected ? selectedLabel : enableLabel}
-          </Button>
-          <Button
+            type="button"
             variant="ghost"
-            size="sm"
+            size="icon-sm"
             onClick={onOpenDirectory}
             disabled={deleting}
-            className="no-drag h-8 shrink-0 cursor-pointer px-2.5 text-xs text-muted-foreground"
+            aria-label={`${title}: ${openDirectoryLabel}`}
+            title={openDirectoryLabel}
+            className="no-drag cursor-pointer text-muted-foreground"
           >
-            <FolderOpen className="h-3.5 w-3.5" />
-            {openDirectoryLabel}
+            <FolderOpen className="h-4 w-4" />
           </Button>
           {ready ? (
             <Button
+              type="button"
               variant="ghost"
-              size="sm"
+              size="icon-sm"
               onClick={onDelete}
               disabled={deleting || downloading}
-              className="no-drag h-8 shrink-0 cursor-pointer px-2.5 text-xs text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+              aria-label={`${title}: ${deleting ? deletingLabel : deleteLabel}`}
+              title={deleting ? deletingLabel : deleteLabel}
+              className="no-drag cursor-pointer text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
             >
               {deleting ? (
-                <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
               ) : (
-                <Trash2 className="h-3.5 w-3.5" />
+                <Trash2 className="h-4 w-4" />
               )}
-              {deleting ? deletingLabel : deleteLabel}
             </Button>
           ) : (
             <Button
@@ -373,6 +366,14 @@ function ModelCard({
               {downloading ? downloadingLabel : downloadLabel}
             </Button>
           )}
+          <Switch
+            checked={selected}
+            onCheckedChange={onToggle}
+            disabled={!supported || downloading || deleting}
+            aria-label={`${title}: ${enableLabel}`}
+            title={selected ? selectedLabel : enableLabel}
+            className="no-drag ml-3 cursor-pointer disabled:cursor-not-allowed"
+          />
         </div>
       </div>
       {downloading ? (
@@ -2025,7 +2026,7 @@ export default function SettingsPage() {
                 selected={!streamingEnabled}
                 enableLabel={t('settings.modelStorage.enable')}
                 selectedLabel={t('settings.modelStorage.selected')}
-                onSelect={() => handleSelectASRMode('classic')}
+                onToggle={(checked) => handleSelectASRMode(checked ? 'classic' : 'streaming')}
                 onOpenDirectory={() => void handleOpenASRModelDirectory('classic')}
                 openDirectoryLabel={t('settings.modelStorage.open')}
               />
@@ -2052,7 +2053,7 @@ export default function SettingsPage() {
                 selected={streamingEnabled}
                 enableLabel={t('settings.modelStorage.enable')}
                 selectedLabel={t('settings.modelStorage.selected')}
-                onSelect={() => handleSelectASRMode('streaming')}
+                onToggle={(checked) => handleSelectASRMode(checked ? 'streaming' : 'classic')}
                 onOpenDirectory={() => void handleOpenASRModelDirectory('streaming')}
                 openDirectoryLabel={t('settings.modelStorage.open')}
               />
