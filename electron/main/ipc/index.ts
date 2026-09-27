@@ -4,7 +4,7 @@
  * 本模块负责注册所有 IPC 处理器，按功能域拆分为：
  * - config-handlers: 配置、语言、本地模型下载/删除/目录与润色连接相关
  * - session-handlers: 经典/流式录音会话、音频数据与取消相关
- * - history-handlers: 历史记录 (HISTORY_GET, HISTORY_CLEAR, HISTORY_DELETE)
+ * - history-handlers: 历史记录分页、首页统计、清空与删除
  * - log-handlers: 日志相关 (LOG_GET_TAIL, LOG_OPEN_FOLDER, LOG_WRITE)
  * - updater-handlers: 更新相关 (CHECK_FOR_UPDATES, GET_UPDATE_STATUS, GET_APP_VERSION, OPEN_EXTERNAL)
  * - overlay-handlers: 浮窗相关 (OVERLAY_AUDIO_LEVEL, set-ignore-mouse-events, error)
@@ -87,7 +87,7 @@ export function initIPCHandlers(deps: IPCHandlersDeps): void {
  * 当前状态：
  * - ✅ config-handlers (12 个通道)
  * - ✅ session-handlers (7 个通道)
- * - ✅ history-handlers (3 个通道)
+ * - ✅ history-handlers (4 个通道)
  * - ✅ log-handlers (3 个通道)
  * - ✅ updater-handlers (4 个通道)
  * - ✅ overlay-handlers (3 个通道)
@@ -102,7 +102,7 @@ export function registerAllIPCHandlers(): void {
   registerOverlayHandlers()
   registerPlatformHandlers()
 
-  console.log('[IPC] All handlers registered: 7 modules, 35 channels')
+  console.log('[IPC] All handlers registered: 7 modules, 36 channels')
 }
 
 // Re-export types for external use

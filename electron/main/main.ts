@@ -57,6 +57,7 @@ import {
 } from './audio'
 // 环境模块
 import { initEnv, VITE_DEV_SERVER_URL } from './env'
+import { historyManager } from './history-manager'
 import { removeLegacyStreamingASRInstallDirs } from './asr-model-storage'
 import { getStreamingASRStatus, warmStreamingASR } from './streaming-asr-manager'
 import { hyprlandIntegration } from './platform/hyprland-integration'
@@ -169,6 +170,7 @@ async function registerHotkeys(): Promise<void> {
 app.whenReady().then(async () => {
   initEnv() // 必须第一个调用
   initializeLogger()
+  historyManager.initialize(app.getPath('userData'))
   try {
     removeLegacyStreamingASRInstallDirs()
   } catch (error) {
@@ -184,6 +186,17 @@ app.whenReady().then(async () => {
   // 初始化
   const appConfig = configManager.getAppConfig()
   await initMainI18n(appConfig.language)
+  const historyMode = historyManager.storageMode()
+  if (historyMode !== 'sqlite') {
+    showNotification(
+      t('history.storageWarningTitle'),
+      t(
+        historyMode === 'legacy'
+          ? 'history.storageFallbackMessage'
+          : 'history.storageUnavailableMessage',
+      ),
+    )
+  }
 
   // 同步系统语言
   const syncSystemLocale = async () => {
@@ -311,6 +324,7 @@ app.on('window-all-closed', () => {
 
 app.on('before-quit', () => {
   // 清理资源
+  historyManager.close()
   hotkeyManager.unregisterAll()
   ioHookManager.stop()
   hyprlandIntegration.stop()

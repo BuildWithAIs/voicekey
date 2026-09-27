@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useMemo, useState } from 'react'
+import { ReactNode, useEffect, useState } from 'react'
 import { Mic, Hash, Clock, TrendingUp } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
@@ -6,7 +6,7 @@ import { VoiceWave } from '@/components/VoiceWave'
 import { HotkeyKeys } from '@/components/HotkeyKeys'
 import StatsOverview from '@/components/StatsOverview'
 import InteractiveCharts from '@/components/InteractiveCharts'
-import { computeStats, type HistoryItem } from '@/lib/stats'
+import type { HistorySummary } from '@electron/shared/types'
 import { useStatFormatters } from '@/lib/useStatFormatters'
 
 function greetingKey(): string {
@@ -33,7 +33,19 @@ export default function HomePage() {
   const { t } = useTranslation()
   const { formatNumber, formatDuration } = useStatFormatters()
   const [pttKey, setPttKey] = useState('')
-  const [historyItems, setHistoryItems] = useState<HistoryItem[]>([])
+  const [stats, setStats] = useState<HistorySummary>({
+    totalCharacters: 0,
+    totalAudioMs: 0,
+    recentCharacters: 0,
+    recentAudioMs: 0,
+    todaySessions: 0,
+    todayDuration: 0,
+    todayCharacters: 0,
+    activeDays: 0,
+    peakDayCharacters: 0,
+    peakDayKey: null,
+    days: [],
+  })
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -47,8 +59,8 @@ export default function HomePage() {
     const loadHistory = async () => {
       try {
         setLoading(true)
-        const data = await window.electronAPI.getHistory()
-        setHistoryItems(data)
+        const data = await window.electronAPI.getHistorySummary()
+        setStats(data)
       } catch (error) {
         console.error('Failed to load history:', error)
       } finally {
@@ -58,7 +70,6 @@ export default function HomePage() {
     loadHistory()
   }, [])
 
-  const stats = useMemo(() => computeStats(historyItems), [historyItems])
   const isMac = window.electronAPI.platform === 'darwin'
   const effectivePtt = pttKey || (isMac ? 'Alt' : 'Control+Shift+Space')
 
@@ -138,11 +149,11 @@ export default function HomePage() {
       </div>
 
       <div className="mt-4">
-        <StatsOverview historyItems={historyItems} />
+        <StatsOverview stats={stats} />
       </div>
 
       <div className="mt-4">
-        <InteractiveCharts historyItems={historyItems} loading={loading} />
+        <InteractiveCharts days={stats.days} loading={loading} />
       </div>
     </div>
   )

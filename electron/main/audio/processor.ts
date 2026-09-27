@@ -11,6 +11,7 @@ import {
 } from '../../shared/types'
 import { t } from '../i18n'
 import { historyManager } from '../history-manager'
+import { showNotification } from '../notification'
 import type { ASRProvider } from '../asr-provider'
 import type { TextRefiner } from '../refine'
 import { textInjector } from '../text-injector'
@@ -41,6 +42,7 @@ type ChunkSessionState = {
 let deps: ProcessorDeps
 const chunkSessions = new Map<string, ChunkSessionState>()
 const streamingFinalMarkers = new Set<string>()
+let historySaveWarningShown = false
 
 export function initProcessor(dependencies: ProcessorDeps): void {
   deps = dependencies
@@ -292,10 +294,21 @@ async function finalizeTranscription(sessionId: string, rawText: string): Promis
     status: 'completed',
   })
 
-  historyManager.add({
-    text: finalText,
-    duration: getCurrentSession()?.duration,
-  })
+  try {
+    historyManager.add({
+      text: finalText,
+      duration: getCurrentSession()?.duration,
+    })
+  } catch (error) {
+    console.error(
+      '[Audio:Processor] Failed to save history:',
+      error instanceof Error ? error.name : 'UnknownError',
+    )
+    if (!historySaveWarningShown) {
+      historySaveWarningShown = true
+      showNotification(t('history.storageWarningTitle'), t('history.storageWriteFailedMessage'))
+    }
+  }
 
   if (!isSessionUsable(sessionId)) {
     return

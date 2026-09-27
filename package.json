@@ -18,7 +18,7 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "vitest run",
+    "test": "vitest run electron src",
     "type-check": "tsc --noEmit",
     "quality": "npm run lint && npm run format:check && npm run type-check && npm test",
     "preview": "vite preview",

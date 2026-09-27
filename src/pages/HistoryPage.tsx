@@ -13,9 +13,10 @@ import {
 } from '@/components/ui/select'
 import { HISTORY_RETENTION_DAYS } from '@electron/shared/constants'
 import { getLocale } from '@electron/shared/i18n'
+import type { HistoryCursor, HistoryItem } from '@electron/shared/types'
 import { cn } from '@/lib/utils'
 import { VoiceWave } from '@/components/VoiceWave'
-import { countCharacters, type HistoryItem } from '@/lib/stats'
+import { countCharacters } from '@/lib/stats'
 
 interface DayGroup {
   label: string
@@ -23,46 +24,21 @@ interface DayGroup {
   items: HistoryItem[]
 }
 
-interface VisibleDayGroup extends DayGroup {
-  visibleItems: HistoryItem[]
-}
-
-interface RenderWindow {
-  key: string
-  limit: number
-}
-
-type RenderSchedulerWindow = Window & {
-  requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number
-  cancelIdleCallback?: (handle: number) => void
-}
-
-const INITIAL_HISTORY_RENDER_COUNT = 36
-const HISTORY_RENDER_CHUNK_SIZE = 72
-
-function scheduleHistoryRenderChunk(callback: () => void): () => void {
-  const scheduler = window as RenderSchedulerWindow
-
-  if (scheduler.requestIdleCallback && scheduler.cancelIdleCallback) {
-    const handle = scheduler.requestIdleCallback(callback, { timeout: 120 })
-    return () => scheduler.cancelIdleCallback?.(handle)
-  }
-
-  const handle = window.setTimeout(callback, 16)
-  return () => window.clearTimeout(handle)
-}
-
 export default function HistoryPage() {
   const { t, i18n } = useTranslation()
   const [searchQuery, setSearchQuery] = React.useState('')
+  const [effectiveQuery, setEffectiveQuery] = React.useState('')
   const [sortOrder, setSortOrder] = React.useState<'newest' | 'oldest'>('newest')
   const [items, setItems] = React.useState<HistoryItem[]>([])
   const [loading, setLoading] = React.useState(true)
+  const [loadingMore, setLoadingMore] = React.useState(false)
+  const [loadFailed, setLoadFailed] = React.useState(false)
+  const [cursor, setCursor] = React.useState<HistoryCursor | null>(null)
+  const [total, setTotal] = React.useState(0)
+  const [totalAll, setTotalAll] = React.useState(0)
   const [selectedId, setSelectedId] = React.useState<string | null>(null)
-  const [renderWindow, setRenderWindow] = React.useState<RenderWindow>({
-    key: '',
-    limit: INITIAL_HISTORY_RENDER_COUNT,
-  })
+  const requestVersion = React.useRef(0)
+  const [reloadVersion, setReloadVersion] = React.useState(0)
 
   const locale = getLocale(i18n.language)
   const numberFormatter = React.useMemo(() => new Intl.NumberFormat(locale), [locale])
@@ -109,43 +85,72 @@ export default function HistoryPage() {
     [locale, t],
   )
 
-  const loadHistory = React.useCallback(async () => {
-    try {
-      setLoading(true)
-      const data = await window.electronAPI.getHistory()
-      setItems(data)
-      setSelectedId((prev) => prev ?? data[0]?.id ?? null)
-    } catch (error) {
-      console.error('Failed to load history:', error)
-      toast.error(t('history.loadFailed'))
-    } finally {
-      setLoading(false)
-    }
-  }, [t])
+  React.useEffect(() => {
+    const timer = window.setTimeout(() => setEffectiveQuery(searchQuery.trim()), 250)
+    return () => window.clearTimeout(timer)
+  }, [searchQuery])
 
   React.useEffect(() => {
-    loadHistory()
-  }, [loadHistory])
+    const version = ++requestVersion.current
+    setLoading(true)
+    setLoadingMore(false)
+    setLoadFailed(false)
+    setItems([])
+    setCursor(null)
+    setSelectedId(null)
+    void window.electronAPI
+      .getHistory({ query: effectiveQuery, sort: sortOrder })
+      .then((data) => {
+        if (version !== requestVersion.current) return
+        setItems(data.items)
+        setCursor(data.nextCursor ?? null)
+        setTotal(data.total)
+        setTotalAll(data.totalAll)
+        setSelectedId(data.items[0]?.id ?? null)
+      })
+      .catch((error: unknown) => {
+        if (version !== requestVersion.current) return
+        console.error('Failed to load history:', error)
+        setLoadFailed(true)
+        toast.error(t('history.loadFailed'))
+      })
+      .finally(() => {
+        if (version === requestVersion.current) setLoading(false)
+      })
+    return () => {
+      requestVersion.current += 1
+    }
+  }, [effectiveQuery, sortOrder, reloadVersion, t])
 
-  const filteredItems = React.useMemo(() => {
-    const normalizedQuery = searchQuery.trim().toLowerCase()
-    const filtered = normalizedQuery
-      ? items.filter((item) => item.text.toLowerCase().includes(normalizedQuery))
-      : [...items]
-
-    return filtered.sort((a, b) =>
-      sortOrder === 'newest' ? b.timestamp - a.timestamp : a.timestamp - b.timestamp,
-    )
-  }, [items, searchQuery, sortOrder])
-
-  const renderKey = `${items.length}:${sortOrder}:${searchQuery}`
-  const effectiveRenderLimit =
-    renderWindow.key === renderKey ? renderWindow.limit : INITIAL_HISTORY_RENDER_COUNT
+  const loadMore = React.useCallback(async () => {
+    if (!cursor || loadingMore) return
+    const version = requestVersion.current
+    setLoadingMore(true)
+    try {
+      const data = await window.electronAPI.getHistory({
+        query: effectiveQuery,
+        sort: sortOrder,
+        cursor,
+      })
+      if (version !== requestVersion.current) return
+      setItems((current) => [...current, ...data.items])
+      setCursor(data.nextCursor ?? null)
+      setTotal(data.total)
+      setTotalAll(data.totalAll)
+    } catch (error) {
+      if (version === requestVersion.current) {
+        console.error('Failed to load more history:', error)
+        toast.error(t('history.loadFailed'))
+      }
+    } finally {
+      if (version === requestVersion.current) setLoadingMore(false)
+    }
+  }, [cursor, effectiveQuery, loadingMore, sortOrder, t])
 
   const groupedItems = React.useMemo<DayGroup[]>(() => {
     const groups: DayGroup[] = []
     const index = new Map<string, DayGroup>()
-    filteredItems.forEach((item) => {
+    items.forEach((item) => {
       const label = formatDateGroup(item.timestamp)
       let group = index.get(label)
       if (!group) {
@@ -156,52 +161,7 @@ export default function HistoryPage() {
       group.items.push(item)
     })
     return groups
-  }, [filteredItems, formatDateGroup, formatWeekday])
-
-  const visibleGroups = React.useMemo<VisibleDayGroup[]>(() => {
-    let remaining = effectiveRenderLimit
-    const groups: VisibleDayGroup[] = []
-
-    for (const group of groupedItems) {
-      if (remaining <= 0) break
-
-      const visibleItems = group.items.slice(0, remaining)
-      remaining -= visibleItems.length
-
-      if (visibleItems.length > 0) {
-        groups.push({ ...group, visibleItems })
-      }
-    }
-
-    return groups
-  }, [effectiveRenderLimit, groupedItems])
-
-  React.useEffect(() => {
-    setRenderWindow((prev) => {
-      if (prev.key === renderKey) return prev
-      return {
-        key: renderKey,
-        limit: Math.min(INITIAL_HISTORY_RENDER_COUNT, filteredItems.length),
-      }
-    })
-  }, [filteredItems.length, renderKey])
-
-  React.useEffect(() => {
-    const currentLimit = Math.min(effectiveRenderLimit, filteredItems.length)
-    if (currentLimit >= filteredItems.length) return
-
-    return scheduleHistoryRenderChunk(() => {
-      React.startTransition(() => {
-        setRenderWindow((prev) => {
-          if (prev.key !== renderKey) return prev
-          return {
-            key: renderKey,
-            limit: Math.min(filteredItems.length, prev.limit + HISTORY_RENDER_CHUNK_SIZE),
-          }
-        })
-      })
-    })
-  }, [effectiveRenderLimit, filteredItems.length, renderKey])
+  }, [items, formatDateGroup, formatWeekday])
 
   const selected = React.useMemo(
     () => items.find((item) => item.id === selectedId) ?? null,
@@ -234,8 +194,12 @@ export default function HistoryPage() {
     async (id: string) => {
       try {
         await window.electronAPI.deleteHistoryItem(id)
+        requestVersion.current += 1
+        setLoadingMore(false)
         setItems((prev) => prev.filter((item) => item.id !== id))
         setSelectedId((prev) => (prev === id ? null : prev))
+        setTotal((prev) => Math.max(0, prev - 1))
+        setTotalAll((prev) => Math.max(0, prev - 1))
         toast.success(t('history.deleteSuccess'))
       } catch (error) {
         console.error('Failed to delete item:', error)
@@ -249,8 +213,13 @@ export default function HistoryPage() {
     if (!window.confirm(t('history.clearConfirm'))) return
     try {
       await window.electronAPI.clearHistory()
+      requestVersion.current += 1
+      setLoadingMore(false)
       setItems([])
       setSelectedId(null)
+      setCursor(null)
+      setTotal(0)
+      setTotalAll(0)
       toast.success(t('history.clearSuccess'))
     } catch (error) {
       console.error('Failed to clear history:', error)
@@ -259,14 +228,25 @@ export default function HistoryPage() {
   }, [t])
 
   const recordCount = t('history.recordCount', {
-    count: items.length,
-    formattedCount: formatNumber(items.length),
+    count: totalAll,
+    formattedCount: formatNumber(totalAll),
   })
 
   if (loading) {
     return (
       <div className="flex h-64 items-center justify-center">
         <p className="text-muted-foreground">{t('history.loading')}</p>
+      </div>
+    )
+  }
+
+  if (loadFailed) {
+    return (
+      <div className="flex h-64 flex-col items-center justify-center gap-3">
+        <p className="text-muted-foreground">{t('history.loadFailed')}</p>
+        <Button variant="outline" onClick={() => setReloadVersion((value) => value + 1)}>
+          {t('history.retry')}
+        </Button>
       </div>
     )
   }
@@ -284,8 +264,8 @@ export default function HistoryPage() {
             {t('history.title')}
           </h1>
           <p className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
-            <span>{items.length > 0 ? recordCount : t('history.empty')}</span>
-            {items.length > 0 && (
+            <span>{totalAll > 0 ? recordCount : t('history.empty')}</span>
+            {totalAll > 0 && (
               <>
                 <span className="h-1 w-1 rounded-full bg-muted-foreground/40" />
                 <span className="text-muted-foreground/70">
@@ -305,6 +285,7 @@ export default function HistoryPage() {
               placeholder={t('history.searchPlaceholder')}
               className="h-9 pl-9"
               value={searchQuery}
+              maxLength={200}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
@@ -320,7 +301,7 @@ export default function HistoryPage() {
               <SelectItem value="oldest">{t('history.sortOldest')}</SelectItem>
             </SelectContent>
           </Select>
-          {items.length > 0 && (
+          {totalAll > 0 && (
             <Button
               variant="ghost"
               size="icon-sm"
@@ -334,36 +315,28 @@ export default function HistoryPage() {
         </div>
       </div>
 
-      {filteredItems.length === 0 ? (
+      {items.length === 0 ? (
         <div className="mt-6 rounded-2xl border bg-card shadow-sm">
           <EmptyState
-            none={items.length === 0}
-            title={
-              items.length === 0 ? t('history.emptyTitleNone') : t('history.emptyTitleNoMatch')
-            }
-            desc={items.length === 0 ? t('history.emptyDescNone') : t('history.emptyDescNoMatch')}
+            none={totalAll === 0}
+            title={totalAll === 0 ? t('history.emptyTitleNone') : t('history.emptyTitleNoMatch')}
+            desc={totalAll === 0 ? t('history.emptyDescNone') : t('history.emptyDescNoMatch')}
           />
         </div>
       ) : (
         <div className="mt-6 grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_332px]">
           {/* 列表 */}
           <div className="flex flex-col gap-5">
-            {visibleGroups.map((group) => (
+            {groupedItems.map((group) => (
               <div key={group.label}>
                 <div className="mb-2.5 flex items-center gap-2.5">
                   <span className="font-display text-sm font-semibold text-foreground">
                     {group.label}
                   </span>
                   <span className="text-[11px] text-muted-foreground">{group.weekday}</span>
-                  <span className="ml-auto font-mono text-[11px] text-muted-foreground">
-                    {t('history.groupCount', {
-                      count: group.items.length,
-                      formattedCount: formatNumber(group.items.length),
-                    })}
-                  </span>
                 </div>
                 <div className="flex flex-col gap-2">
-                  {group.visibleItems.map((item) => (
+                  {group.items.map((item) => (
                     <HistoryRow
                       key={item.id}
                       item={item}
@@ -383,6 +356,19 @@ export default function HistoryPage() {
                 </div>
               </div>
             ))}
+            {cursor && (
+              <div className="flex flex-col items-center gap-2 pb-4">
+                <span className="text-xs text-muted-foreground">
+                  {t('history.loadedCount', {
+                    loaded: formatNumber(items.length),
+                    total: formatNumber(total),
+                  })}
+                </span>
+                <Button variant="outline" onClick={loadMore} disabled={loadingMore}>
+                  {loadingMore ? t('history.loading') : t('history.loadMore')}
+                </Button>
+              </div>
+            )}
           </div>
 
           {/* 详情 */}

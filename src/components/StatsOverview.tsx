@@ -1,10 +1,10 @@
-import { ReactNode, useMemo } from 'react'
+import { ReactNode } from 'react'
 import { Type, Volume2, CalendarDays, TrendingUp } from 'lucide-react'
-import { computeStats, type HistoryItem } from '@/lib/stats'
+import type { HistorySummary } from '@electron/shared/types'
 import { useStatFormatters } from '@/lib/useStatFormatters'
 
 interface StatsOverviewProps {
-  historyItems: HistoryItem[]
+  stats: HistorySummary
 }
 
 const rangeDays = 7
@@ -36,9 +36,8 @@ function StatTile({
   )
 }
 
-export default function StatsOverview({ historyItems }: StatsOverviewProps) {
+export default function StatsOverview({ stats }: StatsOverviewProps) {
   const { t, formatNumber, formatDuration, formatPeakDay } = useStatFormatters()
-  const stats = useMemo(() => computeStats(historyItems, rangeDays), [historyItems])
   const rangeLabel = t('home.range.label', { count: rangeDays })
 
   return (

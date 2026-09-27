@@ -192,9 +192,14 @@ export default tseslint.config(
       'dist/',
       'dist-electron/',
       'build/',
+      'release/',
+      'designs/',
 
       // 依赖
       'node_modules/',
+      '.agents/',
+      '.claude/',
+      '.grok/',
 
       // 独立子项目（有自己的配置）
       'website/',

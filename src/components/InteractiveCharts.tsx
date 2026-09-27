@@ -2,6 +2,7 @@ import * as React from 'react'
 import { Area, AreaChart, CartesianGrid, XAxis } from 'recharts'
 import { useTranslation } from 'react-i18next'
 import { getLocale } from '@electron/shared/i18n'
+import type { HistoryDay } from '@electron/shared/types'
 import { cn } from '@/lib/utils'
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -14,13 +15,6 @@ import {
   type ChartConfig,
 } from '@/components/ui/chart'
 
-export interface HistoryItem {
-  id: string
-  text: string
-  timestamp: number
-  duration?: number
-}
-
 interface TrendPoint {
   label: string
   date: number
@@ -29,11 +23,9 @@ interface TrendPoint {
 }
 
 interface InteractiveChartsProps {
-  historyItems: HistoryItem[]
+  days: HistoryDay[]
   loading: boolean
 }
-
-const countCharacters = (text: string): number => text.replace(/\s+/g, '').length
 
 const buildDateKey = (date: Date): string => {
   const year = date.getFullYear()
@@ -43,7 +35,7 @@ const buildDateKey = (date: Date): string => {
 }
 
 const buildTrendData = (
-  items: HistoryItem[],
+  days: HistoryDay[],
   rangeDays: number,
   formatLabel: (date: Date) => string,
 ): TrendPoint[] => {
@@ -53,19 +45,7 @@ const buildTrendData = (
   startOfRange.setDate(startOfRange.getDate() - (rangeDays - 1))
   startOfRange.setHours(0, 0, 0, 0)
 
-  const dailyMap = new Map<string, { characters: number; durationMs: number }>()
-  items.forEach((item) => {
-    if (item.timestamp < startOfRange.getTime() || item.timestamp > endOfToday.getTime()) {
-      return
-    }
-    const date = new Date(item.timestamp)
-    const key = buildDateKey(date)
-    const existing = dailyMap.get(key) ?? { characters: 0, durationMs: 0 }
-    dailyMap.set(key, {
-      characters: existing.characters + countCharacters(item.text),
-      durationMs: existing.durationMs + (item.duration ?? 0),
-    })
-  })
+  const dailyMap = new Map(days.map((day) => [day.dateKey, day]))
 
   const points: TrendPoint[] = []
   for (let offset = 0; offset < rangeDays; offset += 1) {
@@ -89,7 +69,7 @@ const RANGE_OPTIONS = [
   { value: '90d', days: 90 },
 ] as const
 
-export default function InteractiveCharts({ historyItems, loading }: InteractiveChartsProps) {
+export default function InteractiveCharts({ days: summaryDays, loading }: InteractiveChartsProps) {
   const { t, i18n } = useTranslation()
   const [timeRange, setTimeRange] = React.useState<'7d' | '30d' | '90d'>('7d')
 
@@ -101,7 +81,7 @@ export default function InteractiveCharts({ historyItems, loading }: Interactive
         color: 'var(--chart-1)',
       },
     }),
-    [i18n.language, t],
+    [t],
   )
   const dayFormatter = React.useMemo(
     () => new Intl.DateTimeFormat(locale, { month: 'short', day: 'numeric' }),
@@ -111,8 +91,8 @@ export default function InteractiveCharts({ historyItems, loading }: Interactive
   const days = timeRange === '90d' ? 90 : timeRange === '30d' ? 30 : 7
 
   const filteredData = React.useMemo(
-    () => buildTrendData(historyItems, days, (date) => dayFormatter.format(date)),
-    [historyItems, days, dayFormatter],
+    () => buildTrendData(summaryDays, days, (date) => dayFormatter.format(date)),
+    [summaryDays, days, dayFormatter],
   )
 
   return (

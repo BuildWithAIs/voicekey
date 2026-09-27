@@ -4,12 +4,13 @@
 
 ## 技术栈
 
-- Electron 30
+- Electron 43
 - TypeScript
 - `uiohook-napi`
 - `@nut-tree-fork/nut-js`
 - `fluent-ffmpeg`
 - `electron-store`
+- Node.js `node:sqlite`（听写历史）
 - `axios`
 
 ## 目录结构

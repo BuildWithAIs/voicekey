@@ -3,7 +3,9 @@ import {
   IPC_CHANNELS,
   type ASRMode,
   type OverlayState,
-  type HistoryItem,
+  type HistoryPageRequest,
+  type HistoryPageResult,
+  type HistorySummary,
   type AppConfig,
   type ConfigSecretRequest,
   type UpdateInfo,
@@ -58,7 +60,8 @@ export interface ElectronAPI {
   getSessionStatus: () => Promise<string>
 
   // 历史记录相关
-  getHistory: () => Promise<HistoryItem[]>
+  getHistory: (request: HistoryPageRequest) => Promise<HistoryPageResult>
+  getHistorySummary: () => Promise<HistorySummary>
   clearHistory: () => Promise<void>
   deleteHistoryItem: (id: string) => Promise<void>
 
@@ -152,7 +155,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getSessionStatus: () => ipcRenderer.invoke(IPC_CHANNELS.SESSION_STATUS),
 
   // 历史记录相关
-  getHistory: () => ipcRenderer.invoke(IPC_CHANNELS.HISTORY_GET),
+  getHistory: (request: HistoryPageRequest) =>
+    ipcRenderer.invoke(IPC_CHANNELS.HISTORY_GET, request),
+  getHistorySummary: () => ipcRenderer.invoke(IPC_CHANNELS.HISTORY_SUMMARY),
   clearHistory: () => ipcRenderer.invoke(IPC_CHANNELS.HISTORY_CLEAR),
   deleteHistoryItem: (id: string) => ipcRenderer.invoke(IPC_CHANNELS.HISTORY_DELETE, id),
 

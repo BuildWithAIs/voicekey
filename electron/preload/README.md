@@ -32,7 +32,7 @@ Electron 预加载脚本目录，作为主进程与渲染进程之间的安全�
 - `openASRModelDirectory(mode)` - 在文件管理器打开标准或实时识别模型的安装目录，只接受模型类型，不接受渲染进程传入路径。
 - `getHostCapabilities()` - 读取本机逻辑核数与内存，以及是否达到实时识别建议配置。
 - `testRefineConnection(config)` - 文本润色连接校验。
-- `getHistory()` / `clearHistory()` / `deleteHistoryItem(id)` - 管理转录历史。
+- `getHistory(request)` / `getHistorySummary()` / `clearHistory()` / `deleteHistoryItem(id)` - 分页查询、汇总及管理转录历史。
 - `checkForUpdates()` / `getUpdateStatus()` / `openExternal(url)` - 更新相关接口。
 - `getLogTail(options)` / `openLogFolder()` / `log(entry)` - 日志相关接口。
 - `getLinuxIntegrationStatus()` / `installLinuxIntegration()` / `removeLinuxIntegration()` - 查询、安装/更新与移除受管理的 Omarchy/Hyprland 集成；主进程限制为设置窗口调用。

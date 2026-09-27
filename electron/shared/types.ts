@@ -161,6 +161,44 @@ export interface HistoryItem {
   duration?: number
 }
 
+export interface HistoryCursor {
+  timestamp: number
+  sequence: number
+}
+
+export interface HistoryPageRequest {
+  query: string
+  sort: 'newest' | 'oldest'
+  cursor?: HistoryCursor
+}
+
+export interface HistoryPageResult {
+  items: HistoryItem[]
+  nextCursor?: HistoryCursor
+  total: number
+  totalAll: number
+}
+
+export interface HistoryDay {
+  dateKey: string
+  characters: number
+  durationMs: number
+}
+
+export interface HistorySummary {
+  totalCharacters: number
+  totalAudioMs: number
+  recentCharacters: number
+  recentAudioMs: number
+  todaySessions: number
+  todayDuration: number
+  todayCharacters: number
+  activeDays: number
+  peakDayCharacters: number
+  peakDayKey: string | null
+  days: HistoryDay[]
+}
+
 export interface UpdateInfo {
   hasUpdate: boolean
   latestVersion: string
@@ -260,6 +298,7 @@ export const IPC_CHANNELS = {
   OVERLAY_AUDIO_LEVEL: 'overlay:audio-level',
 
   HISTORY_GET: 'history:get',
+  HISTORY_SUMMARY: 'history:summary',
   HISTORY_CLEAR: 'history:clear',
   HISTORY_DELETE: 'history:delete',
 

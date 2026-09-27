@@ -5,6 +5,8 @@ pnpm-lock.yaml
 # Build outputs
 dist/
 dist-electron/
+release/
+designs/
 *.tsbuildinfo
 
 # IDE
@@ -28,3 +30,6 @@ electron-builder-effective-config.yaml
 # 独立子项目（有自己的配置）
 website/
 temp-docs/
+.agents/
+.claude/
+.grok/
