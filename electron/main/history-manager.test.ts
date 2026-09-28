@@ -76,8 +76,23 @@ describe('HistoryManager migration and paging', () => {
       items.slice(0, 120).reduce((total, item) => total + item.text.replace(/\s+/g, '').length, 0),
     )
     expect(summary.totalAudioMs).toBe(2500)
-    expect(summary.todaySessions).toBe(26)
-    expect(summary.days[0].dateKey).toBe('2026-09-27')
+    const today = new Date(NOW)
+    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime()
+    const tomorrowStart = new Date(
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate() + 1,
+    ).getTime()
+    const expectedTodaySessions = items
+      .slice(0, 120)
+      .filter((item) => item.timestamp >= todayStart && item.timestamp < tomorrowStart).length
+    const expectedTodayKey = [
+      today.getFullYear(),
+      String(today.getMonth() + 1).padStart(2, '0'),
+      String(today.getDate()).padStart(2, '0'),
+    ].join('-')
+    expect(summary.todaySessions).toBe(expectedTodaySessions)
+    expect(summary.days[0].dateKey).toBe(expectedTodayKey)
 
     manager.close()
     const restarted = openManager()
