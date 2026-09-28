@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.3.1](https://github.com/BuildWithAIs/voicekey/compare/v0.3.0...v0.3.1) (2026-09-28)
+
+### Features
+
+- **asr:** simplify local model selection ([dfae57c](https://github.com/BuildWithAIs/voicekey/commit/dfae57ca6cc51bfd3ce7bd3afe5fc6ddf7ab229c))
+- **history:** migrate transcripts to SQLite ([5182927](https://github.com/BuildWithAIs/voicekey/commit/5182927c2e0644fc8859a43c9e24777fc760fd78))
+- **llm:** update provider models and disable reasoning ([fd4851c](https://github.com/BuildWithAIs/voicekey/commit/fd4851c999d3dc0f46aa2f8521ebda5aeccd2138))
+- **settings:** use switches for model selection ([f295480](https://github.com/BuildWithAIs/voicekey/commit/f2954803071c55709a69d46854213ad6dfb32a52))
+- **website:** clarify free offline positioning ([7e42888](https://github.com/BuildWithAIs/voicekey/commit/7e42888d02574dbd813c91bbe7e45d6629017ee8))
+
+### Bug Fixes
+
+- decouple dictation refinement and translation ([5992728](https://github.com/BuildWithAIs/voicekey/commit/5992728cd876cd08766f9b66e88fa0fecc5566b7))
+- **deps:** address reported security vulnerabilities ([d2b431b](https://github.com/BuildWithAIs/voicekey/commit/d2b431bf7ff07af2c8aa672298923075a212b5f5))
+- **hotkeys:** unify recording shortcut editor ([afb9566](https://github.com/BuildWithAIs/voicekey/commit/afb95663ead8f34d449d75797a5808a68cd1892d))
+
 ## [0.3.0](https://github.com/BuildWithAIs/voicekey/compare/v0.2.1...v0.3.0) (2026-09-01)
 
 ### Features
