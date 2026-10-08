@@ -238,9 +238,12 @@ export class Translator {
       model: resolved.model,
       messages: [
         { role: 'system', content: systemPrompt },
-        { role: 'user', content: originalText },
+        { role: 'user', content: JSON.stringify({ selected_text: originalText }) },
       ],
-      ...buildDisabledReasoningPayloadFields(resolved.connection),
+      // Low-effort thinking improves difficult translations on the tested DeepSeek Flash model.
+      ...(resolved.connection.provider === 'deepseek'
+        ? { thinking: { type: 'enabled' }, reasoning_effort: 'low' }
+        : buildDisabledReasoningPayloadFields(resolved.connection)),
     }
     const characterCount = Array.from(originalText.trim()).length
     const timeoutMs =

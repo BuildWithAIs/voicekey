@@ -4,6 +4,7 @@ import {
   buildTranslationSystemPrompt,
   RECORDING,
   STREAMING_ASR,
+  TARGET_LANGUAGES,
 } from './constants'
 
 describe('recording limits', () => {
@@ -93,18 +94,21 @@ describe('native translation guidance', () => {
     ['french', 'French', false],
     ['arabic', 'Arabic', false],
   ] as const)(
-    'uses %s guidance for both dictation and selected-text translation',
+    'uses %s guidance for dictation translation',
     (targetLanguage, languageLabel, usesEnglishGuidance) => {
-      const prompts = [
-        buildRefineSystemPrompt({ translateOutput: true, targetLanguage }),
-        buildTranslationSystemPrompt(targetLanguage),
-      ]
+      const prompt = buildRefineSystemPrompt({ translateOutput: true, targetLanguage })
 
-      for (const prompt of prompts) {
-        expect(prompt).toContain(`natural ${languageLabel} wording`)
-        expect(prompt).not.toContain('English-speaking product or engineering team')
-        expect(prompt.includes('Chinglish')).toBe(usesEnglishGuidance)
-      }
+      expect(prompt).toContain(`natural ${languageLabel} wording`)
+      expect(prompt).not.toContain('English-speaking product or engineering team')
+      expect(prompt.includes('Chinglish')).toBe(usesEnglishGuidance)
     },
   )
+})
+
+describe('selected-text translation language routing', () => {
+  it.each(TARGET_LANGUAGES)('changes only the target language for $label', ({ value, label }) => {
+    const template = buildTranslationSystemPrompt('english').split('English').join('{{language}}')
+
+    expect(buildTranslationSystemPrompt(value).split(label).join('{{language}}')).toBe(template)
+  })
 })

@@ -1,7 +1,10 @@
 # Translation Module
 
-- `translator.ts` — Core translation/polishing service: captures selected text via the platform clipboard shortcut, calls the configured LLM API with the built-in native-quality translation prompt and the shared target language, explicitly disables reasoning where the selected model supports it, and replaces the selection via a plain-text paste (clipboard save/restore). Omarchy/Hyprland follows its universal clipboard convention (`Ctrl+C/V` for GUI apps, `Ctrl/Shift+Insert` for terminals); other platforms keep the native keyboard backend.
-- `translator.test.ts` — Covers Anthropic and OpenRouter Haiku 5.5 translation through the shared HTTP client, reasoning disabled, plain-text replacement, and clipboard restoration.
+- `translator.ts` — Core translation/polishing service: captures selected text via the platform clipboard shortcut, sends it as a JSON `selected_text` value with a language-neutral translation prompt and the shared target language, and replaces the selection via a plain-text paste (clipboard save/restore). Direct DeepSeek translation uses low-effort thinking for fidelity and idiomatic expression; other providers retain their reasoning-disable settings. Omarchy/Hyprland follows its universal clipboard convention (`Ctrl+C/V` for GUI apps, `Ctrl/Shift+Insert` for terminals); other platforms keep the native keyboard backend.
+- `translator.test.ts` — Covers DeepSeek Flash, Anthropic, and OpenRouter Haiku 5.5 translation through the shared HTTP client, provider-specific reasoning settings, selected-text JSON escaping, plain-text replacement, and clipboard restoration.
+- `translation-evaluation.json` — Synthetic live DeepSeek Flash comparison: 67 distinct cases across all ten targets and 48 additional repeated requests per variant. Records baseline/candidate settings, prompt hashes, source text, responses, mechanical checks, and evaluation limits; contains no credentials and is not loaded at runtime.
+
+The prompt uses one API request and asks for a final native-language expression check without exposing drafts. Direct DeepSeek translation enables low-effort thinking; dictation processing keeps its existing settings. The recorded sample shows more reliable protected-content and uncertainty handling, with a modest increase in API latency. Most ordinary baseline translations were already good, and context-sensitive jargon may still sound literal; mechanical checks do not certify native fluency.
 
 ## Architecture
 
@@ -36,6 +39,6 @@ Before both copy and paste, the module uses a temporary clipboard sentinel to de
 
 - `refine/openai-client.ts` — `requestChatCompletion`, `extractMessageContent`
 - `shared/llm-config.ts` — provider-specific endpoint selection and reasoning-disable parameters, including Anthropic Messages and OpenRouter Haiku 5.5
-- `shared/constants.ts` — `buildTranslationSystemPrompt`, native-quality guidance matching the target language and source tone (Chinese-to-English advice only for English targets), `OPENAI_CHAT`
+- `shared/constants.ts` — `buildTranslationSystemPrompt`, language-neutral rules for idiomatic expression, source tone, uncertainty, fragments, and protected content without fixed language-pair examples; `OPENAI_CHAT`
 - `window/overlay.ts` — `showOverlay`, `updateOverlay`, `hideOverlay`
 - `config-manager.ts` — `getLLMRefineConfig`, `getTranslationConfig`

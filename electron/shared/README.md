@@ -12,8 +12,8 @@ length caps.
 ## 文件列表
 
 - `types.ts` - 跨进程类型定义与 IPC 通道常量；包含经典/流式 ASR 模式、历史记录分页与首页汇总、两套模型下载/删除状态、统一模型存储目录、本机实时识别建议配置快照、流式 PCM 载荷、带实时 transcript 的 Overlay、Linux/Omarchy 集成状态、Provider-aware LLM 润色配置及其余应用配置。
-- `constants.ts` - SenseVoice 与 X-ASR-zh-en 480 ms 的版本、文件大小、SHA-256 和 ModelScope/Hugging Face 双源元数据（运行时由公网国家动态排序），实时识别建议配置（6 逻辑核 / 16GB 档内存），以及录音限制、各 Provider 的 GPT-6 Luna / DeepSeek V4.1 Flash / Claude Haiku 5.5 模型 ID（Anthropic 仅支持 Haiku 5.5，OpenRouter 也提供该模型，TokenDance 仅保留可关闭 thinking 的 DeepSeek 模型）、多语言 refine system prompt（原意/语气/改口保护、语言与地区书写习惯、术语纠错及六组示例）、术语表与按目标语言生成的翻译规则；中译英专项规则只用于英文目标。
-- `constants.test.ts` - 录音限制、X-ASR 文件总大小/哈希/下载源顺序、500 ms 收尾静音与 20 分钟空闲卸载、实时识别建议配置，以及多语言润色 prompt 长度、默认不受翻译目标影响、词表拼写、翻译覆盖顺序与目标语言专项规则的回归测试。
+- `constants.ts` - SenseVoice 与 X-ASR-zh-en 480 ms 的版本、文件大小、SHA-256 和 ModelScope/Hugging Face 双源元数据（运行时由公网国家动态排序），实时识别建议配置（6 逻辑核 / 16GB 档内存），以及录音限制、各 Provider 的 GPT-6 Luna / DeepSeek V4.1 Flash / Claude Haiku 5.5 模型 ID（Anthropic 仅支持 Haiku 5.5，OpenRouter 也提供该模型，TokenDance 仅保留可关闭 thinking 的 DeepSeek 模型）、多语言 refine system prompt（原意/语气/改口保护、语言与地区书写习惯、术语纠错及六组示例）、术语表与语音翻译规则；语音翻译的中译英专项规则只用于英文目标。选中文本翻译使用独立的通用 prompt，无固定语言对示例，读取 JSON 中的 `selected_text`，保护语气、不确定性、原有结构及代码。
+- `constants.test.ts` - 录音限制、X-ASR 文件总大小/哈希/下载源顺序、500 ms 收尾静音与 20 分钟空闲卸载、实时识别建议配置，以及多语言润色 prompt 长度、默认不受翻译目标影响、词表拼写、翻译覆盖顺序、语音翻译专项规则和选中文本翻译在十种目标语言间仅替换语言名称的回归测试。
 - `host-capabilities.ts` - 根据逻辑核数与内存判定本机是否达到实时识别建议配置，并格式化确认框中的内存 GB。
 - `host-capabilities.test.ts` - 5/6 核与 14.9/15 GiB 阈值，以及 CPU+内存同时判定的回归测试。
 - `llm-config.ts` - 共享 LLM 配置 normalizer 与旧模型 ID 迁移工具；按 Provider 构造 Chat Completions 或 Anthropic Messages 端点、关闭 reasoning/thinking 参数，并为 TokenDance 连接生成 X-App-URL 应用归因请求头。Anthropic 使用固定 Haiku 5.5 模型及 low effort。
