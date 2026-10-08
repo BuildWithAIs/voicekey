@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.3.2](https://github.com/BuildWithAIs/voicekey/compare/v0.3.1...v0.3.2) (2026-10-08)
+
+### Features
+
+- **llm:** add Anthropic Haiku 5.5 support ([420f9a6](https://github.com/BuildWithAIs/voicekey/commit/420f9a62fce4c5ef0c0e5600aa875771f937da00))
+
 ### [0.3.1](https://github.com/BuildWithAIs/voicekey/compare/v0.3.0...v0.3.1) (2026-09-28)
 
 ### Features
