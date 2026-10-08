@@ -3,12 +3,41 @@ import { LLM_PROVIDERS } from './constants'
 import {
   buildDisabledReasoningPayloadFields,
   buildLLMAttributionHeaders,
+  buildLLMRequestEndpoint,
   normalizeLLMRefineConfig,
   resolveLLMConnection,
 } from './llm-config'
 import type { LLMRefineConfig } from './types'
 
 describe('LLM model selection', () => {
+  it('uses the Anthropic Messages endpoint and only Haiku 5.5', () => {
+    const config = normalizeLLMRefineConfig({
+      provider: 'anthropic',
+      anthropic: { apiKey: 'anthropic-key', model: 'claude-sonnet-5-5' },
+    } as unknown as Partial<LLMRefineConfig>)
+    const connection = resolveLLMConnection(config)
+
+    expect(connection).toEqual({
+      provider: 'anthropic',
+      endpoint: 'https://api.anthropic.com/v1',
+      apiKey: 'anthropic-key',
+      model: 'claude-haiku-5-5',
+    })
+    expect(config.apiKey).toBe('anthropic-key')
+    expect(buildLLMRequestEndpoint(connection)).toBe('https://api.anthropic.com/v1/messages')
+  })
+
+  it('migrates a legacy Anthropic endpoint and key to the fixed Haiku preset', () => {
+    const config = normalizeLLMRefineConfig({
+      endpoint: 'https://api.anthropic.com/v1/messages',
+      model: 'claude-haiku-4-5',
+      apiKey: 'anthropic-key',
+    })
+
+    expect(config.provider).toBe('anthropic')
+    expect(config.anthropic).toEqual({ apiKey: 'anthropic-key', model: 'claude-haiku-5-5' })
+  })
+
   it('uses the official OpenAI endpoint and fixed GPT-6 Luna model', () => {
     const config = normalizeLLMRefineConfig({
       provider: 'openai',
@@ -58,6 +87,7 @@ describe('LLM model selection', () => {
 describe('built-in LLM reasoning policy', () => {
   it.each([
     ['openai', { reasoning_effort: 'none' }],
+    ['anthropic', { thinking: { type: 'disabled' }, output_config: { effort: 'low' } }],
     ['deepseek', { thinking: { type: 'disabled' } }],
     ['openrouter', { reasoning: { enabled: false, exclude: true } }],
   ] as const)('explicitly disables reasoning for %s', (provider, fields) => {
@@ -97,11 +127,31 @@ describe('built-in LLM reasoning policy', () => {
 })
 
 describe('fixed OpenRouter model policy', () => {
-  it('keeps the two approved models with their provider-specific IDs', () => {
+  it('keeps the approved models with their provider-specific IDs', () => {
     const modelIds = LLM_PROVIDERS.OPENROUTER_MODELS.map((model) => model.id)
 
-    expect(modelIds).toEqual(['openai/gpt-6-luna', 'deepseek/deepseek-v4.1-flash'])
+    expect(modelIds).toEqual([
+      'openai/gpt-6-luna',
+      'deepseek/deepseek-v4.1-flash',
+      'anthropic/claude-haiku-5.5',
+    ])
     expect(modelIds).not.toContain('tencent/hy3')
+  })
+
+  it('preserves OpenRouter Haiku 5.5 and explicitly disables reasoning', () => {
+    const config = normalizeLLMRefineConfig({
+      provider: 'openrouter',
+      openrouter: { apiKey: 'router-key', model: 'anthropic/claude-haiku-5.5' },
+    })
+    const connection = resolveLLMConnection(config)
+
+    expect(connection.model).toBe('anthropic/claude-haiku-5.5')
+    expect(buildLLMRequestEndpoint(connection)).toBe(
+      'https://openrouter.ai/api/v1/chat/completions',
+    )
+    expect(buildDisabledReasoningPayloadFields(connection)).toEqual({
+      reasoning: { enabled: false, exclude: true },
+    })
   })
 
   it('replaces unsupported legacy models with the fixed default', () => {

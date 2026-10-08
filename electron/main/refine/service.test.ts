@@ -127,3 +127,46 @@ describe('RefineService TokenDance attribution', () => {
     })
   })
 })
+
+describe('RefineService Haiku 5.5 requests', () => {
+  beforeEach(() => {
+    requestChatCompletionMock.mockReset()
+    requestChatCompletionMock.mockResolvedValue({ choices: [{ message: { content: 'polished' } }] })
+  })
+
+  it.each(['anthropic', 'openrouter'] as const)(
+    'uses the %s protocol and disables thinking for refinement and connection tests',
+    async (provider) => {
+      const config = normalizeLLMRefineConfig({
+        enabled: true,
+        provider,
+        anthropic: { apiKey: 'anthropic-key', model: 'claude-haiku-5-5' },
+        openrouter: { apiKey: 'router-key', model: 'anthropic/claude-haiku-5.5' },
+      })
+      const service = new RefineService({
+        getRefineConfig: () => config,
+        getTargetLanguage: () => 'en',
+      })
+
+      await expect(service.refineText('raw transcript')).resolves.toBe('polished')
+      await expect(service.testConnection(config)).resolves.toEqual({ ok: true })
+
+      expect(requestChatCompletionMock).toHaveBeenCalledTimes(2)
+      for (const [endpoint, apiKey, payload, , , requestProvider] of requestChatCompletionMock.mock
+        .calls) {
+        expect(requestProvider).toBe(provider)
+        expect(endpoint).toBe(
+          provider === 'anthropic'
+            ? 'https://api.anthropic.com/v1/messages'
+            : 'https://openrouter.ai/api/v1/chat/completions',
+        )
+        expect(apiKey).toBe(provider === 'anthropic' ? 'anthropic-key' : 'router-key')
+        expect(payload).toMatchObject(
+          provider === 'anthropic'
+            ? { model: 'claude-haiku-5-5', thinking: { type: 'disabled' } }
+            : { model: 'anthropic/claude-haiku-5.5', reasoning: { enabled: false, exclude: true } },
+        )
+      }
+    },
+  )
+})

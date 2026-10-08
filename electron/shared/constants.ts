@@ -227,6 +227,8 @@ export const OPENAI_CHAT = {
 export const LLM_PROVIDERS = {
   OPENAI_ENDPOINT: 'https://api.openai.com/v1',
   DEFAULT_OPENAI_MODEL: 'gpt-6-luna',
+  ANTHROPIC_ENDPOINT: 'https://api.anthropic.com/v1',
+  DEFAULT_ANTHROPIC_MODEL: 'claude-haiku-5-5',
   DEEPSEEK_ENDPOINT: 'https://api.deepseek.com',
   OPENROUTER_ENDPOINT: 'https://openrouter.ai/api/v1',
   // The official DeepSeek API serves V4.1 Flash under this stable ID.
@@ -241,6 +243,10 @@ export const LLM_PROVIDERS = {
     {
       id: 'deepseek/deepseek-v4.1-flash',
       label: 'DeepSeek · V4.1 Flash',
+    },
+    {
+      id: 'anthropic/claude-haiku-5.5',
+      label: 'Anthropic · Claude Haiku 5.5',
     },
   ],
   DEFAULT_OPENROUTER_MODEL: 'openai/gpt-6-luna',

@@ -1,6 +1,107 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import axios, { AxiosError, type AxiosResponse, type InternalAxiosRequestConfig } from 'axios'
-import { extractAxiosErrorMessage, extractTokenDanceRecoveryHint } from './openai-client'
+import {
+  extractAxiosErrorMessage,
+  extractMessageContent,
+  extractTokenDanceRecoveryHint,
+  requestChatCompletion,
+  type ChatCompletionPayload,
+} from './openai-client'
+
+afterEach(() => vi.restoreAllMocks())
+
+describe('Anthropic Messages requests', () => {
+  const payload: ChatCompletionPayload = {
+    model: 'claude-haiku-5-5',
+    messages: [
+      { role: 'system', content: 'Edit the transcript.' },
+      { role: 'user', content: '你好世界' },
+    ],
+  }
+
+  it('sends native authentication and system instructions with thinking disabled', async () => {
+    const post = vi.spyOn(axios, 'post').mockResolvedValue({
+      data: {
+        content: [
+          { type: 'thinking', text: 'hidden thoughts' },
+          { type: 'text', text: '你好，' },
+          { type: 'text', text: '世界！' },
+        ],
+        stop_reason: 'end_turn',
+      },
+    })
+
+    const response = await requestChatCompletion(
+      'https://api.anthropic.com/v1/messages',
+      'anthropic-key',
+      payload,
+      30000,
+      {},
+      'anthropic',
+    )
+
+    expect(post).toHaveBeenCalledWith(
+      'https://api.anthropic.com/v1/messages',
+      {
+        model: 'claude-haiku-5-5',
+        system: 'Edit the transcript.',
+        messages: [{ role: 'user', content: '你好世界' }],
+        max_tokens: expect.any(Number),
+        thinking: { type: 'disabled' },
+        output_config: { effort: 'low' },
+      },
+      {
+        headers: {
+          'x-api-key': 'anthropic-key',
+          'anthropic-version': '2023-06-01',
+          'Content-Type': 'application/json',
+        },
+        timeout: 30000,
+        responseType: 'json',
+        responseEncoding: 'utf8',
+      },
+    )
+    expect(extractMessageContent(response)).toBe('你好，世界！')
+  })
+
+  it('rejects truncated output so it cannot replace the original text', async () => {
+    vi.spyOn(axios, 'post').mockResolvedValue({
+      data: { content: [{ type: 'text', text: 'partial' }], stop_reason: 'max_tokens' },
+    })
+
+    await expect(
+      requestChatCompletion(
+        'https://api.anthropic.com/v1/messages',
+        'key',
+        payload,
+        30000,
+        {},
+        'anthropic',
+      ),
+    ).rejects.toThrow('output token limit reached')
+  })
+
+  it('preserves Anthropic API errors for the existing error handler', async () => {
+    const error = createAxiosError('Unauthorized', {
+      status: 401,
+      data: { type: 'error', error: { type: 'authentication_error', message: 'Invalid API key' } },
+      headers: {},
+    })
+    vi.spyOn(axios, 'post').mockRejectedValue(error)
+
+    await expect(
+      requestChatCompletion(
+        'https://api.anthropic.com/v1/messages',
+        'key',
+        payload,
+        30000,
+        {},
+        'anthropic',
+      ),
+    ).rejects.toBe(error)
+    expect(extractAxiosErrorMessage(error)).toBe('Invalid API key')
+  })
+})
 
 function createAxiosError(
   message: string,

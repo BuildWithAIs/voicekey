@@ -8,6 +8,7 @@ import {
   extractAxiosErrorMessage,
   extractMessageContent,
   requestChatCompletion,
+  type ChatCompletionPayload,
 } from './openai-client'
 import { resolveRefineRequestConfig } from './config-resolver'
 import { RefineGlossaryCache } from './glossary-cache'
@@ -74,7 +75,7 @@ export class RefineService implements TextRefiner {
       throw new Error('Text refinement config is incomplete')
     }
 
-    const payload = {
+    const payload: ChatCompletionPayload = {
       model: resolvedConfig.model,
       messages: [
         {
@@ -96,6 +97,7 @@ export class RefineService implements TextRefiner {
         payload,
         resolvedConfig.timeoutMs,
         buildLLMAttributionHeaders(resolvedConfig.connection),
+        resolvedConfig.connection.provider,
       )
       const refinedText = extractMessageContent(response)
       if (!refinedText) {
@@ -141,6 +143,7 @@ export class RefineService implements TextRefiner {
         },
         resolvedConfig.timeoutMs,
         buildLLMAttributionHeaders(resolvedConfig.connection),
+        resolvedConfig.connection.provider,
       )
 
       return { ok: true }

@@ -113,6 +113,7 @@ function isConfigSecretRequest(value: unknown): value is ConfigSecretRequest {
   if (value.scope === 'llm-refine') {
     return (
       value.provider === 'openai' ||
+      value.provider === 'anthropic' ||
       value.provider === 'deepseek' ||
       value.provider === 'openrouter' ||
       value.provider === 'tokendance' ||

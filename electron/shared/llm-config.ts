@@ -1,6 +1,7 @@
 import { LLM_PROVIDERS, LLM_REFINE } from './constants'
-import { normalizeRefineBaseUrl } from './refine-url'
+import { buildRefineChatEndpoint, normalizeRefineBaseUrl } from './refine-url'
 import type {
+  AnthropicConfig,
   CustomCompatibleLLMConfig,
   DeepSeekConfig,
   LLMProvider,
@@ -28,6 +29,11 @@ const DEFAULT_OPENAI_CONFIG: OpenAIConfig = {
   model: LLM_PROVIDERS.DEFAULT_OPENAI_MODEL,
 }
 
+const DEFAULT_ANTHROPIC_CONFIG: AnthropicConfig = {
+  apiKey: LLM_REFINE.API_KEY,
+  model: LLM_PROVIDERS.DEFAULT_ANTHROPIC_MODEL,
+}
+
 const DEFAULT_OPENROUTER_CONFIG: OpenRouterConfig = {
   apiKey: LLM_REFINE.API_KEY,
   model: LLM_PROVIDERS.DEFAULT_OPENROUTER_MODEL,
@@ -52,6 +58,7 @@ export const defaultLLMRefineConfig: LLMRefineConfig = {
   apiKey: LLM_REFINE.API_KEY,
   translateOutput: LLM_REFINE.TRANSLATE_OUTPUT,
   openai: DEFAULT_OPENAI_CONFIG,
+  anthropic: DEFAULT_ANTHROPIC_CONFIG,
   deepseek: DEFAULT_DEEPSEEK_CONFIG,
   openrouter: DEFAULT_OPENROUTER_CONFIG,
   tokendance: DEFAULT_TOKENDANCE_CONFIG,
@@ -93,6 +100,7 @@ function readTranslateOutputFlag(config?: Record<string, unknown>): boolean {
 function normalizeProvider(value: unknown, rawConfig?: Record<string, unknown>): LLMProvider {
   if (
     value === 'openai' ||
+    value === 'anthropic' ||
     value === 'deepseek' ||
     value === 'openrouter' ||
     value === 'tokendance' ||
@@ -106,6 +114,10 @@ function normalizeProvider(value: unknown, rawConfig?: Record<string, unknown>):
 
   if (lowerEndpoint.includes('api.openai.com')) {
     return 'openai'
+  }
+
+  if (lowerEndpoint.includes('api.anthropic.com')) {
+    return 'anthropic'
   }
 
   if (lowerEndpoint.includes('api.deepseek.com')) {
@@ -207,6 +219,20 @@ function normalizeOpenRouterConfig(
   }
 }
 
+function normalizeAnthropicConfig(
+  value: unknown,
+  rawConfig: Record<string, unknown> | undefined,
+  provider: LLMProvider,
+): AnthropicConfig {
+  const raw = isRecord(value) ? value : undefined
+  const legacyApiKey = provider === 'anthropic' ? rawConfig?.apiKey : undefined
+
+  return {
+    apiKey: readString(raw?.apiKey, readString(legacyApiKey, DEFAULT_ANTHROPIC_CONFIG.apiKey)),
+    model: LLM_PROVIDERS.DEFAULT_ANTHROPIC_MODEL,
+  }
+}
+
 function normalizeTokenDanceConfig(
   value: unknown,
   rawConfig: Record<string, unknown> | undefined,
@@ -242,6 +268,15 @@ function normalizeCustomConfig(
 }
 
 export function resolveLLMConnection(config: LLMRefineConfig): ResolvedLLMConnection {
+  if (config.provider === 'anthropic') {
+    return {
+      provider: 'anthropic',
+      endpoint: LLM_PROVIDERS.ANTHROPIC_ENDPOINT,
+      model: config.anthropic.model,
+      apiKey: config.anthropic.apiKey,
+    }
+  }
+
   if (config.provider === 'openai') {
     return {
       provider: 'openai',
@@ -293,6 +328,7 @@ export function normalizeLLMRefineConfig(config?: Partial<LLMRefineConfig>): LLM
       : undefined
   const provider = normalizeProvider(rawConfig?.provider, rawConfig)
   const openai = normalizeOpenAIConfig(rawConfig?.openai, rawConfig, provider)
+  const anthropic = normalizeAnthropicConfig(rawConfig?.anthropic, rawConfig, provider)
   const deepseek = normalizeDeepSeekConfig(rawConfig?.deepseek, rawConfig, provider)
   const openrouter = normalizeOpenRouterConfig(rawConfig?.openrouter, rawConfig, provider)
   const tokendance = normalizeTokenDanceConfig(rawConfig?.tokendance, rawConfig, provider)
@@ -301,6 +337,7 @@ export function normalizeLLMRefineConfig(config?: Partial<LLMRefineConfig>): LLM
     ...defaultLLMRefineConfig,
     provider,
     openai,
+    anthropic,
     deepseek,
     openrouter,
     tokendance,
@@ -316,11 +353,24 @@ export function normalizeLLMRefineConfig(config?: Partial<LLMRefineConfig>): LLM
     apiKey: activeConnection.apiKey,
     translateOutput: readTranslateOutputFlag(rawConfig),
     openai,
+    anthropic,
     deepseek,
     openrouter,
     tokendance,
     custom,
   }
+}
+
+export function buildLLMRequestEndpoint(connection: ResolvedLLMConnection): string {
+  if (connection.provider === 'anthropic') {
+    const baseUrl = connection.endpoint
+      .trim()
+      .replace(/\/+$/, '')
+      .replace(/\/messages$/, '')
+    return baseUrl ? `${baseUrl}/messages` : ''
+  }
+
+  return buildRefineChatEndpoint(connection.endpoint)
 }
 
 /**
@@ -346,6 +396,10 @@ export function buildDisabledReasoningPayloadFields(
 ): Record<string, unknown> {
   if (connection.provider === 'openai') {
     return { reasoning_effort: 'none' }
+  }
+
+  if (connection.provider === 'anthropic') {
+    return { thinking: { type: 'disabled' }, output_config: { effort: 'low' } }
   }
 
   if (connection.provider === 'deepseek') {

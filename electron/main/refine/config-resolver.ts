@@ -1,6 +1,10 @@
 import { buildRefineSystemPrompt, OPENAI_CHAT } from '../../shared/constants'
-import { buildRefineChatEndpoint, normalizeRefineBaseUrl } from '../../shared/refine-url'
-import { resolveLLMConnection, type ResolvedLLMConnection } from '../../shared/llm-config'
+import { normalizeRefineBaseUrl } from '../../shared/refine-url'
+import {
+  buildLLMRequestEndpoint,
+  resolveLLMConnection,
+  type ResolvedLLMConnection,
+} from '../../shared/llm-config'
 import type { LLMRefineConfig } from '../../shared/types'
 
 export interface ResolvedRefineRequestConfig {
@@ -24,7 +28,7 @@ export function resolveRefineRequestConfig(
 ): ResolvedRefineRequestConfig | null {
   const connection = resolveLLMConnection(refineConfig)
   const baseUrl = normalizeRefineBaseUrl(connection.endpoint)
-  const endpoint = buildRefineChatEndpoint(baseUrl)
+  const endpoint = buildLLMRequestEndpoint(connection)
   const model = connection.model.trim()
   const apiKey = connection.apiKey.trim()
 

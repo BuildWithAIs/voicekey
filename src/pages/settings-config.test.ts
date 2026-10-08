@@ -120,6 +120,29 @@ describe('microphone device migration', () => {
 })
 
 describe('settings persisted secret state', () => {
+  it('masks an Anthropic key after saving without mutating the pending config', () => {
+    const current = createConfig('')
+    current.llmRefine = normalizeLLMRefineConfig({
+      ...current.llmRefine,
+      provider: 'anthropic',
+      anthropic: { apiKey: 'anthropic-key', model: 'claude-haiku-5-5' },
+    })
+    const persisted = {
+      ...current,
+      llmRefine: normalizeLLMRefineConfig({
+        ...current.llmRefine,
+        anthropic: { ...current.llmRefine.anthropic, apiKey: STORED_SECRET_PLACEHOLDER },
+      }),
+    }
+
+    const result = applyPersistedSecretState(current, { llmRefine: current.llmRefine }, persisted)
+
+    expect(result.llmRefine.provider).toBe('anthropic')
+    expect(result.llmRefine.apiKey).toBe(STORED_SECRET_PLACEHOLDER)
+    expect(result.llmRefine.anthropic.apiKey).toBe(STORED_SECRET_PLACEHOLDER)
+    expect(current.llmRefine.anthropic.apiKey).toBe('anthropic-key')
+  })
+
   it('replaces a successfully saved plaintext LLM key with the renderer placeholder', () => {
     const current = createConfig('new-llm-key')
     const persisted = createConfig(STORED_SECRET_PLACEHOLDER)

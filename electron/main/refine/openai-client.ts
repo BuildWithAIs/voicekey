@@ -1,4 +1,19 @@
 import axios from 'axios'
+import { buildDisabledReasoningPayloadFields } from '../../shared/llm-config'
+import type { LLMProvider } from '../../shared/types'
+
+export interface ChatCompletionPayload {
+  model: string
+  messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>
+  [key: string]: unknown
+}
+
+type AnthropicResponse = {
+  content?: Array<{ type: string; text?: string }>
+  stop_reason?: string
+}
+
+const ANTHROPIC_MAX_OUTPUT_TOKENS = 16384
 
 export type OpenAIMessageContent =
   | string
@@ -28,13 +43,57 @@ function stripLeadingThinkBlock(content: string): string {
   return content.replace(/^\s*<think>[\s\S]*?<\/think>\s*/i, '').trim()
 }
 
+/** Anthropic Messages responses are normalized to the shared Chat Completions text format. */
 export async function requestChatCompletion(
   endpoint: string,
   apiKey: string,
-  payload: Record<string, unknown>,
+  payload: ChatCompletionPayload,
   timeoutMs: number,
   extraHeaders?: Record<string, string>,
+  provider?: LLMProvider,
 ): Promise<OpenAIResponse> {
+  if (provider === 'anthropic') {
+    const response = await axios.post<AnthropicResponse>(
+      endpoint,
+      {
+        model: payload.model,
+        system: payload.messages
+          .filter((message) => message.role === 'system')
+          .map((message) => message.content)
+          .join('\n\n'),
+        messages: payload.messages.filter((message) => message.role !== 'system'),
+        max_tokens: ANTHROPIC_MAX_OUTPUT_TOKENS,
+        ...buildDisabledReasoningPayloadFields({
+          provider,
+          endpoint,
+          apiKey,
+          model: payload.model,
+        }),
+      },
+      {
+        headers: {
+          ...extraHeaders,
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'Content-Type': 'application/json',
+        },
+        timeout: timeoutMs,
+        responseType: 'json',
+        responseEncoding: 'utf8',
+      },
+    )
+
+    if (response.data.stop_reason === 'max_tokens') {
+      throw new Error('Anthropic returned incomplete text: output token limit reached')
+    }
+
+    return {
+      choices: [
+        { message: { content: response.data.content?.filter((part) => part.type === 'text') } },
+      ],
+    }
+  }
+
   const response = await axios.post<OpenAIResponse>(endpoint, payload, {
     headers: {
       Authorization: `Bearer ${apiKey}`,

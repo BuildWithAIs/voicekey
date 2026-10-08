@@ -50,9 +50,17 @@ export interface HostCapabilities {
   meetsStreamingAsrRecommendation: boolean
 }
 
-export type LLMProvider = 'openai' | 'deepseek' | 'openrouter' | 'tokendance' | 'custom-compatible'
+export type LLMProvider =
+  | 'openai'
+  | 'anthropic'
+  | 'deepseek'
+  | 'openrouter'
+  | 'tokendance'
+  | 'custom-compatible'
 
 export type OpenAIModel = typeof import('./constants').LLM_PROVIDERS.DEFAULT_OPENAI_MODEL
+
+export type AnthropicModel = typeof import('./constants').LLM_PROVIDERS.DEFAULT_ANTHROPIC_MODEL
 
 export type DeepSeekModel = (typeof import('./constants').LLM_PROVIDERS.DEEPSEEK_MODELS)[number]
 
@@ -65,6 +73,11 @@ export type TokenDanceModel =
 export interface OpenAIConfig {
   apiKey: string
   model: OpenAIModel
+}
+
+export interface AnthropicConfig {
+  apiKey: string
+  model: AnthropicModel
 }
 
 export interface DeepSeekConfig {
@@ -97,6 +110,7 @@ export interface LLMRefineConfig {
   /** Independently enables cleanup and translation of dictation into TranslationConfig.targetLanguage. */
   translateOutput: boolean
   openai: OpenAIConfig
+  anthropic: AnthropicConfig
   deepseek: DeepSeekConfig
   openrouter: OpenRouterConfig
   tokendance: TokenDanceConfig

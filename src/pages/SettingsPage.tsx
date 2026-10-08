@@ -1443,6 +1443,23 @@ export default function SettingsPage() {
     }))
   }
 
+  const handleAnthropicApiKeyChange = (value: string) => {
+    disableRefineDependentFeatures()
+    setVisibleSecret((current) =>
+      current?.id === 'llm-refine:anthropic' ? { id: current.id } : current,
+    )
+    setConfig((prev) => ({
+      ...prev,
+      llmRefine: normalizeLLMRefineConfig({
+        ...prev.llmRefine,
+        anthropic: {
+          ...prev.llmRefine.anthropic,
+          apiKey: value,
+        },
+      }),
+    }))
+  }
+
   const handleDeepSeekModelChange = (value: string) => {
     const model = LLM_PROVIDERS.DEEPSEEK_MODELS.find((option) => option === value)
     if (!model) return
@@ -1728,6 +1745,7 @@ export default function SettingsPage() {
     { value: 'deepseek', label: 'DeepSeek' },
     { value: 'tokendance', label: 'TokenDance' },
     { value: 'openai', label: 'OpenAI' },
+    { value: 'anthropic', label: 'Anthropic' },
     { value: 'openrouter', label: 'OpenRouter' },
     ...(isCustomLLMProvider
       ? [{ value: 'custom-compatible', label: t('settings.llmProviderCustom') }]
@@ -2125,6 +2143,26 @@ export default function SettingsPage() {
               </div>
             )}
 
+            {currentLLMProvider === 'anthropic' && (
+              <div className="mt-4 space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="anthropicModel">
+                    {t('settings.refineModel')} <span className="text-primary">*</span>
+                  </Label>
+                  <Select value={normalizedLLMRefineConfig.anthropic.model}>
+                    <SelectTrigger id="anthropicModel" className="no-drag w-full cursor-pointer">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={LLM_PROVIDERS.DEFAULT_ANTHROPIC_MODEL}>
+                        Claude Haiku 5.5
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
+
             {currentLLMProvider === 'deepseek' && (
               <div className="mt-4 space-y-4">
                 <div className="space-y-2">
@@ -2263,6 +2301,8 @@ export default function SettingsPage() {
                   onChange={(e) => {
                     if (currentLLMProvider === 'openai') {
                       handleOpenAIApiKeyChange(e.target.value)
+                    } else if (currentLLMProvider === 'anthropic') {
+                      handleAnthropicApiKeyChange(e.target.value)
                     } else if (currentLLMProvider === 'deepseek') {
                       handleDeepSeekApiKeyChange(e.target.value)
                     } else if (currentLLMProvider === 'openrouter') {
@@ -2281,13 +2321,15 @@ export default function SettingsPage() {
                   placeholder={t(
                     currentLLMProvider === 'openai'
                       ? 'settings.openAIApiKeyPlaceholder'
-                      : currentLLMProvider === 'openrouter'
-                        ? 'settings.openRouterApiKeyPlaceholder'
-                        : currentLLMProvider === 'tokendance'
-                          ? 'settings.tokenDanceApiKeyPlaceholder'
-                          : currentLLMProvider === 'deepseek'
-                            ? 'settings.deepSeekApiKeyPlaceholder'
-                            : 'settings.refineApiKeyPlaceholder',
+                      : currentLLMProvider === 'anthropic'
+                        ? 'settings.anthropicApiKeyPlaceholder'
+                        : currentLLMProvider === 'openrouter'
+                          ? 'settings.openRouterApiKeyPlaceholder'
+                          : currentLLMProvider === 'tokendance'
+                            ? 'settings.tokenDanceApiKeyPlaceholder'
+                            : currentLLMProvider === 'deepseek'
+                              ? 'settings.deepSeekApiKeyPlaceholder'
+                              : 'settings.refineApiKeyPlaceholder',
                   )}
                   className="no-drag pr-10 font-mono"
                 />

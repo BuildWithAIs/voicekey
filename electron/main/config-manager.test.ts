@@ -185,6 +185,7 @@ describe('ConfigManager LLM API key storage without system Keychain', () => {
         enabled: true,
         provider: 'deepseek',
         openai: { apiKey: 'openai-key', model: LLM_PROVIDERS.DEFAULT_OPENAI_MODEL },
+        anthropic: { apiKey: 'anthropic-key', model: LLM_PROVIDERS.DEFAULT_ANTHROPIC_MODEL },
         deepseek: { apiKey: 'llm-key', model: 'deepseek-flash' },
         openrouter: { apiKey: 'openrouter-key', model: LLM_PROVIDERS.DEFAULT_OPENROUTER_MODEL },
         custom: {
@@ -198,9 +199,13 @@ describe('ConfigManager LLM API key storage without system Keychain', () => {
     const rendererConfig = manager.getConfig()
 
     expect(rendererConfig.llmRefine.openai.apiKey).toBe(STORED_SECRET_PLACEHOLDER)
+    expect(rendererConfig.llmRefine.anthropic.apiKey).toBe(STORED_SECRET_PLACEHOLDER)
     expect(rendererConfig.llmRefine.deepseek.apiKey).toBe(STORED_SECRET_PLACEHOLDER)
     expect(manager.getLLMRefineConfig().deepseek.apiKey).toBe('llm-key')
     expect(manager.getConfigSecret({ scope: 'llm-refine', provider: 'openai' })).toBe('openai-key')
+    expect(manager.getConfigSecret({ scope: 'llm-refine', provider: 'anthropic' })).toBe(
+      'anthropic-key',
+    )
     expect(manager.getConfigSecret({ scope: 'llm-refine', provider: 'deepseek' })).toBe('llm-key')
     expect(manager.getConfigSecret({ scope: 'llm-refine', provider: 'openrouter' })).toBe(
       'openrouter-key',
@@ -208,6 +213,25 @@ describe('ConfigManager LLM API key storage without system Keychain', () => {
     expect(manager.getConfigSecret({ scope: 'llm-refine', provider: 'custom-compatible' })).toBe(
       'custom-key',
     )
+  })
+
+  it('preserves the Anthropic key across autosaves, connection tests and provider changes', () => {
+    const manager = createManager({})
+    manager.setLLMRefineConfig({
+      provider: 'anthropic',
+      anthropic: { apiKey: 'anthropic-key', model: 'claude-haiku-5-5' },
+    })
+    const masked = manager.getConfig().llmRefine
+    expect(masked.apiKey).toBe(STORED_SECRET_PLACEHOLDER)
+    expect(masked.anthropic.apiKey).toBe(STORED_SECRET_PLACEHOLDER)
+    expect(manager.resolveLLMRefineConfig(masked).apiKey).toBe('anthropic-key')
+
+    manager.setLLMRefineConfig(masked)
+    manager.setLLMRefineConfig({ provider: 'deepseek' })
+    manager.setLLMRefineConfig({ provider: 'anthropic' })
+    expect(manager.getLLMRefineConfig().apiKey).toBe('anthropic-key')
+    expect(manager.getConfig().llmRefine.apiKey).toBe(STORED_SECRET_PLACEHOLDER)
+    expect(manager.getConfig().llmRefine.deepseek.apiKey).toBe('')
   })
 
   it('never treats legacy safeStorage ciphertext as an API key', () => {

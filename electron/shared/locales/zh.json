@@ -169,6 +169,7 @@
     "refineApiKeyPlaceholder": "输入你的 API Key",
     "deepSeekApiKeyPlaceholder": "输入你的 DeepSeek API Key",
     "openAIApiKeyPlaceholder": "输入你的 OpenAI API Key",
+    "anthropicApiKeyPlaceholder": "输入你的 Anthropic API Key",
     "openRouterApiKeyPlaceholder": "输入你的 OpenRouter API Key",
     "tokenDanceApiKeyPlaceholder": "输入你的 TokenDance API Key",
     "tokenDanceConnect": "连接 TokenDance",

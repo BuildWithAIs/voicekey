@@ -103,6 +103,7 @@ function migrateLLMRefineConfig(config: unknown): LLMRefineConfig | null {
     'provider' in rawConfig ||
     'reasoning' in rawConfig ||
     'openai' in rawConfig ||
+    'anthropic' in rawConfig ||
     'deepseek' in rawConfig ||
     'openrouter' in rawConfig ||
     'tokendance' in rawConfig ||
@@ -176,6 +177,10 @@ export class ConfigManager {
         ...normalized.openai,
         apiKey: this.resolveStoredKey(normalized.openai.apiKey),
       },
+      anthropic: {
+        ...normalized.anthropic,
+        apiKey: this.resolveStoredKey(normalized.anthropic.apiKey),
+      },
       deepseek: {
         ...normalized.deepseek,
         apiKey: this.resolveStoredKey(normalized.deepseek.apiKey),
@@ -208,6 +213,13 @@ export class ConfigManager {
       openai: {
         ...normalized.openai,
         apiKey: this.prepareKeyForStorage(normalized.openai.apiKey, normalizedStored.openai.apiKey),
+      },
+      anthropic: {
+        ...normalized.anthropic,
+        apiKey: this.prepareKeyForStorage(
+          normalized.anthropic.apiKey,
+          normalizedStored.anthropic.apiKey,
+        ),
       },
       deepseek: {
         ...normalized.deepseek,
@@ -299,6 +311,12 @@ export class ConfigManager {
         ...storedLLMRefine.openai,
         apiKey: isUsableStoredKey(storedLLMRefine.openai.apiKey) ? STORED_SECRET_PLACEHOLDER : '',
       },
+      anthropic: {
+        ...storedLLMRefine.anthropic,
+        apiKey: isUsableStoredKey(storedLLMRefine.anthropic.apiKey)
+          ? STORED_SECRET_PLACEHOLDER
+          : '',
+      },
       deepseek: {
         ...storedLLMRefine.deepseek,
         apiKey: isUsableStoredKey(storedLLMRefine.deepseek.apiKey) ? STORED_SECRET_PLACEHOLDER : '',
@@ -384,13 +402,21 @@ export class ConfigManager {
       ...stored,
       ...config,
       openai: { ...stored.openai, ...(config.openai ?? {}) },
+      anthropic: { ...stored.anthropic, ...(config.anthropic ?? {}) },
       deepseek: { ...stored.deepseek, ...(config.deepseek ?? {}) },
       openrouter: { ...stored.openrouter, ...(config.openrouter ?? {}) },
       tokendance: { ...stored.tokendance, ...(config.tokendance ?? {}) },
       custom: { ...stored.custom, ...(config.custom ?? {}) },
     })
 
-    for (const provider of ['openai', 'deepseek', 'openrouter', 'tokendance', 'custom'] as const) {
+    for (const provider of [
+      'openai',
+      'anthropic',
+      'deepseek',
+      'openrouter',
+      'tokendance',
+      'custom',
+    ] as const) {
       if (merged[provider].apiKey === STORED_SECRET_PLACEHOLDER) {
         merged[provider].apiKey = stored[provider].apiKey
       }
@@ -408,6 +434,10 @@ export class ConfigManager {
       openai: {
         ...current.openai,
         ...(config.openai ?? {}),
+      },
+      anthropic: {
+        ...current.anthropic,
+        ...(config.anthropic ?? {}),
       },
       deepseek: {
         ...current.deepseek,

@@ -1,6 +1,7 @@
 # Translation Module
 
 - `translator.ts` — Core translation/polishing service: captures selected text via the platform clipboard shortcut, calls the configured LLM API with the built-in native-quality translation prompt and the shared target language, explicitly disables reasoning where the selected model supports it, and replaces the selection via a plain-text paste (clipboard save/restore). Omarchy/Hyprland follows its universal clipboard convention (`Ctrl+C/V` for GUI apps, `Ctrl/Shift+Insert` for terminals); other platforms keep the native keyboard backend.
+- `translator.test.ts` — Covers Anthropic and OpenRouter Haiku 5.5 translation through the shared HTTP client, reasoning disabled, plain-text replacement, and clipboard restoration.
 
 ## Architecture
 
@@ -34,7 +35,7 @@ Before both copy and paste, the module uses a temporary clipboard sentinel to de
 ## Dependencies
 
 - `refine/openai-client.ts` — `requestChatCompletion`, `extractMessageContent`
-- `shared/refine-url.ts` — `normalizeRefineBaseUrl`, `buildRefineChatEndpoint`
+- `shared/llm-config.ts` — provider-specific endpoint selection and reasoning-disable parameters, including Anthropic Messages and OpenRouter Haiku 5.5
 - `shared/constants.ts` — `buildTranslationSystemPrompt`, native-quality translation guidance, `OPENAI_CHAT`
 - `window/overlay.ts` — `showOverlay`, `updateOverlay`, `hideOverlay`
 - `config-manager.ts` — `getLLMRefineConfig`, `getTranslationConfig`

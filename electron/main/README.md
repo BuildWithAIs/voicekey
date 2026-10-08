@@ -14,7 +14,7 @@ Electron 主进程目录，负责窗口管理、IPC、录音编排、ASR/润色�
 - `main.ts` - 应用入口，初始化历史存储、窗口、托盘、IPC、服务与录音流程；经典本地 ASR Provider 首次使用时再初始化；仅打包后的应用注册系统开机自启，Windows/macOS 使用 Electron 登录项，Linux 使用用户级 XDG autostart，开发环境不会写入裸 Electron 启动项。
 - `i18n.ts` - 主进程 `i18next` 初始化与语言广播。
 - `env.ts` - 开发/生产环境资源路径解析。
-- `config-manager.ts` - 基于 `electron-store` 的配置持久化，含旧版润色 Base URL 配置到 OpenAI/DeepSeek/OpenRouter/custom-compatible 的迁移与润色输出英文开关迁移；独立保存润色和语音输入翻译开关，并判断是否需要语音后处理。各 Provider 独立保存 API Key，普通配置读取只返回占位符，设置窗口可通过受限 IPC 按需读取原文；无法读取的旧版 `enc:` 密文不会作为有效 Key 使用。
+- `config-manager.ts` - 基于 `electron-store` 的配置持久化，含旧版润色 Base URL 配置到 OpenAI/Anthropic/DeepSeek/OpenRouter/custom-compatible 的迁移与润色输出英文开关迁移；独立保存润色和语音输入翻译开关，并判断是否需要语音后处理。各 Provider（含 Anthropic）独立保存 API Key，普通配置读取只返回占位符，设置窗口可通过受限 IPC 按需读取原文；无法读取的旧版 `enc:` 密文不会作为有效 Key 使用。
 - `logger.ts` - `electron-log` 初始化与日志保留策略。
 - `history-manager.ts` - 使用 `node:sqlite` 保存听写历史，首次启动事务迁移旧 JSON，后续启动补导入旧版本新增记录；提供游标分页、搜索和首页汇总，迁移失败时暂用可读的旧 JSON。
 - `history-manager.test.ts` - 覆盖旧数据迁移、重复启动、分页顺序、搜索、统计、删除与损坏数据。
@@ -33,7 +33,7 @@ Electron 主进程目录，负责窗口管理、IPC、录音编排、ASR/润色�
 - `streaming-asr-audio.test.ts` - 覆盖 48 kHz 输入采样率保持、异常采样率切换拒绝，以及 500 ms 收尾静音样本数。
 - `streaming-asr-worker.ts` - Worker 线程内缓存在线 Zipformer2 Transducer recognizer，顺序接收 PCM、处理端点、合并分段；结束时沿用该会话真实输入采样率补 500 ms 静音刷新末词，并输出带模型原生标点与英文大小写的 partial/final text。
 - `streaming-asr-text.ts` - 对齐 X-ASR 官方部署层的文本规范化：只清理中文字符/标点和 ASCII 标点前的模型 token 空格，不改写词语或中英边界。
-- `refine/` - 文本润色模块，使用 OpenAI-compatible Chat Completions 做后处理、动态 prompt 组装、远程术语表缓存刷新与连接校验。
+- `refine/` - 文本润色模块，使用 OpenAI-compatible Chat Completions 或 Anthropic Messages 做后处理、动态 prompt 组装、远程术语表缓存刷新与连接校验。
 - `translation/` - 文本翻译模块，通过快捷键复制选中文本 → LLM API 翻译 → 粘贴替换，复用润色 API 配置。
 - `text-injector.ts` - 跨平台文本注入入口；Windows/macOS/Linux X11 按需加载 `@nut-tree-fork/nut-js`，Omarchy/Hyprland 使用短暂存活的 `wl-copy --sensitive` 剪贴板与 `wtype` Wayland 虚拟键盘以保证多语言和多行文本保真，并避开 Electron Wayland 剪贴板所有权及输入法虚拟键盘导致的 Hyprland 按键名解析失败。
 - `updater-manager.ts` - GitHub Releases 更新检查。

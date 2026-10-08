@@ -38,7 +38,7 @@ Voice Key 让语音输入融入现有桌面工作流。它在后台运行，仅�
 
 - **本地优先识别** — 使用按需下载的 ONNX 模型在本机处理音频，无需 ASR API Key。
 - **两种识别模式** — 可选择紧凑的经典模式，或带实时文字预览与本地标点的流式模式。
-- **可选文本润色** — 使用自己的 API Key 连接 OpenAI、DeepSeek、OpenRouter 或自定义
+- **可选文本润色** — 使用自己的 API Key 连接 OpenAI、Anthropic、DeepSeek、OpenRouter 或自定义
   OpenAI-compatible 服务。
 - **原位翻译** — 通过独立快捷键翻译当前选中文本，并在原应用中直接替换。
 - **桌面原生工作流** — 支持全局快捷键、麦克风选择、状态 HUD、开机自启、更新检查和焦点

@@ -3,12 +3,17 @@ import { randomUUID } from 'node:crypto'
 import type { LLMRefineConfig, TranslationConfig } from '../../shared/types'
 import { configManager } from '../config-manager'
 import { showOverlay, updateOverlay, hideOverlay } from '../window/overlay'
-import { requestChatCompletion, extractMessageContent } from '../refine/openai-client'
-import { buildRefineChatEndpoint, normalizeRefineBaseUrl } from '../../shared/refine-url'
+import {
+  requestChatCompletion,
+  extractMessageContent,
+  type ChatCompletionPayload,
+} from '../refine/openai-client'
+import { normalizeRefineBaseUrl } from '../../shared/refine-url'
 import { buildTranslationSystemPrompt, OPENAI_CHAT } from '../../shared/constants'
 import {
   buildLLMAttributionHeaders,
   buildDisabledReasoningPayloadFields,
+  buildLLMRequestEndpoint,
   resolveLLMConnection,
   type ResolvedLLMConnection,
 } from '../../shared/llm-config'
@@ -157,7 +162,7 @@ export class Translator {
   private resolveConfig(refineConfig: LLMRefineConfig): ResolvedTranslationConfig | null {
     const connection = resolveLLMConnection(refineConfig)
     const baseUrl = normalizeRefineBaseUrl(connection.endpoint)
-    const endpoint = buildRefineChatEndpoint(baseUrl)
+    const endpoint = buildLLMRequestEndpoint(connection)
     const model = connection.model.trim()
     const apiKey = connection.apiKey.trim()
 
@@ -229,7 +234,7 @@ export class Translator {
   ): Promise<string> {
     const systemPrompt = buildTranslationSystemPrompt(targetLanguage)
 
-    const payload = {
+    const payload: ChatCompletionPayload = {
       model: resolved.model,
       messages: [
         { role: 'system', content: systemPrompt },
@@ -248,6 +253,7 @@ export class Translator {
       payload,
       timeoutMs,
       buildLLMAttributionHeaders(resolved.connection),
+      resolved.connection.provider,
     )
 
     return extractMessageContent(response)

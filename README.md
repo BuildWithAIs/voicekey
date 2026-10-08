@@ -41,7 +41,7 @@ cursor is active.
   models; no ASR API key is required.
 - **Two recognition modes** — choose compact SenseVoice final transcription or bilingual X-ASR
   partial transcription with punctuation and English casing.
-- **Optional text cleanup** — connect OpenAI, DeepSeek, OpenRouter, or a custom OpenAI-compatible
+- **Optional text cleanup** — connect OpenAI, Anthropic, DeepSeek, OpenRouter, or a custom OpenAI-compatible
   endpoint using your own API key.
 - **Translation in place** — translate selected text and replace it in the current application with
   a dedicated shortcut.
