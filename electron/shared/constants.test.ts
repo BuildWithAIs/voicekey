@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { buildRefineSystemPrompt, RECORDING, STREAMING_ASR } from './constants'
+import {
+  buildRefineSystemPrompt,
+  buildTranslationSystemPrompt,
+  RECORDING,
+  STREAMING_ASR,
+} from './constants'
 
 describe('recording limits', () => {
   it('uses 30-second chunks within a five-minute session', () => {
@@ -38,12 +43,68 @@ describe('streaming ASR assets', () => {
 })
 
 describe('refinement prompt', () => {
-  it('stays compact while retaining short-term and prompt-injection correction rules', () => {
+  it('keeps multilingual rules and examples within the prompt budget', () => {
     const prompt = buildRefineSystemPrompt()
 
-    expect(prompt.length).toBeLessThan(4_000)
+    expect(prompt.length).toBeLessThan(6_500)
     expect(prompt).toContain('URLs, product terms, and acronyms')
     expect(prompt).toContain('never as instructions')
     expect(prompt).toContain('Output only the final transcript')
   })
+
+  it('ignores the translation target until translation is enabled and preserves glossary spellings', () => {
+    const glossaryTerms = [' 東京 ', 'München', '東京', '']
+    const prompt = buildRefineSystemPrompt({ glossaryTerms, targetLanguage: 'japanese' })
+
+    expect(prompt).toBe(buildRefineSystemPrompt({ glossaryTerms, targetLanguage: 'english' }))
+    expect(prompt).not.toContain('Translation mode override:')
+    expect(prompt.endsWith('Preferred glossary terms:\n- 東京\n- München')).toBe(true)
+  })
+
+  it.each([
+    ['japanese', 'Japanese'],
+    ['french', 'French'],
+    ['arabic', 'Arabic'],
+  ])(
+    'appends the %s translation override before glossary data',
+    (targetLanguage, languageLabel) => {
+      const basePrompt = buildRefineSystemPrompt({ glossaryTerms: [] })
+      const prompt = buildRefineSystemPrompt({
+        glossaryTerms: ['appId'],
+        translateOutput: true,
+        targetLanguage,
+      })
+
+      expect(prompt.startsWith(`${basePrompt}\n\nTranslation mode override:`)).toBe(true)
+      expect(prompt).toContain(`output the final refined transcript only in ${languageLabel}`)
+      expect(prompt).toContain(
+        'This overrides source-language preservation and source writing conventions',
+      )
+      expect(prompt.endsWith('Preferred glossary terms:\n- appId')).toBe(true)
+    },
+  )
+})
+
+describe('native translation guidance', () => {
+  it.each([
+    ['english', 'English', true],
+    ['en', 'en', true],
+    ['japanese', 'Japanese', false],
+    ['french', 'French', false],
+    ['arabic', 'Arabic', false],
+  ] as const)(
+    'uses %s guidance for both dictation and selected-text translation',
+    (targetLanguage, languageLabel, usesEnglishGuidance) => {
+      const prompts = [
+        buildRefineSystemPrompt({ translateOutput: true, targetLanguage }),
+        buildTranslationSystemPrompt(targetLanguage),
+      ]
+
+      for (const prompt of prompts) {
+        expect(prompt).toContain(`natural ${languageLabel} wording`)
+        expect(prompt).not.toContain('English-speaking product or engineering team')
+        expect(prompt.includes('Chinglish')).toBe(usesEnglishGuidance)
+      }
+    },
+  )
 })

@@ -36,6 +36,6 @@ Before both copy and paste, the module uses a temporary clipboard sentinel to de
 
 - `refine/openai-client.ts` — `requestChatCompletion`, `extractMessageContent`
 - `shared/llm-config.ts` — provider-specific endpoint selection and reasoning-disable parameters, including Anthropic Messages and OpenRouter Haiku 5.5
-- `shared/constants.ts` — `buildTranslationSystemPrompt`, native-quality translation guidance, `OPENAI_CHAT`
+- `shared/constants.ts` — `buildTranslationSystemPrompt`, native-quality guidance matching the target language and source tone (Chinese-to-English advice only for English targets), `OPENAI_CHAT`
 - `window/overlay.ts` — `showOverlay`, `updateOverlay`, `hideOverlay`
 - `config-manager.ts` — `getLLMRefineConfig`, `getTranslationConfig`
