@@ -321,8 +321,7 @@ async function finalizeTranscription(sessionId: string, rawText: string): Promis
   hideOverlay()
   await textInjector.injectText(finalText)
 
-  showOverlay({ status: 'success' })
-  setTimeout(() => hideOverlay(), 800)
+  showOverlay({ status: 'success', transcript: finalText }, 1800)
   clearSession()
 }
 

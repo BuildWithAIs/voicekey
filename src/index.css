@@ -343,62 +343,162 @@ html.vk-theme-changing *::after {
   contain-intrinsic-size: 96px;
 }
 
-/* ============================================================
-   HUD 浮窗动效（流光光标 / 胶囊扫光 / 弹性出现）
-   ============================================================ */
+/* Warm paper HUD. Keep its chosen light palette independent of the settings theme. */
+.hud-card {
+  --hud-paper: oklch(0.994 0.003 83);
+  --hud-ink: oklch(0.26 0.014 60);
+  --hud-muted: oklch(0.45 0.02 62);
+  --hud-border: oklch(0.915 0.006 80);
+  --hud-amber: oklch(0.59 0.12 70);
+  color-scheme: light;
+  width: 400px;
+  max-width: calc(100% - 48px);
+  padding: 12px 16px;
+  border: 1px solid var(--hud-border);
+  border-radius: 14px;
+  background: var(--hud-paper);
+  color: var(--hud-ink);
+  box-shadow:
+    0 8px 20px -8px rgb(53 43 28 / 18%),
+    0 2px 5px rgb(53 43 28 / 4%);
+}
 
-/* 流式文本末尾的呼吸光标 */
+.hud-status-icon {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  color: var(--hud-amber);
+}
+
+.hud-label {
+  color: var(--hud-muted);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 20px;
+}
+
+.hud-success-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--hud-amber);
+  color: white;
+}
+
+.hud-wave-bar {
+  background: var(--hud-muted);
+}
+
+.hud-wave-bar:nth-child(-n + 4) {
+  background: var(--hud-amber);
+}
+
+.hud-cancel {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  color: var(--hud-muted);
+  cursor: pointer;
+  transition: background-color 120ms;
+}
+
+.hud-cancel:hover,
+.hud-cancel:focus-visible {
+  background: oklch(0.95 0.012 80);
+  color: var(--hud-ink);
+}
+
+.hud-cancel:focus-visible {
+  outline: 2px solid var(--hud-amber);
+  outline-offset: 2px;
+}
+
+.hud-transcript-wrap {
+  margin-top: 10px;
+  padding-left: 12px;
+  border-left: 2px solid var(--hud-border);
+}
+
+.hud-transcript-live {
+  border-left-color: var(--hud-amber);
+}
+
+.hud-transcript,
+.hud-error-message {
+  max-height: 44px;
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  scrollbar-width: thin;
+  scrollbar-color: var(--hud-border) transparent;
+  font-size: 14px;
+  line-height: 22px;
+}
+
+.hud-transcript-tail {
+  color: var(--hud-muted);
+}
+
 .hud-caret {
+  display: inline-block;
+  width: 1.5px;
+  height: 14px;
+  margin-left: 3px;
+  vertical-align: -2px;
+  border-radius: 1px;
+  background: var(--hud-amber);
   animation: hud-caret 1s ease-in-out infinite;
 }
+
+.hud-card-error .hud-status-icon,
+.hud-card-error .hud-label {
+  color: oklch(0.5 0.16 30);
+}
+
+.hud-error-message {
+  margin-top: 8px;
+  color: var(--hud-muted);
+  font-size: 12px;
+}
+
+.hud-card[data-status='success'] {
+  animation: hud-dismiss 180ms ease-in 1600ms forwards;
+}
+
+@keyframes hud-dismiss {
+  to {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+}
+
 @keyframes hud-caret {
   0%,
   100% {
     opacity: 1;
   }
   50% {
-    opacity: 0.15;
-  }
-}
-
-/* 处理阶段激活胶囊上的流光扫过 */
-.hud-shimmer {
-  background: linear-gradient(
-    100deg,
-    transparent 20%,
-    rgba(255, 255, 255, 0.16) 50%,
-    transparent 80%
-  );
-  animation: hud-shimmer 1.6s ease-in-out infinite;
-}
-@keyframes hud-shimmer {
-  0% {
-    transform: translateX(-100%);
-  }
-  100% {
-    transform: translateX(100%);
-  }
-}
-
-/* 状态图标的弹性出现 */
-.hud-pop {
-  animation: hud-pop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both;
-}
-@keyframes hud-pop {
-  0% {
-    transform: scale(0.4);
-    opacity: 0;
-  }
-  100% {
-    transform: scale(1);
-    opacity: 1;
+    opacity: 0.25;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .hud-caret,
-  .hud-shimmer,
-  .hud-pop {
+  .hud-caret {
     animation: none;
+  }
+  .hud-card[data-status='success'] {
+    animation: none;
+  }
+  .hud-cancel {
+    transition: none;
   }
 }

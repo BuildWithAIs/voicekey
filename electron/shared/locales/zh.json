@@ -386,10 +386,10 @@
   "hud": {
     "finish": "完成",
     "cancel": "取消",
-    "listening": "正在听",
+    "listening": "正在聆听",
     "thinking": "处理中...",
-    "transcribing": "识别中",
-    "refining": "润色中",
+    "transcribing": "正在识别",
+    "refining": "正在润色",
     "stepTranscribing": "识别",
     "stepRefining": "润色",
     "translating": "翻译中...",
@@ -400,7 +400,7 @@
     "translationEmpty": "翻译返回空文本",
     "refineConfigIncomplete": "文本润色配置不完整",
     "done": "完成",
-    "injected": "已注入",
+    "injected": "已输入",
     "error": "错误",
     "errorFallback": "发生错误"
   },

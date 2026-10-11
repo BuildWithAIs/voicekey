@@ -10,10 +10,16 @@ import { VITE_DEV_SERVER_URL, getMainDist, getRendererDist } from '../env'
 import { IPC_CHANNELS, type OverlayState } from '../../shared/types'
 
 let overlayWindow: BrowserWindow | null = null
+let hideTimer: ReturnType<typeof setTimeout> | null = null
+
+function clearHideTimer(): void {
+  if (hideTimer) clearTimeout(hideTimer)
+  hideTimer = null
+}
 
 // 浮窗尺寸常量
-const OVERLAY_WIDTH = 420
-const OVERLAY_HEIGHT = 132
+const OVERLAY_WIDTH = 448
+const OVERLAY_HEIGHT = 168
 const BOTTOM_MARGIN = 60
 
 /**
@@ -90,18 +96,23 @@ export function createOverlayWindow(): BrowserWindow {
  * 显示浮窗并更新状态
  * @param state 浮窗状态
  */
-export function showOverlay(state: OverlayState): void {
+export function showOverlay(state: OverlayState, hideDelay?: number): void {
+  clearHideTimer()
   console.log('[Overlay] showOverlay:', summarizeOverlayState(state))
   console.log(`[Main] 🔵 showOverlay called from:`, new Error().stack?.split('\n')[2])
   const win = createOverlayWindow()
   win.webContents.send(IPC_CHANNELS.OVERLAY_UPDATE, state)
   win.showInactive()
+  if (hideDelay !== undefined) {
+    hideTimer = setTimeout(hideOverlay, hideDelay)
+  }
 }
 
 /**
  * 隐藏浮窗
  */
 export function hideOverlay(): void {
+  clearHideTimer()
   console.log(`[Overlay] 🔵 hideOverlay`)
   if (overlayWindow && !overlayWindow.isDestroyed()) {
     overlayWindow.hide()
@@ -113,6 +124,7 @@ export function hideOverlay(): void {
  * @param state 浮窗状态
  */
 export function updateOverlay(state: OverlayState): void {
+  clearHideTimer()
   console.log('[Overlay] updateOverlay:', summarizeOverlayState(state))
   if (state.status === 'error') {
     console.log(`[Overlay] 🔴 ERROR state sent!`)
@@ -140,7 +152,7 @@ function summarizeOverlayState(state: OverlayState): Record<string, unknown> {
 export function showErrorAndHide(message: string, hideDelay = 2000): void {
   console.log(`[Overlay] 🔴 showErrorAndHide: ${message}`)
   updateOverlay({ status: 'error', message })
-  setTimeout(() => hideOverlay(), hideDelay)
+  hideTimer = setTimeout(hideOverlay, hideDelay)
 }
 
 /**
@@ -158,6 +170,7 @@ export function getOverlayWindow(): BrowserWindow | null {
  * 销毁浮窗
  */
 export function destroyOverlayWindow(): void {
+  clearHideTimer()
   if (overlayWindow && !overlayWindow.isDestroyed()) {
     overlayWindow.close()
   }

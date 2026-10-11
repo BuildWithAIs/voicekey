@@ -400,7 +400,7 @@
     "translationEmpty": "Translation returned empty text",
     "refineConfigIncomplete": "LLM Refine config is incomplete",
     "done": "Done",
-    "injected": "Injected",
+    "injected": "Inserted",
     "error": "Error",
     "errorFallback": "Something went wrong"
   },
