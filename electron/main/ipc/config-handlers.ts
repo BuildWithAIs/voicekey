@@ -174,6 +174,7 @@ export function registerConfigHandlers(): void {
     async (
       _event,
       config: {
+        userDictionary?: string[]
         app?: Partial<AppPreferences>
         asr?: Partial<ASRConfig>
         llmRefine?: Partial<LLMRefineConfig>
@@ -184,6 +185,11 @@ export function registerConfigHandlers(): void {
       if (!isPlainObject(config)) {
         console.error('[IPC:Config] Ignoring malformed CONFIG_SET payload')
         return
+      }
+
+      // Validate before applying any other section of this config patch.
+      if ('userDictionary' in config) {
+        configManager.setUserDictionary(config.userDictionary)
       }
 
       let shouldReregisterHotkeys = false

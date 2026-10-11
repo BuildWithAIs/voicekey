@@ -1,4 +1,5 @@
 import Store from 'electron-store'
+import { normalizeUserDictionary } from '../shared/user-dictionary'
 import {
   AppConfig,
   AppPreferences,
@@ -19,6 +20,7 @@ import {
 const ENCRYPTED_PREFIX = 'enc:'
 
 interface ConfigSchema {
+  userDictionary: string[]
   app: AppPreferences
   asr: ASRConfig
   llmRefine: LLMRefineConfig
@@ -31,7 +33,8 @@ const defaultTranslationConfig: TranslationConfig = {
   targetLanguage: TRANSLATION.TARGET_LANGUAGE,
 }
 
-const defaultConfig: AppConfig = {
+const defaultConfig: ConfigSchema = {
+  userDictionary: [],
   app: {
     language: 'system',
     autoLaunch: false,
@@ -339,12 +342,25 @@ export class ConfigManager {
       },
     })
     return {
+      userDictionary: this.getUserDictionary(),
       app: this.getAppConfig(),
       asr: this.getASRConfig(),
       llmRefine,
       hotkey: this.getHotkeyConfig(),
       translation: this.getTranslationConfig(),
     }
+  }
+
+  getUserDictionary(): string[] {
+    try {
+      return normalizeUserDictionary(this.store.get('userDictionary', []))
+    } catch {
+      return []
+    }
+  }
+
+  setUserDictionary(value: unknown): void {
+    this.store.set('userDictionary', normalizeUserDictionary(value))
   }
 
   getConfigSecret(request: ConfigSecretRequest): string {

@@ -13,7 +13,9 @@ vi.mock('./openai-client', async (importOriginal) => {
 
 const requestChatCompletionMock = vi.mocked(requestChatCompletion)
 
-function createService(flags: { enabled?: boolean; translateOutput?: boolean } = {}) {
+function createService(
+  flags: { enabled?: boolean; translateOutput?: boolean; terms?: string[] } = {},
+) {
   const config = normalizeLLMRefineConfig({
     ...defaultLLMRefineConfig,
     enabled: flags.enabled ?? true,
@@ -28,6 +30,7 @@ function createService(flags: { enabled?: boolean; translateOutput?: boolean } =
   return new RefineService({
     getRefineConfig: () => config,
     getTargetLanguage: () => 'english',
+    getUserDictionary: () => flags.terms ?? [],
   })
 }
 
@@ -37,6 +40,27 @@ describe('RefineService dictation requests', () => {
     requestChatCompletionMock.mockResolvedValue({
       choices: [{ message: { content: 'https://GitHub.com/OpenAI' } }],
     })
+  })
+
+  it('includes the latest personal spellings in the existing single LLM request', async () => {
+    const terms = ['张小明', 'Voice Key']
+    const service = createService({ terms })
+    await service.refineText('张晓明在用 voice key')
+    const prompt = requestChatCompletionMock.mock.calls[0]?.[2].messages[0].content
+    expect(prompt).toContain('张小明')
+    expect(prompt).toContain('Voice Key')
+    expect(requestChatCompletionMock).toHaveBeenCalledTimes(1)
+    terms.splice(0, terms.length, '新术语')
+    await service.refineText('新术语')
+    const nextPrompt = requestChatCompletionMock.mock.calls[1]?.[2].messages[0].content
+    expect(nextPrompt).toContain('新术语')
+    expect(nextPrompt).not.toContain('张小明')
+  })
+
+  it('does not turn on cloud processing just because the dictionary is populated', async () => {
+    const service = createService({ enabled: false, terms: ['张小明'] })
+    await expect(service.refineText('张晓明')).resolves.toBe('张晓明')
+    expect(requestChatCompletionMock).not.toHaveBeenCalled()
   })
 
   it('does not skip cloud refinement for a short transcript', async () => {

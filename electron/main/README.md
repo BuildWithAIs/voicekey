@@ -26,7 +26,7 @@ Electron 主进程目录，负责窗口管理、IPC、录音编排、ASR/润色�
 - `download-region.ts` - 模型实际下载前通过 Cloudflare trace 静默解析公网出口的两位国家码；不存储、不记录公网 IP，4 秒内检测失败则保持配置顺序。`CN` 优先 ModelScope，其他已知国家优先 Hugging Face。
 - `download-region.test.ts` - 公网国家码解析、检测失败降级，以及中国/美国/其他海外下载源排序的回归测试。
 - `download-sources.ts` - 按地域排序后的顺序尝试模型下载源；首选源失败后自动切换备用源，全部失败才返回错误。
-- `local-asr-manager.ts` - 经典模式的 SenseVoiceSmall int8 ONNX 模型状态检测、原路径按需下载、SHA-256 校验、显式删除与 worker 线程中文识别；连续 20 分钟无任务时释放模型内存，删除前也会先终止 worker。
+- `local-asr-manager.ts` - 经典模式的 SenseVoiceSmall int8 ONNX 模型状态检测、原路径按需下载、SHA-256 校验、显式删除与 worker 线程自动识别普通话、英语、粤语、日语和韩语；连续 20 分钟无任务时释放模型内存，删除前也会先终止 worker。
 - `local-asr-worker.ts` - Worker 线程内创建并缓存 `sherpa-onnx` recognizer，执行模型校验与本地 WAV 转写，避免阻塞主进程。
 - `streaming-asr-manager.ts` - 管理 X-ASR-zh-en 480 ms 模型目录与可恢复下载；公网国家为中国时 ModelScope 优先，美国及其他海外网络时 Hugging Face 优先，两源均会完整回退并校验每个文件；负责流式会话、PCM 队列、显式删除和 worker 的 20 分钟空闲卸载。
 - `streaming-asr-audio.ts` - 维护单次流式会话的真实输入采样率，阻止中途切换，并按该采样率计算收尾静音的样本数。
@@ -44,3 +44,20 @@ Electron 主进程目录，负责窗口管理、IPC、录音编排、ASR/润色�
 - `notification/` - 系统通知封装。
 - `ipc/` - IPC 处理器模块。
 - `platform/` - Linux 会话检测、Hyprland socket2/受管理配置、合成器剪贴板快捷键、XDG 自启动与延迟原生键盘后端。
+
+## User dictionary
+
+`config-manager.ts` persists the shared personal dictionary and validates all entries
+before writes. Old installations start with an empty dictionary. `main.ts` supplies
+the same terms to the existing single LLM refinement/translation request.
+
+`streaming-asr-manager.ts` snapshots the dictionary for each session. The worker
+uses modified beam search when usable terms exist and greedy search otherwise;
+it rebuilds its cached recognizer when the dictionary changes, between sessions.
+`streaming-asr-hotwords.ts` derives a coverage-first, fewest-piece vocabulary from
+X-ASR's pinned `tokens.txt`, since the release does not include training BPE scores.
+It separates Chinese characters into word boundaries, keeps English phrases and
+case variants, and excludes complete phrases that cannot be encoded or contain
+score directives. `hotwords.vocab` contains only model tokens, never user terms.
+This vocabulary is a decoding-bias approximation, not the training tokenizer.
+`streaming-asr-hotwords.test.ts` covers mixed text, punctuation and rejected terms.

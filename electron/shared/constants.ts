@@ -40,7 +40,7 @@ export const LOCAL_ASR = {
   ],
   MODEL_FILE: 'model.int8.onnx',
   TOKENS_FILE: 'tokens.txt',
-  LANGUAGE: 'zh',
+  LANGUAGE: 'auto',
   DOWNLOAD_SIZE_BYTES: 239_549_735,
   WORKER_IDLE_TIMEOUT_MS: 20 * 60 * 1000,
   HEALTH_CHECK_VERSION: 1,

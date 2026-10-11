@@ -11,7 +11,8 @@
   "nav": {
     "home": "Home",
     "settings": "Settings",
-    "history": "History"
+    "history": "History",
+    "dictionary": "User dictionary"
   },
   "common": {
     "loading": "Loading...",
@@ -210,7 +211,7 @@
     },
     "localAsr": {
       "title": "Standard recognition",
-      "help": "Recognizes after recording ends. A little slower, but more accurate.",
+      "help": "Transcribes after recording and automatically detects Mandarin, English, Cantonese, Japanese and Korean.",
       "ready": "Ready",
       "download": "Download model",
       "downloading": "Downloading...",
@@ -435,5 +436,38 @@
   "units": {
     "characters_one": "{{formattedCount}} char",
     "characters_other": "{{formattedCount}} chars"
+  },
+  "dictionary": {
+    "title": "User dictionary",
+    "description": "Manage names, product names, and specialist terms shared by both recognition modes.",
+    "term": "Word or phrase",
+    "placeholder": "For example: Voice Key, Jane Smith, vector database",
+    "add": "Add",
+    "remove": "Remove {{term}}",
+    "count": "{{count}} / {{max}} entries",
+    "invalid": "Use single-line entries: up to 80 characters each, 200 entries and 8000 characters in total.",
+    "streaming": "Uses the dictionary directly during recognition without refinement. Changes apply to the next recording; terms the model vocabulary cannot encode are excluded.",
+    "classic": "Standard recognition corrects terms through enabled refinement or dictation translation. Dictionary terms are sent to your selected LLM service with the request.",
+    "inactive": "Enable text refinement or dictation translation to use the dictionary for corrections. Adding terms does not enable these features automatically.",
+    "search": "Search dictionary",
+    "searchPlaceholder": "Search words or phrases…",
+    "results": "{{count}} matching entries",
+    "empty": "No entries yet",
+    "emptyHint": "Add names or terms that are often misrecognized to personalize recognition.",
+    "noResults": "No matching entries",
+    "clearSearch": "Clear search",
+    "duplicate": "This entry is already in your dictionary.",
+    "autoSave": "Changes saved automatically",
+    "saving": "Saving…",
+    "notSaved": "Not saved",
+    "saveFailed": "Could not save. Your changes have not taken effect. Try adding or removing the entry again.",
+    "loadFailed": "Could not load your dictionary",
+    "retry": "Retry",
+    "openSettings": "Enable in Settings",
+    "streamingMode": "Current mode: Realtime · Local hotwords",
+    "classicMode": "Current mode: Standard · LLM corrections",
+    "addHeading": "Add an entry",
+    "listHeading": "My entries",
+    "entryHint": "Press Enter to add a term using your preferred spelling."
   }
 }

@@ -365,3 +365,25 @@ describe('ConfigManager LLM API key storage without system Keychain', () => {
     expect(getPath(mocks.lastStoreData, 'llmRefine.deepseek.apiKey')).toBe('')
   })
 })
+
+describe('ConfigManager user dictionary', () => {
+  it('defaults old installations to an empty dictionary and persists normalized entries', () => {
+    const manager = createManager({})
+    expect(manager.getConfig().userDictionary).toEqual([])
+    manager.setUserDictionary([' 张小明 ', 'Voice Key', 'Voice Key'])
+    expect(manager.getConfig().userDictionary).toEqual(['张小明', 'Voice Key'])
+    expect(createManager(mocks.lastStoreData).getUserDictionary()).toEqual(['张小明', 'Voice Key'])
+    manager.setUserDictionary([])
+    expect(manager.getUserDictionary()).toEqual([])
+  })
+
+  it('rejects malformed updates without erasing existing entries', () => {
+    const manager = createManager({ userDictionary: ['张小明'] })
+    expect(() => manager.setUserDictionary(['injected\n:99'])).toThrow()
+    expect(manager.getUserDictionary()).toEqual(['张小明'])
+  })
+
+  it('tolerates corrupt stored dictionary data without breaking settings', () => {
+    expect(createManager({ userDictionary: 'invalid' }).getUserDictionary()).toEqual([])
+  })
+})

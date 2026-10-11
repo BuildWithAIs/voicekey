@@ -24,6 +24,7 @@ export interface TextRefiner {
 
 export interface RefineServiceDeps {
   getRefineConfig: () => LLMRefineConfig
+  getUserDictionary?: () => readonly string[]
   /** Shared translation target language, applied when refine output translation is enabled. */
   getTargetLanguage: () => string
 }
@@ -177,7 +178,7 @@ export class RefineService implements TextRefiner {
 
   private resolveConfig(configOverride?: LLMRefineConfig) {
     return resolveRefineRequestConfig(configOverride ?? this.deps.getRefineConfig(), {
-      glossaryTerms: this.glossaryCache.getTerms(),
+      glossaryTerms: [...(this.deps.getUserDictionary?.() ?? []), ...this.glossaryCache.getTerms()],
       targetLanguage: this.deps.getTargetLanguage(),
     })
   }

@@ -12,3 +12,7 @@
 - `config-resolver.ts` - 按 Provider 解析 `/chat/completions` 或 `/messages` 请求端点，并按润色配置与传入术语表生成最终 system prompt。
 - `openai-client.ts` - LLM HTTP client：OpenAI-compatible 请求支持 Provider 级额外请求头；Anthropic 使用原生认证、顶层 system prompt 和关闭 thinking 的 Messages 请求，将 text blocks 转为共用响应格式，并拒绝被输出上限截断的内容。统一解析错误；TokenDance 失败时读取 `TokenDance-Recovery-Action` 响应头并追加恢复提示。
 - `openai-client.test.ts` - Anthropic 原生请求格式、认证、推理关闭、文本块过滤、截断与 API 错误，以及 TokenDance 恢复提示回归测试。
+
+用户词典与内置/远程术语表合并，复用原有单次润色或语音翻译请求。
+词条只作为拼写参考，不能成为指令或强制替换合理词语。
+关闭润色和语音翻译时不会因词典非空而请求大模型。

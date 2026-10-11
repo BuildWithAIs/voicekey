@@ -5,7 +5,7 @@
 ## 目录结构
 
 - `components/` - 应用组件与 UI 组件库，包含后台 `AudioRecorder`、HUD 等。
-- `pages/` - 路由页面：`Home`、`Settings`、`History`。
+- `pages/` - 路由页面：`Home`、`Dictionary`、`Settings`、`History`。
 - `layouts/` - 布局组件。
 - `lib/` - 工具函数。
 

@@ -23,3 +23,11 @@ length caps.
 - `i18n.ts` - 共享 i18n 资源与语言解析工具。
 - `locales/en.json` - 英文文案资源。
 - `locales/zh.json` - 中文文案资源。
+
+## User dictionary
+
+- `user-dictionary.ts` validates and normalizes the optional `AppConfig.userDictionary`
+  list (200 entries, 80 characters each, 8000 characters total), preserving spelling
+  and rejecting multiline/control-character input before persistence.
+- `user-dictionary.test.ts` covers malformed payloads, limits and multilingual normalization.
+- SenseVoice's default language is `auto`; its existing weights detect the spoken language.

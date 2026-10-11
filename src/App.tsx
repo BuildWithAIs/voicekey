@@ -3,6 +3,7 @@ import MainLayout from './layouts/MainLayout'
 import HomePage from './pages/HomePage'
 import SettingsPage from './pages/SettingsPage'
 import HistoryPage from './pages/HistoryPage'
+import DictionaryPage from './pages/DictionaryPage'
 import { AudioRecorder } from './components/AudioRecorder'
 import { HUD } from './components/HUD'
 
@@ -31,6 +32,8 @@ function App() {
   // 其他窗口：渲染完整 UI
   const getPage = () => {
     switch (currentRoute) {
+      case '/dictionary':
+        return <DictionaryPage />
       case '/settings':
         return <SettingsPage />
       case '/history':

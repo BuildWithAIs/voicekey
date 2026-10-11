@@ -3,11 +3,15 @@ import {
   buildRefineSystemPrompt,
   buildTranslationSystemPrompt,
   RECORDING,
+  LOCAL_ASR,
   STREAMING_ASR,
   TARGET_LANGUAGES,
 } from './constants'
 
 describe('recording limits', () => {
+  it('lets SenseVoice detect the spoken language', () => {
+    expect(LOCAL_ASR.LANGUAGE).toBe('auto')
+  })
   it('uses 30-second chunks within a five-minute session', () => {
     expect(RECORDING.CHUNK_DURATION_SECONDS).toBe(30)
     expect(RECORDING.SESSION_MAX_DURATION_SECONDS).toBe(300)

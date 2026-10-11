@@ -141,6 +141,7 @@ export interface LanguageSnapshot {
 }
 
 export interface AppConfig {
+  userDictionary?: string[]
   app: AppPreferences
   asr: ASRConfig
   llmRefine: LLMRefineConfig

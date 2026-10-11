@@ -11,7 +11,8 @@
   "nav": {
     "home": "首页",
     "settings": "设置",
-    "history": "历史记录"
+    "history": "历史记录",
+    "dictionary": "用户词典"
   },
   "common": {
     "loading": "加载中...",
@@ -210,7 +211,7 @@
     },
     "localAsr": {
       "title": "标准识别",
-      "help": "录音结束后开始识别，速度稍慢，准确率更高。",
+      "help": "录音结束后识别，自动检测普通话、英语、粤语、日语和韩语。",
       "ready": "已就绪",
       "download": "下载模型",
       "downloading": "下载中...",
@@ -435,5 +436,38 @@
   "units": {
     "characters_one": "{{formattedCount}} 字",
     "characters_other": "{{formattedCount}} 字"
+  },
+  "dictionary": {
+    "title": "用户词典",
+    "description": "管理常用的人名、产品名和专业术语，两种识别模式共用。",
+    "term": "词语或短语",
+    "placeholder": "例如：Voice Key、张小明、向量数据库",
+    "add": "添加",
+    "remove": "删除 {{term}}",
+    "count": "已添加 {{count}} / {{max}} 个词条",
+    "invalid": "请填写单行词语，每条不超过 80 个字符，最多 200 条、共 8000 个字符。",
+    "streaming": "直接使用词典增强热词识别，无需开启润色。更新从下一次录音生效；无法用模型词表表示的词语不会参与热词解码。",
+    "classic": "标准识别通过已开启的润色或语音翻译纠正词语。词典会随请求发送给所选大模型服务。",
+    "inactive": "开启文本润色或语音翻译后，词典才能用于纠错。词典不会自动开启这些功能。",
+    "search": "搜索词条",
+    "searchPlaceholder": "搜索词语或短语…",
+    "results": "找到 {{count}} 个词条",
+    "empty": "还没有词条",
+    "emptyHint": "添加经常识别错误的名字或术语，让识别更贴近你的用词。",
+    "noResults": "没有匹配的词条",
+    "clearSearch": "清除搜索",
+    "duplicate": "这个词条已经在词典中了。",
+    "autoSave": "更改自动保存",
+    "saving": "正在保存…",
+    "notSaved": "未保存",
+    "saveFailed": "保存失败，更改尚未生效。请重试添加或删除操作。",
+    "loadFailed": "词典加载失败",
+    "retry": "重试",
+    "openSettings": "前往设置开启",
+    "streamingMode": "当前模式：实时识别 · 本地热词",
+    "classicMode": "当前模式：标准识别 · 大模型纠错",
+    "addHeading": "添加词条",
+    "listHeading": "我的词条",
+    "entryHint": "输入词语后按回车添加，保留你希望使用的拼写。"
   }
 }

@@ -1,5 +1,5 @@
 import { ReactNode } from 'react'
-import { Home, Settings, History, Sun, Moon } from 'lucide-react'
+import { Home, Settings, History, Sun, Moon, BookOpen } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 import { useTheme } from '@/lib/useTheme'
@@ -37,6 +37,7 @@ export default function MainLayout({ children, currentRoute }: MainLayoutProps) 
     { path: '/home', label: t('nav.home'), icon: Home },
     { path: '/settings', label: t('nav.settings'), icon: Settings },
     { path: '/history', label: t('nav.history'), icon: History },
+    { path: '/dictionary', label: t('nav.dictionary'), icon: BookOpen },
   ]
 
   return (
@@ -73,6 +74,7 @@ export default function MainLayout({ children, currentRoute }: MainLayoutProps) 
               return (
                 <button
                   key={item.path}
+                  aria-current={isActive ? 'page' : undefined}
                   onClick={() => navigate(item.path)}
                   className={cn(
                     'no-drag relative flex cursor-pointer items-center gap-3 rounded-[10px] px-3 py-2 text-[13.5px] font-medium transition-colors',
@@ -126,7 +128,7 @@ export default function MainLayout({ children, currentRoute }: MainLayoutProps) 
         </aside>
 
         {/* 右侧内容 */}
-        <main className="flex-1 p-3 pl-0">
+        <main className="min-w-0 flex-1 p-3 pl-0">
           <div className="h-full overflow-hidden rounded-2xl border bg-background">
             <div className="vk-scroll h-full overflow-auto">{children}</div>
           </div>

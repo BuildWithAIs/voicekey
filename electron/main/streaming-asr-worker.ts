@@ -1,6 +1,8 @@
 import { createRequire } from 'node:module'
 import { cpus } from 'node:os'
 import path from 'node:path'
+import fs from 'node:fs'
+import { buildStreamingHotwords } from './streaming-asr-hotwords'
 import { parentPort, workerData } from 'node:worker_threads'
 import {
   getStreamingTailPaddingSampleCount,
@@ -28,8 +30,8 @@ type StreamingASRWorkerData = {
 
 type WorkerCommand =
   | { id: number; command: 'verify'; modelDir: string }
-  | { id: number; command: 'warm'; modelDir: string }
-  | { id: number; command: 'start'; sessionId: string; modelDir: string }
+  | { id: number; command: 'warm'; modelDir: string; terms: string[] }
+  | { id: number; command: 'start'; sessionId: string; modelDir: string; terms: string[] }
   | {
       command: 'audio'
       sessionId: string
@@ -82,12 +84,19 @@ const sherpa = nodeRequire(data.sherpaModulePath) as SherpaModule
 let cachedRecognizer: OnlineRecognizer | null = null
 let cachedRecognizerModelDir: string | null = null
 let activeSession: ActiveSession | null = null
+let cachedDictionary = ''
 
 function recognizerThreadCount(): number {
   return Math.max(1, Math.min(4, Math.floor(cpus().length / 2) || 1))
 }
 
-function createRecognizer(modelDir: string): OnlineRecognizer {
+function createRecognizer(modelDir: string, terms: readonly string[] = []): OnlineRecognizer {
+  const { vocabulary, hotwords } = buildStreamingHotwords(
+    fs.readFileSync(path.join(modelDir, data.model.tokensFile), 'utf8'),
+    terms,
+  )
+  const vocabularyPath = path.join(modelDir, 'hotwords.vocab')
+  if (hotwords) fs.writeFileSync(vocabularyPath, vocabulary, 'utf8')
   return sherpa.createOnlineRecognizer({
     featConfig: { sampleRate: data.audioConfig.sampleRate, featureDim: 80 },
     modelConfig: {
@@ -101,9 +110,13 @@ function createRecognizer(modelDir: string): OnlineRecognizer {
       provider: 'cpu',
       debug: 0,
       modelType: data.model.modelType,
-      modelingUnit: 'cjkchar',
+      modelingUnit: hotwords ? 'bpe' : 'cjkchar',
+      bpeVocab: hotwords ? vocabularyPath : '',
     },
-    decodingMethod: 'greedy_search',
+    decodingMethod: hotwords ? 'modified_beam_search' : 'greedy_search',
+    hotwordsBuf: hotwords,
+    hotwordsBufSize: Buffer.byteLength(hotwords, 'utf8'),
+    hotwordsScore: 1.5,
     maxActivePaths: 4,
     enableEndpoint: 1,
     ...data.model.endpointRules,
@@ -122,10 +135,16 @@ function releaseRecognizer(): void {
   cachedRecognizerModelDir = null
 }
 
-function getRecognizer(modelDir: string): OnlineRecognizer {
-  if (!cachedRecognizer || cachedRecognizerModelDir !== modelDir) {
+function getRecognizer(modelDir: string, terms: readonly string[] = []): OnlineRecognizer {
+  const dictionary = JSON.stringify(terms)
+  if (
+    !cachedRecognizer ||
+    cachedRecognizerModelDir !== modelDir ||
+    cachedDictionary !== dictionary
+  ) {
     releaseRecognizer()
-    cachedRecognizer = createRecognizer(modelDir)
+    cachedRecognizer = createRecognizer(modelDir, terms)
+    cachedDictionary = dictionary
     cachedRecognizerModelDir = modelDir
   }
   return cachedRecognizer
@@ -193,9 +212,9 @@ function decodeReadyFrames(session: ActiveSession): void {
   }
 }
 
-function startSession(sessionId: string, modelDir: string): void {
+function startSession(sessionId: string, modelDir: string, terms: string[]): void {
   releaseActiveSession()
-  const recognizer = getRecognizer(modelDir)
+  const recognizer = getRecognizer(modelDir, terms)
   activeSession = {
     id: sessionId,
     stream: recognizer.createStream(),
@@ -269,13 +288,13 @@ port.on('message', (message: WorkerCommand) => {
     }
 
     if (message.command === 'warm') {
-      getRecognizer(message.modelDir)
+      if (!activeSession) getRecognizer(message.modelDir, message.terms)
       port.postMessage({ id: message.id, ok: true })
       return
     }
 
     if (message.command === 'start') {
-      startSession(message.sessionId, message.modelDir)
+      startSession(message.sessionId, message.modelDir, message.terms)
       port.postMessage({ id: message.id, ok: true })
       return
     }

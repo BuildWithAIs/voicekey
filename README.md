@@ -41,6 +41,7 @@ cursor is active.
   models; no ASR API key is required.
 - **Two recognition modes** — choose compact SenseVoice final transcription or bilingual X-ASR
   partial transcription with punctuation and English casing.
+- **Personal dictionary** — use your own names and terms for realtime ASR hotwords and optional LLM-assisted corrections.
 - **Optional text cleanup** — connect OpenAI, Anthropic, DeepSeek, OpenRouter, or a custom OpenAI-compatible
   endpoint using your own API key.
 - **Translation in place** — translate selected text and replace it in the current application with
@@ -68,6 +69,13 @@ Insert the result into the focused application and save local history
 The Electron main process owns microphone sessions, model files, hotkeys, credentials, history,
 updates, and text injection. Speech recognition runs in worker threads so model inference does not
 block the application UI.
+
+SenseVoice automatically detects Mandarin, English, Cantonese, Japanese, and Korean.
+The user dictionary page in the sidebar supports searching, adding, and deleting entries,
+and is shared by both modes: realtime recognition uses native
+decoding bias, while classic recognition uses the existing refinement/translation request
+when enabled. Adding dictionary terms does not enable cloud processing. When cloud text
+processing is enabled, dictionary terms accompany the transcript sent to your LLM provider.
 
 ### Recognition modes
 

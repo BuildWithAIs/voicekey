@@ -7,6 +7,7 @@ import { createRequire } from 'node:module'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { Worker } from 'node:worker_threads'
+import { configManager } from './config-manager'
 import { AUDIO_CONFIG, STREAMING_ASR } from '../shared/constants'
 import type {
   LocalASRDownloadProgress,
@@ -47,8 +48,8 @@ type ProgressCallback = (progress: LocalASRDownloadProgress) => void
 type StreamingASRFinalResult = { text: string }
 type WorkerCommandInput =
   | { command: 'verify'; modelDir: string }
-  | { command: 'warm'; modelDir: string }
-  | { command: 'start'; sessionId: string; modelDir: string }
+  | { command: 'warm'; modelDir: string; terms: string[] }
+  | { command: 'start'; sessionId: string; modelDir: string; terms: string[] }
   | { command: 'finish'; sessionId: string }
   | { command: 'cancel'; sessionId: string }
   | { command: 'release' }
@@ -146,6 +147,7 @@ export async function startStreamingASRSession(
 
   session.ready = callWorker<void>({
     command: 'start',
+    terms: configManager.getUserDictionary(),
     sessionId,
     modelDir: modelDirs.asrModelDir,
   }).catch((error) => {
@@ -157,6 +159,8 @@ export async function startStreamingASRSession(
 }
 
 export async function warmStreamingASR(): Promise<void> {
+  // A warm request must not replace an active session's dictionary/recognizer.
+  if (activeSession) return
   if (deletingAssets) {
     throw new Error('Streaming ASR model deletion is in progress')
   }
@@ -169,7 +173,11 @@ export async function warmStreamingASR(): Promise<void> {
   }
 
   try {
-    await callWorker<void>({ command: 'warm', modelDir: modelDirs.asrModelDir })
+    await callWorker<void>({
+      command: 'warm',
+      modelDir: modelDirs.asrModelDir,
+      terms: configManager.getUserDictionary(),
+    })
   } finally {
     scheduleWorkerIdleTermination()
   }

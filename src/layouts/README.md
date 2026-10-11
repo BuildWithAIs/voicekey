@@ -9,7 +9,7 @@
 应用主布局组件，提供：
 
 - **顶部拖拽区域** - macOS 窗口拖动支持（仅 macOS）
-- **左侧边栏** - 包含应用 Logo、导航菜单（Home, Settings, History）和版本信息
+- **左侧边栏** - 包含应用 Logo、导航菜单（Home, Settings, History, Dictionary）和版本信息
 - **右侧内容区** - 渲染当前路由对应的页面内容
 - **路由导航** - 基于 hash 路由的页面切换逻辑
 
