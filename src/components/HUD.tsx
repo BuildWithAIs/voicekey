@@ -42,7 +42,7 @@ export function HUD() {
   const label = isRecording
     ? t('hud.listening')
     : isProcessing
-      ? t(processingStage ? PROCESSING_LABELS[processingStage] : 'hud.thinking')
+      ? message || t(processingStage ? PROCESSING_LABELS[processingStage] : 'hud.thinking')
       : isError
         ? t('hud.error')
         : t('hud.injected')
@@ -79,7 +79,7 @@ export function HUD() {
             )}
             {isError && <AlertCircle className="h-[18px] w-[18px]" />}
           </span>
-          <span className="hud-label shrink-0" role="status" aria-live="polite">
+          <span className="hud-label min-w-0" role="status" aria-live="polite">
             {label}
           </span>
           {isRecording && (
@@ -120,6 +120,12 @@ export function HUD() {
             </p>
           </div>
         )}
+
+        {isRecording && message ? (
+          <p className="mt-2 text-xs text-muted-foreground" role="status">
+            {message}
+          </p>
+        ) : null}
 
         {isError && (
           <p className="hud-error-message" role="alert">

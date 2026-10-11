@@ -12,6 +12,7 @@ import { app } from 'electron'
 import { createRequire } from 'node:module'
 import { updateOverlay, hideOverlay } from '../window/overlay'
 import { t } from '../i18n'
+import { RECORDING } from '../../shared/constants'
 
 interface FfmpegCommand {
   toFormat(format: string): FfmpegCommand
@@ -19,9 +20,10 @@ interface FfmpegCommand {
   audioFrequency(frequency: number): FfmpegCommand
   audioChannels(channels: number): FfmpegCommand
   audioFilters(filter: string): FfmpegCommand
-  on(event: 'end', listener: () => void): FfmpegCommand
+  on(event: 'start' | 'end', listener: () => void): FfmpegCommand
   on(event: 'error', listener: (error: Error) => void): FfmpegCommand
   save(outputPath: string): void
+  kill(signal: string): void
 }
 
 type FfmpegFactory = {
@@ -34,6 +36,7 @@ let ffmpegInitialized = false
 
 export interface ConvertToWAVOptions {
   gainDb?: number
+  signal?: AbortSignal
 }
 
 /**
@@ -91,11 +94,15 @@ function convertAudio(
   inputPath: string,
   outputPath: string,
   outputLabel: string,
-  options: { gainDb?: number } | undefined,
+  options: ConvertToWAVOptions | undefined,
   configure: (command: FfmpegCommand) => void,
 ): Promise<void> {
   const conversionStartTime = Date.now()
   return new Promise((resolve, reject) => {
+    if (options?.signal?.aborted) {
+      reject(new Error('Audio conversion cancelled'))
+      return
+    }
     // 确保 ffmpeg 已初始化
     initializeFfmpeg()
 
@@ -110,16 +117,36 @@ function convertAudio(
     configure(command)
 
     if (typeof options?.gainDb === 'number') {
-      command.audioFilters(`volume=${options.gainDb}dB`)
+      command.audioFilters(`volume=${options.gainDb}dB,alimiter=limit=0.95:level=false`)
     }
 
+    let aborted = false
+    const abort = () => {
+      aborted = true
+      command.kill('SIGKILL')
+    }
+    const timeout = setTimeout(abort, RECORDING.WORKER_TIMEOUT_MS)
+    options?.signal?.addEventListener('abort', abort, { once: true })
+    const cleanup = () => {
+      clearTimeout(timeout)
+      options?.signal?.removeEventListener('abort', abort)
+    }
     command
+      .on('start', () => {
+        if (aborted || options?.signal?.aborted) command.kill('SIGKILL')
+      })
       .on('end', () => {
+        cleanup()
+        if (aborted || options?.signal?.aborted) {
+          reject(new Error('Audio conversion cancelled or timed out'))
+          return
+        }
         const duration = Date.now() - conversionStartTime
         console.log(`[Audio:Converter] ⏱️ Conversion completed in ${duration}ms`)
         resolve()
       })
       .on('error', (err: Error) => {
+        cleanup()
         const duration = Date.now() - conversionStartTime
         console.error(`[Audio:Converter] Conversion failed after ${duration}ms:`, err)
         reject(err)

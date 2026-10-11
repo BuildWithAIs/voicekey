@@ -1,5 +1,4 @@
 import { createRequire } from 'node:module'
-import { cpus } from 'node:os'
 import path from 'node:path'
 import fs from 'node:fs'
 import { buildStreamingHotwords } from './streaming-asr-hotwords'
@@ -8,9 +7,10 @@ import {
   getStreamingTailPaddingSampleCount,
   resolveStreamingInputSampleRate,
 } from './streaming-asr-audio'
-import { normalizeStreamingASRText } from './streaming-asr-text'
+import { normalizeStreamingASRText, mergeTranscriptSegments } from './streaming-asr-text'
 
 type StreamingASRWorkerData = {
+  numThreads: number
   sherpaModulePath: string
   audioConfig: { sampleRate: number }
   model: {
@@ -86,10 +86,6 @@ let cachedRecognizerModelDir: string | null = null
 let activeSession: ActiveSession | null = null
 let cachedDictionary = ''
 
-function recognizerThreadCount(): number {
-  return Math.max(1, Math.min(4, Math.floor(cpus().length / 2) || 1))
-}
-
 function createRecognizer(modelDir: string, terms: readonly string[] = []): OnlineRecognizer {
   const { vocabulary, hotwords } = buildStreamingHotwords(
     fs.readFileSync(path.join(modelDir, data.model.tokensFile), 'utf8'),
@@ -106,7 +102,7 @@ function createRecognizer(modelDir: string, terms: readonly string[] = []): Onli
         joiner: path.join(modelDir, data.model.joinerFile),
       },
       tokens: path.join(modelDir, data.model.tokensFile),
-      numThreads: recognizerThreadCount(),
+      numThreads: data.numThreads,
       provider: 'cpu',
       debug: 0,
       modelType: data.model.modelType,
@@ -150,33 +146,12 @@ function getRecognizer(modelDir: string, terms: readonly string[] = []): OnlineR
   return cachedRecognizer
 }
 
-function mergeSegments(segments: readonly string[]): string {
-  let merged = ''
-
-  for (const segment of segments) {
-    const right = segment.trim()
-    if (!right) continue
-    if (!merged) {
-      merged = right
-      continue
-    }
-
-    const left = merged.replace(/\s+$/u, '')
-    const first = right[0]
-    const last = left[left.length - 1]
-    const needsSpace = /^[A-Za-z0-9_]$/.test(last) && /^[A-Za-z0-9_]$/.test(first)
-    merged = needsSpace ? `${left} ${right}` : `${left}${right}`
-  }
-
-  return merged
-}
-
 function getCurrentText(session: ActiveSession): string {
   if (!cachedRecognizer) {
-    return normalizeStreamingASRText(mergeSegments(session.committedSegments))
+    return normalizeStreamingASRText(mergeTranscriptSegments(session.committedSegments))
   }
   const current = cachedRecognizer.getResult(session.stream).text?.trim() ?? ''
-  return normalizeStreamingASRText(mergeSegments([...session.committedSegments, current]))
+  return normalizeStreamingASRText(mergeTranscriptSegments([...session.committedSegments, current]))
 }
 
 function emitPartial(session: ActiveSession, force = false): void {
@@ -278,6 +253,11 @@ port.on('message', (message: WorkerCommand) => {
   try {
     if (message.command === 'audio') {
       acceptAudio(message)
+      port.postMessage({
+        event: 'consumed',
+        sessionId: message.sessionId,
+        sequence: message.sequence,
+      })
       return
     }
 

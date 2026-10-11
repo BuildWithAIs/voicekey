@@ -12,10 +12,8 @@ describe('recording limits', () => {
   it('lets SenseVoice detect the spoken language', () => {
     expect(LOCAL_ASR.LANGUAGE).toBe('auto')
   })
-  it('uses 30-second chunks within a five-minute session', () => {
-    expect(RECORDING.CHUNK_DURATION_SECONDS).toBe(30)
+  it('bounds a continuous recording to five minutes', () => {
     expect(RECORDING.SESSION_MAX_DURATION_SECONDS).toBe(300)
-    expect(RECORDING.SESSION_MAX_DURATION_SECONDS / RECORDING.CHUNK_DURATION_SECONDS).toBe(10)
   })
 })
 
@@ -32,11 +30,10 @@ describe('streaming ASR assets', () => {
     expect(assetTotal).toBe(STREAMING_ASR.DOWNLOAD_SIZE_BYTES)
   })
 
-  it('uses the 480 ms X-ASR model and releases its worker after 20 idle minutes', () => {
+  it('uses the 480 ms X-ASR model with bounded tail padding', () => {
     expect(STREAMING_ASR.MODEL_NAME).toContain('480 ms')
     expect(STREAMING_ASR.MODEL_TYPE).toBe('zipformer2')
     expect(STREAMING_ASR.FINAL_TAIL_PADDING_MS).toBe(500)
-    expect(STREAMING_ASR.WORKER_IDLE_TIMEOUT_MS).toBe(20 * 60 * 1000)
   })
 
   it('recommends 6 logical CPU cores and 16 GB-class memory', () => {

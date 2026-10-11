@@ -3,7 +3,6 @@ import fs from 'fs'
 import path from 'node:path'
 import { LOW_VOLUME_GAIN_DB } from '../../shared/constants'
 import {
-  IPC_CHANNELS,
   type ASRConfig,
   type AudioChunkPayload,
   type StreamingAudioEndPayload,
@@ -16,10 +15,15 @@ import type { ASRProvider } from '../asr-provider'
 import type { TextRefiner } from '../refine'
 import { textInjector } from '../text-injector'
 import { finishStreamingASRSession, pushStreamingAudioFrame } from '../streaming-asr-manager'
-import { getBackgroundWindow } from '../window/background'
 import { hideOverlay, showOverlay, updateOverlay } from '../window/overlay'
+import { mergeTranscriptSegments } from '../streaming-asr-text'
 import { convertToWAV } from './converter'
-import { clearSession, getCurrentSession, updateSession } from './session-manager'
+import {
+  clearSession,
+  failRecordingSession,
+  getCurrentSession,
+  updateSession,
+} from './session-manager'
 
 type ProcessorDeps = {
   getAsrProvider: () => ASRProvider | null
@@ -30,6 +34,7 @@ type ProcessorDeps = {
 
 type ChunkSessionState = {
   sessionId: string
+  controller: AbortController
   resultsByIndex: Map<number, string>
   pendingCount: number
   finalChunkSeen: boolean
@@ -50,6 +55,7 @@ export function initProcessor(dependencies: ProcessorDeps): void {
 }
 
 export async function handleAudioChunk(payload: AudioChunkPayload): Promise<void> {
+  if (!isSessionUsable(payload.sessionId) || chunkSessions.has(payload.sessionId)) return
   const sessionState = getOrCreateChunkSession(payload.sessionId)
 
   if (sessionState.failed || sessionState.finalized) {
@@ -95,7 +101,7 @@ export async function handleStreamingAudioEnd(payload: StreamingAudioEndPayload)
 
   try {
     if (!isSessionUsable(payload.sessionId)) return
-    const rawText = await finishStreamingASRSession(payload.sessionId)
+    const rawText = await finishStreamingASRSession(payload.sessionId, payload.sequence)
     await finalizeTranscription(payload.sessionId, rawText)
   } catch (error) {
     failStreamingSession(payload.sessionId, error)
@@ -110,6 +116,7 @@ function getOrCreateChunkSession(sessionId: string): ChunkSessionState {
 
   const sessionState: ChunkSessionState = {
     sessionId,
+    controller: new AbortController(),
     resultsByIndex: new Map(),
     pendingCount: 0,
     finalChunkSeen: false,
@@ -150,7 +157,7 @@ async function processChunk(
     app.getPath('temp'),
     `voice-key-${payload.sessionId}-${payload.chunkIndex}-${timestamp}.${inputExtension}`,
   )
-  const asrConfig = deps.getASRConfig()
+  const asrConfig = getCurrentSession()
   const tempOutputPath = path.join(
     app.getPath('temp'),
     `voice-key-${payload.sessionId}-${payload.chunkIndex}-${timestamp}.wav`,
@@ -166,8 +173,9 @@ async function processChunk(
   try {
     fs.writeFileSync(tempInputPath, inputBuffer)
 
-    const lowVolumeModeEnabled = asrConfig.lowVolumeMode ?? true
+    const lowVolumeModeEnabled = asrConfig?.lowVolumeMode ?? false
     const conversionOptions = {
+      signal: sessionState.controller.signal,
       gainDb: lowVolumeModeEnabled ? LOW_VOLUME_GAIN_DB : undefined,
     }
     await convertToWAV(tempInputPath, tempOutputPath, conversionOptions)
@@ -242,7 +250,7 @@ async function finalizeTranscription(sessionId: string, rawText: string): Promis
     console.warn('[Audio:Processor] Final transcript is empty, skipping refine/history/injection')
     updateSession({ transcription: '', status: 'completed' })
     hideOverlay()
-    clearSession()
+    await clearSession(sessionId)
     return
   }
 
@@ -321,8 +329,9 @@ async function finalizeTranscription(sessionId: string, rawText: string): Promis
   hideOverlay()
   await textInjector.injectText(finalText)
 
+  if (!isSessionUsable(sessionId)) return
   showOverlay({ status: 'success', transcript: finalText }, 1800)
-  clearSession()
+  await clearSession(sessionId)
 }
 
 export function hasReceivedFinalChunk(sessionId: string): boolean {
@@ -344,7 +353,8 @@ export function abortChunkSession(sessionId: string): void {
   if (!sessionState) return
 
   sessionState.failed = true
-  cleanupAllSessionTempFiles(sessionState)
+  sessionState.controller.abort()
+  if (sessionState.pendingCount === 0) cleanupAllSessionTempFiles(sessionState)
   if (sessionState.pendingCount === 0) {
     chunkSessions.delete(sessionId)
   }
@@ -361,27 +371,7 @@ function failSession(sessionId: string, sessionState: ChunkSessionState, error: 
 
 function failActiveSession(sessionId: string, error: unknown): void {
   const message = error instanceof Error ? error.message : t('errors.generic')
-  console.error(`[Audio:Processor] Session ${sessionId} failed:`, error)
-  const currentSession = getCurrentSession()
-  if (!currentSession || currentSession.id !== sessionId) {
-    return
-  }
-
-  const wasRecording = currentSession.status === 'recording'
-  updateSession({ status: 'error', error: message })
-
-  if (wasRecording) {
-    const bgWindow = getBackgroundWindow()
-    if (bgWindow) {
-      bgWindow.webContents.send(IPC_CHANNELS.SESSION_STOP)
-    }
-  }
-
-  showOverlay({
-    status: 'error',
-    message,
-  })
-  setTimeout(() => hideOverlay(), 2000)
+  failRecordingSession(sessionId, message)
 }
 
 function releaseChunkSessionIfPossible(sessionState: ChunkSessionState): void {
@@ -416,38 +406,8 @@ function cleanupTempFiles(sessionState: ChunkSessionState, ...paths: string[]): 
   }
 }
 
-function mergeTranscriptSegments(segments: string[]): string {
-  let merged = ''
-
-  for (const segment of segments) {
-    const normalizedSegment = segment.trim()
-    if (!normalizedSegment) continue
-
-    if (!merged) {
-      merged = normalizedSegment
-      continue
-    }
-
-    const left = merged.replace(/\s+$/u, '')
-    const right = normalizedSegment.replace(/^\s+/u, '')
-    const leftLastChar = left.length > 0 ? left[left.length - 1] : undefined
-    const needsSpace = isAsciiWordBoundary(leftLastChar, right[0])
-    merged = needsSpace ? `${left} ${right}` : `${left}${right}`
-  }
-
-  return merged
-}
-
 function countLineBreaks(text: string): number {
   return text.match(/\r\n|\r|\n/gu)?.length ?? 0
-}
-
-function isAsciiWordBoundary(left?: string, right?: string): boolean {
-  return isAsciiWordChar(left) && isAsciiWordChar(right)
-}
-
-function isAsciiWordChar(value?: string): boolean {
-  return typeof value === 'string' && /^[A-Za-z0-9_]$/.test(value)
 }
 
 function resolveAudioExtension(mimeType: string): string {

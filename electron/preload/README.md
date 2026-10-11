@@ -16,11 +16,11 @@ Electron 预加载脚本目录，作为主进程与渲染进程之间的安全�
 ## 录音相关 API
 
 - `onStartRecording(callback)` - 监听录音开始事件，并下发当前 `sessionId`。
-- `onStopRecording(callback)` - 监听录音停止事件。
-- `sendAudioChunk(payload)` - 发送单个录音 `chunk`，包含 `sessionId`、`chunkIndex`、`isFinal`、`mimeType` 与 `buffer`。
+- `onStopRecording(callback)` - 接收带会话 ID 的正常停止或取消事件。
+- `sendAudioChunk(payload)` - 松键后发送完整录音（索引为 0 的单个 final `chunk`），包含 `sessionId`、`chunkIndex`、`isFinal`、`mimeType` 与 `buffer`。
 - `sendStreamingAudioFrame(payload)` / `sendStreamingAudioEnd(payload)` - 按序发送 Float32 PCM 帧，并在 worklet flush 后发送流式会话结束标记。
 - `sendAudioLevel(level)` - 向 HUD 同步实时音量。
-- `sendError(error)` - 上报渲染进程录音错误。
+- `sendError(error, sessionId)` - 上报带会话身份的录音错误。
 - `cancelSession()` - 取消当前会话。
 
 ## 其他 API
@@ -36,3 +36,6 @@ Electron 预加载脚本目录，作为主进程与渲染进程之间的安全�
 - `checkForUpdates()` / `getUpdateStatus()` / `openExternal(url)` - 更新相关接口。
 - `getLogTail(options)` / `openLogFolder()` / `log(entry)` - 日志相关接口。
 - `getLinuxIntegrationStatus()` / `installLinuxIntegration()` / `removeLinuxIntegration()` - 查询、安装/更新与移除受管理的 Omarchy/Hyprland 集成；主进程限制为设置窗口调用。
+
+- `recordingStopped(sessionId)` 确认录音资源释放；`microphoneFallback(sessionId, label)` 通知实际回退设备。
+- `cancelASRDownload(mode)` 取消下载/校验，保留已完成文件。模型状态带 `runtimeState`，下载进度区分传输、校验和运行时检查。

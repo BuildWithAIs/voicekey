@@ -18,3 +18,23 @@ export function normalizeStreamingASRText(text: string): string {
     .replace(BETWEEN_CJK_PUNCTUATION, '')
     .replace(/\s+(?=[,.!?;:%)\]}])/gu, '')
 }
+
+// Preserve native sentence punctuation across endpoint boundaries, without
+// inserting spaces between CJK characters or before closing punctuation.
+export function mergeTranscriptSegments(segments: readonly string[]): string {
+  let merged = ''
+  for (const segment of segments) {
+    const right = segment.trim()
+    if (!right) continue
+    if (!merged) {
+      merged = right
+      continue
+    }
+    const left = merged.trimEnd()
+    const needsSpace =
+      /[\p{Script=Latin}\p{N}][.!?;:,"'”’)]*$/u.test(left) &&
+      /^["'“‘(]*[\p{Script=Latin}\p{N}]/u.test(right)
+    merged = `${left}${needsSpace ? ' ' : ''}${right}`
+  }
+  return merged
+}

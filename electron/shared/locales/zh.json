@@ -182,9 +182,9 @@
     "hideRefineKey": "隐藏润色密钥",
     "testRefineConnection": "测试连接",
     "testingRefineConnection": "正在测试连接...",
-    "durationWarning": "单次录音最长 5 分钟。",
+    "durationWarning": "单次录音最多 5 分钟；标准模式松键后识别整段，长录音需要更长处理时间和更多内存。",
     "lowVolumeMode": "低音量模式",
-    "lowVolumeModeHelp": "适合相对安静的咖啡店或办公室，想轻声语音输入时使用。会放大说话声，也可能放大环境噪音。",
+    "lowVolumeModeHelp": "轻声输入时可开启，增益带峰值保护；也会放大环境噪音。默认关闭。",
     "microphone": {
       "label": "麦克风",
       "placeholder": "选择麦克风",
@@ -199,23 +199,35 @@
       "unavailableHelp": "已选择的麦克风当前不可用。录音会暂时回退到系统默认麦克风，直到设备恢复或你选择其它设备。",
       "permissionHelp": "需要麦克风权限才能显示设备名称。",
       "unsupported": "当前环境无法检测麦克风设备。",
-      "detectFailed": "无法检测麦克风。"
+      "detectFailed": "无法检测麦克风。",
+      "fallbackNotice": "所选麦克风不可用，已切换到：{{device}}",
+      "test": "测试麦克风",
+      "stopTest": "结束测试",
+      "level": "麦克风音量",
+      "testHelp": "测试持续最多 10 秒，仅显示音量，不保存音频。"
     },
     "modelStorage": {
       "open": "打开目录",
       "openFailed": "无法打开模型目录：{{message}}",
-      "enable": "启用",
+      "enable": "设为当前模型",
       "selected": "已选用",
       "delete": "删除模型",
-      "deleting": "正在删除..."
+      "deleting": "正在删除...",
+      "cancelled": "下载已取消，已完成的文件会保留供下次继续。",
+      "noModel": "当前没有可用的识别模型，请先下载并选择一个模型。",
+      "runtime": {
+        "unloaded": "已下载 · 按需加载",
+        "loading": "正在加载",
+        "ready": "已加载"
+      }
     },
     "localAsr": {
       "title": "标准识别",
-      "help": "录音结束后识别，自动检测普通话、英语、粤语、日语和韩语。",
+      "help": "松键后整段识别，自动检测普通话、英语、粤语、日语和韩语。模型较小，适合日常输入。",
       "ready": "已就绪",
       "download": "下载模型",
       "downloading": "下载中...",
-      "downloadComplete": "标准识别已就绪",
+      "downloadComplete": "模型已下载，可选择为当前识别模型。",
       "downloadFailed": "模型下载失败：{{message}}",
       "downloadBeforeEnable": "请先下载标准识别模型。",
       "deleteConfirm": "确定删除标准识别模型吗？删除后再次使用需要重新下载。",
@@ -223,17 +235,19 @@
       "deleteFailed": "模型删除失败：{{message}}",
       "unsupported": "当前平台暂不支持标准识别。",
       "phase": {
-        "model": "正在下载模型"
+        "model": "正在下载模型",
+        "verify": "正在校验模型文件",
+        "initialize": "正在检查模型能否运行"
       }
     },
     "streamingAsr": {
       "title": "实时识别",
-      "help": "流式输出，边说边识别，准确率略低。",
+      "help": "中英双语，边说边显示，原生标点与英文大小写；需要更多计算资源。",
       "downloadConfirmWeak": "这台电脑当前约 {{cpu}} 核、{{memory}} GB 内存，低于建议配置（6 核 CPU、16 GB 内存），使用时可能卡顿。仍要下载吗？",
       "ready": "已就绪",
       "download": "下载模型",
       "downloading": "下载中...",
-      "downloadComplete": "实时识别已就绪",
+      "downloadComplete": "模型已下载，可选择为当前识别模型。",
       "downloadFailed": "模型下载失败：{{message}}",
       "downloadBeforeEnable": "请先下载实时识别模型。",
       "deleteConfirm": "确定删除实时识别模型吗？删除后将关闭实时识别，再次使用需要重新下载。",
@@ -241,7 +255,9 @@
       "deleteFailed": "模型删除失败：{{message}}",
       "unsupported": "当前平台暂不支持实时识别。",
       "phase": {
-        "model": "正在下载模型"
+        "model": "正在下载模型",
+        "verify": "正在校验模型文件",
+        "initialize": "正在检查模型能否运行"
       }
     },
     "languagePlaceholder": "选择语言",
@@ -402,7 +418,8 @@
     "done": "完成",
     "injected": "已输入",
     "error": "错误",
-    "errorFallback": "发生错误"
+    "errorFallback": "发生错误",
+    "loadingModel": "正在加载模型，录音已开始…"
   },
   "tray": {
     "settings": "设置",
@@ -418,7 +435,14 @@
     "startFailed": "开始录音失败",
     "stopFailed": "停止录音失败",
     "streamingModelMissing": "请先在设置中下载实时识别模型",
-    "generic": "错误"
+    "generic": "错误",
+    "asrBusy": "上一段还在处理，请稍候。",
+    "asrTimeout": "识别处理超时，已停止计算。请缩短录音后重试。",
+    "localModelMissing": "请在设置中下载并选择标准识别模型。",
+    "modelManagementBusy": "正在管理模型，请完成或取消后再录音。",
+    "audioSequence": "录音数据不完整，请重新录音。",
+    "asrOverloaded": "实时识别跟不上录音速度，已停止。请关闭其他高负载程序，或改用标准识别。",
+    "asrMemory": "识别内存占用达到保护上限，已停止计算。请缩短录音或使用较小的模型。"
   },
   "notification": {
     "errorTitle": "错误",

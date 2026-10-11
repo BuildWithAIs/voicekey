@@ -1,16 +1,15 @@
 import { app } from 'electron'
 import fs from 'fs'
-import { createHash } from 'node:crypto'
-import type { IncomingMessage } from 'node:http'
-import https from 'node:https'
 import { createRequire } from 'node:module'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { Worker } from 'node:worker_threads'
-import { AUDIO_CONFIG, LOCAL_ASR } from '../shared/constants'
+import { RECORDING, AUDIO_CONFIG, LOCAL_ASR } from '../shared/constants'
 import type { LocalASRDownloadProgress, LocalASRStatus } from '../shared/types'
 import { getASRModelStorageDir, removeManagedASRInstallDir } from './asr-model-storage'
-import { downloadFromSources } from './download-sources'
+import { t } from './i18n'
+import { downloadASRAsset } from './asr-download'
+import { getASRIdleTimeout, getASRThreadCount, watchASRMemory } from './asr-runtime-policy'
 
 type ModelFile = (typeof LOCAL_ASR.MODEL_FILES)[number]
 
@@ -34,14 +33,15 @@ type WorkerResponse =
 type WorkerRequest = {
   resolve: (value: LocalASRRunResult | void) => void
   reject: (error: Error) => void
+  timer: NodeJS.Timeout
 }
 
 const nodeRequire = createRequire(import.meta.url)
 
 // Abort a model download when the socket stays idle this long, so a dead
 // connection cannot leave `activeDownload` pending forever.
-const DOWNLOAD_IDLE_TIMEOUT_MS = 30_000
 
+let downloadController: AbortController | null = null
 let activeDownload: Promise<LocalASRStatus> | null = null
 let deletingAssets = false
 let currentProgress: LocalASRDownloadProgress | undefined
@@ -49,6 +49,11 @@ let lastError: string | undefined
 let recognitionQueue: Promise<void> = Promise.resolve()
 let localASRWorker: Worker | null = null
 let localASRWorkerIdleTimer: NodeJS.Timeout | null = null
+let cancelledBefore = 0
+let stopMemoryWatch: (() => void) | null = null
+let workerThreadCount = 0
+let runtimeReady = false
+let terminating: Promise<void> | null = null
 let nextWorkerRequestId = 1
 const workerRequests = new Map<number, WorkerRequest>()
 
@@ -61,8 +66,10 @@ export function getLocalASRStatus(): LocalASRStatus {
     supported: true,
     ready: Boolean(modelDir),
     downloading: Boolean(activeDownload),
+    runtimeState: runtimeReady ? 'ready' : localASRWorker ? 'loading' : 'unloaded',
     modelName: LOCAL_ASR.MODEL_NAME,
     installDir: paths.installDir,
+    hasFiles: fs.existsSync(paths.installDir),
     storageDir: getASRModelStorageDir(),
     modelPath: modelDir ? path.join(modelDir, LOCAL_ASR.MODEL_FILE) : paths.modelPath,
     missing,
@@ -91,6 +98,7 @@ export async function runLocalASR(audioFilePath: string): Promise<LocalASRRunRes
   // Count a queued request as activity immediately, even if another chunk is
   // still ahead of it in the serialized recognition queue.
   clearLocalASRWorkerIdleTimer()
+  const generation = nextWorkerRequestId
 
   const run = async (): Promise<LocalASRRunResult> => {
     // A previous queued run may have scheduled its idle timeout immediately
@@ -98,6 +106,10 @@ export async function runLocalASR(audioFilePath: string): Promise<LocalASRRunRes
     clearLocalASRWorkerIdleTimer()
 
     try {
+      if (generation < cancelledBefore) throw new Error('Recognition cancelled')
+      if (terminating) await terminating
+      if (localASRWorker && workerThreadCount !== getASRThreadCount())
+        await terminateLocalASRWorker()
       const paths = ensureLocalASRReady()
       const modelDir = getReadyModelDir(paths)
       if (!modelDir) {
@@ -120,6 +132,10 @@ export async function runLocalASR(audioFilePath: string): Promise<LocalASRRunRes
     () => undefined,
   )
   return nextRun
+}
+
+export async function cancelLocalASR(): Promise<void> {
+  await terminateLocalASRWorker()
 }
 
 export async function releaseLocalASR(): Promise<void> {
@@ -147,6 +163,13 @@ export async function deleteLocalASRAssets(): Promise<LocalASRStatus> {
   }
 }
 
+export async function cancelLocalASRDownload(): Promise<void> {
+  if (!activeDownload) return
+  downloadController?.abort()
+  await terminateLocalASRWorker()
+  await activeDownload.catch(() => undefined)
+}
+
 export async function downloadLocalASRAssets(
   onProgress?: ProgressCallback,
 ): Promise<LocalASRStatus> {
@@ -157,12 +180,15 @@ export async function downloadLocalASRAssets(
     return activeDownload
   }
 
+  downloadController = new AbortController()
   activeDownload = downloadLocalASRAssetsInternal(onProgress).finally(() => {
     activeDownload = null
+    downloadController = null
     currentProgress = undefined
   })
 
-  return activeDownload
+  await activeDownload
+  return getLocalASRStatus()
 }
 
 async function downloadLocalASRAssetsInternal(
@@ -180,7 +206,6 @@ async function downloadLocalASRAssetsInternal(
 
   try {
     await terminateLocalASRWorker()
-    fs.rmSync(stagingDir, { recursive: true, force: true })
     fs.mkdirSync(stagingDir, { recursive: true })
 
     for (const file of LOCAL_ASR.MODEL_FILES) {
@@ -192,7 +217,11 @@ async function downloadLocalASRAssetsInternal(
       )
     }
 
+    downloadController!.signal.throwIfAborted()
+    currentProgress = { ...currentProgress!, phase: 'initialize' }
+    onProgress?.(currentProgress)
     await verifyLocalASRModel(stagingDir)
+    downloadController!.signal.throwIfAborted()
     writeModelManifest(path.join(stagingDir, 'model.json'))
 
     fs.rmSync(paths.modelDir, { recursive: true, force: true })
@@ -202,8 +231,11 @@ async function downloadLocalASRAssetsInternal(
     lastError = undefined
     return getLocalASRStatus()
   } catch (error) {
-    fs.rmSync(stagingDir, { recursive: true, force: true })
-    lastError = error instanceof Error ? error.message : 'Local ASR download failed'
+    lastError = downloadController?.signal.aborted
+      ? undefined
+      : error instanceof Error
+        ? error.message
+        : 'Local ASR download failed'
     throw error
   }
 }
@@ -325,6 +357,7 @@ function getLocalASRWorker(): Worker {
 
   const worker = new Worker(getLocalASRWorkerUrl(), {
     workerData: {
+      numThreads: getASRThreadCount(),
       sherpaModulePath: nodeRequire.resolve('sherpa-onnx'),
       audioConfig: {
         sampleRate: AUDIO_CONFIG.SAMPLE_RATE,
@@ -338,13 +371,21 @@ function getLocalASRWorker(): Worker {
   })
 
   localASRWorker = worker
+  workerThreadCount = getASRThreadCount()
+  stopMemoryWatch = watchASRMemory(() => {
+    const error = new Error(t('errors.asrMemory'))
+    rejectAllWorkerRequests(error)
+    void terminateLocalASRWorker()
+  })
 
   worker.on('message', (response: WorkerResponse) => {
     const request = workerRequests.get(response.id)
     if (!request) return
     workerRequests.delete(response.id)
+    clearTimeout(request.timer)
 
     if (response.ok) {
+      runtimeReady = true
       request.resolve(response.result)
       return
     }
@@ -356,6 +397,9 @@ function getLocalASRWorker(): Worker {
     if (localASRWorker !== worker) return
 
     localASRWorker = null
+    stopMemoryWatch?.()
+    stopMemoryWatch = null
+    runtimeReady = false
     clearLocalASRWorkerIdleTimer()
     rejectAllWorkerRequests(error instanceof Error ? error : new Error('Local ASR worker failed'))
   })
@@ -364,10 +408,11 @@ function getLocalASRWorker(): Worker {
     if (localASRWorker !== worker) return
 
     localASRWorker = null
+    stopMemoryWatch?.()
+    stopMemoryWatch = null
+    runtimeReady = false
     clearLocalASRWorkerIdleTimer()
-    if (code !== 0) {
-      rejectAllWorkerRequests(new Error(`Local ASR worker exited with code ${code}`))
-    }
+    rejectAllWorkerRequests(new Error(`Local ASR worker exited with code ${code}`))
   })
 
   return worker
@@ -378,14 +423,28 @@ function getLocalASRWorkerUrl(): URL {
   return pathToFileURL(path.join(path.dirname(currentFilePath), 'local-asr-worker.mjs'))
 }
 
-function callLocalASRWorker<T extends LocalASRRunResult | void>(
+async function callLocalASRWorker<T extends LocalASRRunResult | void>(
   command: WorkerCommandInput,
 ): Promise<T> {
+  if (terminating) await terminating
   const worker = getLocalASRWorker()
   const id = nextWorkerRequestId++
 
   return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(
+      () => {
+        const request = workerRequests.get(id)
+        if (!request) return
+        workerRequests.delete(id)
+        request.reject(new Error('ASR operation timed out'))
+        void terminateLocalASRWorker()
+      },
+      command.command === 'transcribe'
+        ? RECORDING.TRANSCRIPTION_TIMEOUT_MS
+        : RECORDING.WORKER_TIMEOUT_MS,
+    )
     workerRequests.set(id, {
+      timer,
       resolve: resolve as (value: LocalASRRunResult | void) => void,
       reject,
     })
@@ -394,6 +453,7 @@ function callLocalASRWorker<T extends LocalASRRunResult | void>(
       worker.postMessage({ ...command, id } satisfies WorkerCommand)
     } catch (error) {
       workerRequests.delete(id)
+      clearTimeout(timer)
       reject(error instanceof Error ? error : new Error('Failed to post local ASR worker request'))
     }
   })
@@ -401,13 +461,22 @@ function callLocalASRWorker<T extends LocalASRRunResult | void>(
 
 async function terminateLocalASRWorker(): Promise<void> {
   clearLocalASRWorkerIdleTimer()
-
+  cancelledBefore = ++nextWorkerRequestId
+  if (terminating) return terminating
   const worker = localASRWorker
   if (!worker) return
-
   localASRWorker = null
-  rejectAllWorkerRequests(new Error('Local ASR worker was restarted'))
-  await worker.terminate()
+  stopMemoryWatch?.()
+  stopMemoryWatch = null
+  runtimeReady = false
+  rejectAllWorkerRequests(new Error('ASR worker was stopped'))
+  terminating = worker
+    .terminate()
+    .then(() => undefined)
+    .finally(() => {
+      terminating = null
+    })
+  await terminating
 }
 
 function clearLocalASRWorkerIdleTimer(): void {
@@ -420,24 +489,25 @@ function clearLocalASRWorkerIdleTimer(): void {
 function scheduleLocalASRWorkerIdleTermination(): void {
   clearLocalASRWorkerIdleTimer()
   if (!localASRWorker) return
-
-  localASRWorkerIdleTimer = setTimeout(() => {
-    localASRWorkerIdleTimer = null
-    console.log(
-      `[ASR:Local] Releasing worker after ${LOCAL_ASR.WORKER_IDLE_TIMEOUT_MS / 60_000} minutes of inactivity`,
-    )
-    void terminateLocalASRWorker().catch((error: unknown) => {
-      console.error(
-        '[ASR:Local] Failed to release idle worker:',
-        error instanceof Error ? error.message : error,
+  const idleSince = Date.now()
+  const check = () => {
+    if (Date.now() - idleSince >= getASRIdleTimeout()) {
+      localASRWorkerIdleTimer = null
+      void terminateLocalASRWorker().catch((error: unknown) =>
+        console.error('[ASR] Idle release failed:', error),
       )
-    })
-  }, LOCAL_ASR.WORKER_IDLE_TIMEOUT_MS)
+      return
+    }
+    localASRWorkerIdleTimer = setTimeout(check, 30_000)
+    localASRWorkerIdleTimer.unref()
+  }
+  localASRWorkerIdleTimer = setTimeout(check, 30_000)
   localASRWorkerIdleTimer.unref()
 }
 
 function rejectAllWorkerRequests(error: Error): void {
   for (const request of workerRequests.values()) {
+    clearTimeout(request.timer)
     request.reject(error)
   }
   workerRequests.clear()
@@ -470,38 +540,21 @@ async function downloadModelFile(
   downloadedBefore: number,
   onProgress?: ProgressCallback,
 ): Promise<number> {
-  fs.mkdirSync(path.dirname(outputPath), { recursive: true })
-
-  const tempPath = `${outputPath}.download`
-  fs.rmSync(tempPath, { force: true })
-
-  const downloadedBytes = await downloadFromSources(
-    file.urls,
-    async (source) => {
-      fs.rmSync(tempPath, { force: true })
-      updateDownloadProgress(downloadedBefore, onProgress)
-
-      await requestDownload(source, tempPath, downloadedBefore, onProgress)
-      await verifyFileSha256(tempPath, file.sha256)
-
-      const sourceBytes = fs.statSync(tempPath).size
-      if (sourceBytes !== file.sizeBytes) {
-        fs.rmSync(tempPath, { force: true })
-        throw new Error(`Downloaded local ASR asset has unexpected size: ${file.name}`)
+  return downloadASRAsset(
+    file,
+    outputPath,
+    downloadController!.signal,
+    (bytes) => updateDownloadProgress(downloadedBefore + bytes, onProgress),
+    () => {
+      currentProgress = {
+        ...currentProgress!,
+        phase: 'verify',
+        receivedBytes: currentProgress?.receivedBytes ?? downloadedBefore,
       }
-
-      return sourceBytes
+      onProgress?.(currentProgress)
     },
-    ({ source, nextSource, error }) => {
-      console.warn(
-        `[ASR:Local] Downloading ${file.name} from ${new URL(source).host} failed; ` +
-          `trying ${new URL(nextSource).host}: ${error.message}`,
-      )
-    },
+    path.join(path.dirname(outputPath).replace(/\.download$/u, ''), file.name),
   )
-
-  fs.renameSync(tempPath, outputPath)
-  return downloadedBytes
 }
 
 function updateDownloadProgress(receivedBytes: number, onProgress?: ProgressCallback): void {
@@ -512,131 +565,4 @@ function updateDownloadProgress(receivedBytes: number, onProgress?: ProgressCall
     percent: Math.min(100, Math.round((receivedBytes / LOCAL_ASR.DOWNLOAD_SIZE_BYTES) * 100)),
   }
   onProgress?.(currentProgress)
-}
-
-function verifyFileSha256(filePath: string, expectedSha256: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const hash = createHash('sha256')
-    const stream = fs.createReadStream(filePath)
-
-    stream.on('data', (chunk: Buffer) => {
-      hash.update(chunk)
-    })
-    stream.on('error', reject)
-    stream.on('end', () => {
-      const actualSha256 = hash.digest('hex')
-      if (actualSha256 === expectedSha256.toLowerCase()) {
-        resolve()
-        return
-      }
-
-      fs.rmSync(filePath, { force: true })
-      reject(new Error('Downloaded local ASR asset failed checksum verification'))
-    })
-  })
-}
-
-function requestDownload(
-  url: string,
-  outputPath: string,
-  downloadedBefore: number,
-  onProgress?: ProgressCallback,
-  redirectCount = 0,
-): Promise<void> {
-  return new Promise((resolve, reject) => {
-    if (redirectCount > 8) {
-      reject(new Error('Too many redirects while downloading local ASR assets'))
-      return
-    }
-
-    const parsedUrl = new URL(url)
-    if (parsedUrl.protocol !== 'https:') {
-      reject(new Error('Local ASR model downloads must use HTTPS'))
-      return
-    }
-
-    let fileStream: fs.WriteStream | null = null
-
-    const failWithCleanup = (error: Error) => {
-      if (fileStream) {
-        fileStream.destroy()
-        fileStream = null
-      }
-      try {
-        fs.rmSync(outputPath, { force: true })
-      } catch {
-        // Staging dir cleanup in the caller removes leftovers.
-      }
-      reject(error)
-    }
-
-    const request = https.get(
-      parsedUrl,
-      {
-        headers: {
-          'User-Agent': 'VoiceKey',
-        },
-        timeout: DOWNLOAD_IDLE_TIMEOUT_MS,
-      },
-      (response: IncomingMessage) => {
-        const statusCode = response.statusCode ?? 0
-        const location = response.headers.location
-
-        if (statusCode >= 300 && statusCode < 400 && location) {
-          response.resume()
-          const nextUrl = new URL(location, parsedUrl).toString()
-          requestDownload(nextUrl, outputPath, downloadedBefore, onProgress, redirectCount + 1)
-            .then(resolve)
-            .catch(reject)
-          return
-        }
-
-        if (statusCode < 200 || statusCode >= 300) {
-          response.resume()
-          reject(new Error(`Download failed with HTTP ${statusCode}`))
-          return
-        }
-
-        let receivedBytes = 0
-        const file = fs.createWriteStream(outputPath)
-        fileStream = file
-
-        response.on('data', (chunk: Buffer) => {
-          receivedBytes += chunk.length
-          const totalReceivedBytes = Math.min(
-            LOCAL_ASR.DOWNLOAD_SIZE_BYTES,
-            downloadedBefore + receivedBytes,
-          )
-          updateDownloadProgress(totalReceivedBytes, onProgress)
-        })
-
-        // Without this, a mid-transfer stream error leaves the promise pending
-        // forever ('finish' never fires and pipe() does not forward errors).
-        response.on('error', (error) => {
-          failWithCleanup(new Error(`Download stream failed: ${error.message}`))
-        })
-
-        response.pipe(file)
-        file.on('finish', () => {
-          fileStream = null
-          file.close(() => resolve())
-        })
-        file.on('error', (error) => {
-          failWithCleanup(error)
-        })
-      },
-    )
-
-    request.on('timeout', () => {
-      request.destroy(
-        new Error(
-          `Download timed out after ${DOWNLOAD_IDLE_TIMEOUT_MS / 1000}s without receiving data`,
-        ),
-      )
-    })
-
-    request.on('error', (error) => {
-      failWithCleanup(error)
-    })
-  })
 }

@@ -23,8 +23,11 @@ export async function registerGlobalHotkeys(
 
   let debounceTimer: NodeJS.Timeout | null = null
   const DEBOUNCE_MS = 50
+  let pttPressed = false
 
   const startPTT = () => {
+    if (pttPressed) return
+    pttPressed = true
     const session = getCurrentSession()
     if (session?.status === 'recording' || debounceTimer) return
     debounceTimer = setTimeout(() => {
@@ -37,6 +40,7 @@ export async function registerGlobalHotkeys(
   }
 
   const stopPTT = () => {
+    pttPressed = false
     if (debounceTimer) {
       clearTimeout(debounceTimer)
       debounceTimer = null
@@ -85,30 +89,10 @@ export async function registerGlobalHotkeys(
     const checkPTT = () => {
       // 判断是否按住设置的快捷键（精确匹配）
       const isPressed = ioHookManager.isPressed(pttConfig.modifiers, pttConfig.key)
-      const session = getCurrentSession()
-
-      // Start Recording（带防抖）
-      if (isPressed && (!session || session.status !== 'recording') && !debounceTimer) {
-        // 设置防抖计时器，50ms 后再次确认
-        debounceTimer = setTimeout(() => {
-          // 再次检查是否仍然精确匹配
-          if (ioHookManager.isPressed(pttConfig.modifiers, pttConfig.key)) {
-            handleStartRecording()
-          }
-          debounceTimer = null
-        }, DEBOUNCE_MS)
-      }
-
-      // 取消待确认的录音（精确匹配失败）
-      if (!isPressed && debounceTimer) {
-        clearTimeout(debounceTimer)
-        debounceTimer = null
-      }
-
-      // Stop Recording
-      if (!isPressed && session && session.status === 'recording') {
-        stopPTT()
-      }
+      // A rejected busy press is consumed until release. Key repeat must not
+      // unexpectedly start a recording when previous processing finishes.
+      if (isPressed && !pttPressed) startPTT()
+      else if (!isPressed && pttPressed) stopPTT()
     }
 
     ioHookManager.on('keydown', checkPTT)

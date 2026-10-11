@@ -132,7 +132,7 @@ describe('ConfigManager local ASR migration', () => {
     const manager = createManager({})
 
     expect(manager.getASRConfig()).toEqual({
-      lowVolumeMode: true,
+      lowVolumeMode: false,
       microphoneDeviceId: '',
       microphoneDeviceLabel: '',
       streamingEnabled: false,
@@ -165,7 +165,7 @@ describe('ConfigManager local ASR migration', () => {
     manager.setASRConfig({ streamingEnabled: true })
 
     expect(getPath(mocks.lastStoreData, 'asr')).toEqual({
-      lowVolumeMode: true,
+      lowVolumeMode: false,
       microphoneDeviceId: '',
       microphoneDeviceLabel: '',
       streamingEnabled: true,

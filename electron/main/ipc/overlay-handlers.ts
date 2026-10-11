@@ -11,7 +11,9 @@
 
 import { ipcMain } from 'electron'
 import { IPC_CHANNELS, type VoiceSession } from '../../shared/types'
-import { sendAudioLevel, setOverlayIgnoreMouseEvents, showErrorAndHide } from '../window/overlay'
+import { sendAudioLevel, setOverlayIgnoreMouseEvents } from '../window/overlay'
+import { getBackgroundWindow } from '../window/background'
+import { failRecordingSession } from '../audio/session-manager'
 import { t } from '../i18n'
 
 const MAX_RENDERER_ERROR_LENGTH = 500
@@ -70,19 +72,18 @@ export function registerOverlayHandlers(): void {
   )
 
   // error: 渲染进程错误上报（如麦克风/MediaRecorder 失败）
-  ipcMain.on('error', (_event, error: unknown) => {
+  ipcMain.on('error', (event, error: unknown, sessionId: unknown) => {
+    if (
+      event.sender !== getBackgroundWindow()?.webContents ||
+      sessionId !== deps.getCurrentSession()?.id
+    )
+      return
     const message = coerceErrorMessage(error)
     console.error('[IPC:Overlay] 🔴 Renderer Error received:', message)
     console.error('[IPC:Overlay] 🔴 Error type:', typeof error)
     console.error('[IPC:Overlay] 🔴 Current session status:', deps.getCurrentSession()?.status)
 
-    const hadActiveSession = Boolean(deps.getCurrentSession())
-    deps.setSessionError()
+    if (typeof sessionId === 'string') failRecordingSession(sessionId, message)
     deps.showNotification(t('notification.errorTitle'), message)
-
-    // 录音已中断：把 HUD 切到错误态并自动隐藏，避免停留在录音界面
-    if (hadActiveSession) {
-      showErrorAndHide(message)
-    }
   })
 }

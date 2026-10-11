@@ -2,6 +2,9 @@ export { initializeFfmpeg, convertToWAV, isFfmpegInitialized } from './converter
 
 export {
   getCurrentSession,
+  isSessionBusy,
+  recordingStopped,
+  failRecordingSession,
   setSessionError,
   clearSession,
   updateSession,

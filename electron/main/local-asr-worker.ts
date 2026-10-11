@@ -1,9 +1,9 @@
 import { createRequire } from 'node:module'
-import { cpus } from 'node:os'
 import path from 'node:path'
 import { parentPort, workerData } from 'node:worker_threads'
 
 type LocalASRWorkerData = {
+  numThreads: number
   sherpaModulePath: string
   audioConfig: {
     sampleRate: number
@@ -50,10 +50,6 @@ const sherpa = nodeRequire(data.sherpaModulePath) as SherpaModule
 let cachedRecognizer: OfflineRecognizer | null = null
 let cachedRecognizerModelDir: string | null = null
 
-function recognizerThreadCount(): number {
-  return Math.max(1, Math.min(4, Math.floor(cpus().length / 2) || 1))
-}
-
 function createRecognizer(modelDir: string): OfflineRecognizer {
   return sherpa.createOfflineRecognizer({
     featConfig: { sampleRate: data.audioConfig.sampleRate, featureDim: 80 },
@@ -64,7 +60,7 @@ function createRecognizer(modelDir: string): OfflineRecognizer {
         useInverseTextNormalization: 1,
       },
       tokens: path.join(modelDir, data.localASR.tokensFile),
-      numThreads: recognizerThreadCount(),
+      numThreads: data.numThreads,
       provider: 'cpu',
       debug: 0,
     },

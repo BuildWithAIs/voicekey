@@ -1,3 +1,4 @@
+import { MicrophoneTest } from '@/components/MicrophoneTest'
 import { ReactNode, useCallback, useEffect, useRef, useState } from 'react'
 import {
   CheckCircle2,
@@ -113,7 +114,7 @@ function isAppPreferencesDirty(current: AppConfig['app'], original: AppConfig['a
 
 function isAsrConfigDirty(current: AppConfig['asr'], original: AppConfig['asr']): boolean {
   return (
-    (current.lowVolumeMode ?? true) !== (original.lowVolumeMode ?? true) ||
+    (current.lowVolumeMode ?? false) !== (original.lowVolumeMode ?? false) ||
     (current.streamingEnabled ?? false) !== (original.streamingEnabled ?? false) ||
     (current.microphoneDeviceId ?? '') !== (original.microphoneDeviceId ?? '') ||
     (current.microphoneDeviceLabel ?? '') !== (original.microphoneDeviceLabel ?? '')
@@ -257,6 +258,7 @@ function ModelCard({
   desc,
   ready,
   readyLabel,
+  hasFiles,
   downloading,
   progressLabel,
   progressPercent,
@@ -276,12 +278,15 @@ function ModelCard({
   onToggle,
   onOpenDirectory,
   openDirectoryLabel,
+  onCancel,
+  cancelLabel,
 }: {
   icon: ReactNode
   title: string
   desc: string
   ready: boolean
   readyLabel: string
+  hasFiles: boolean
   downloading: boolean
   progressLabel: string
   progressPercent?: number | null
@@ -301,6 +306,8 @@ function ModelCard({
   onToggle: (checked: boolean) => void
   onOpenDirectory: () => void
   openDirectoryLabel: string
+  onCancel: () => void
+  cancelLabel: string
 }) {
   return (
     <div className={cn('rounded-lg border bg-secondary/30 p-4', selected && 'border-primary/40')}>
@@ -333,7 +340,7 @@ function ModelCard({
           >
             <FolderOpen className="h-4 w-4" />
           </Button>
-          {ready ? (
+          {hasFiles ? (
             <Button
               type="button"
               variant="ghost"
@@ -350,7 +357,8 @@ function ModelCard({
                 <Trash2 className="h-4 w-4" />
               )}
             </Button>
-          ) : (
+          ) : null}
+          {!ready ? (
             <Button
               variant="secondary"
               size="sm"
@@ -365,15 +373,19 @@ function ModelCard({
               )}
               {downloading ? downloadingLabel : downloadLabel}
             </Button>
-          )}
-          <Switch
-            checked={selected}
-            onCheckedChange={onToggle}
-            disabled={!supported || downloading || deleting}
-            aria-label={`${title}: ${enableLabel}`}
-            title={selected ? selectedLabel : enableLabel}
-            className="no-drag ml-3 cursor-pointer disabled:cursor-not-allowed"
-          />
+          ) : null}
+          <label className="ml-3 flex cursor-pointer items-center gap-2 text-xs">
+            <input
+              type="radio"
+              name="asr-model"
+              checked={selected}
+              onChange={() => onToggle(true)}
+              disabled={!supported || !ready || downloading || deleting}
+              aria-label={`${title}: ${enableLabel}`}
+              className="h-4 w-4 accent-primary"
+            />
+            {selected ? selectedLabel : enableLabel}
+          </label>
         </div>
       </div>
       {downloading ? (
@@ -381,6 +393,9 @@ function ModelCard({
           <div className="mb-1 flex items-center justify-between text-[11px] text-muted-foreground">
             <span>{progressLabel}</span>
             <span>{progressPercent ?? 0}%</span>
+            <Button variant="ghost" size="sm" onClick={onCancel}>
+              {cancelLabel}
+            </Button>
           </div>
           <div className="h-1.5 overflow-hidden rounded-full bg-muted">
             <div
@@ -437,7 +452,7 @@ export default function SettingsPage() {
       language: 'system',
     },
     asr: {
-      lowVolumeMode: true,
+      lowVolumeMode: false,
       microphoneDeviceId: '',
       microphoneDeviceLabel: '',
       streamingEnabled: false,
@@ -585,16 +600,13 @@ export default function SettingsPage() {
   // when progress hits 100% or the download finished outside this page
   // (progress events alone never report completion).
   useEffect(() => {
-    if (!downloadingLocalAsr) return
-
     const timer = setInterval(() => {
       void window.electronAPI
         .getLocalASRStatus()
         .then((status) => {
-          if (status.downloading) return
           setLocalAsrStatus(status)
           setLocalAsrProgress(status.progress ?? null)
-          setDownloadingLocalAsr(false)
+          setDownloadingLocalAsr(status.downloading)
         })
         .catch((error) => {
           console.error('Failed to refresh local ASR status:', error)
@@ -631,16 +643,13 @@ export default function SettingsPage() {
   }, [])
 
   useEffect(() => {
-    if (!downloadingStreamingAsr) return
-
     const timer = setInterval(() => {
       void window.electronAPI
         .getStreamingASRStatus()
         .then((status) => {
-          if (status.downloading) return
           setStreamingAsrStatus(status)
           setStreamingAsrProgress(status.progress ?? null)
-          setDownloadingStreamingAsr(false)
+          setDownloadingStreamingAsr(status.downloading)
         })
         .catch((error) => {
           console.error('Failed to refresh streaming ASR status:', error)
@@ -990,7 +999,18 @@ export default function SettingsPage() {
     }
   }, [config, originalConfig, isConfigLoading])
 
+  const cancelledDownloads = useRef(new Set<ASRMode>())
+  const handleCancelASRDownload = async (mode: ASRMode) => {
+    cancelledDownloads.current.add(mode)
+    try {
+      await window.electronAPI.cancelASRDownload(mode)
+    } catch (error) {
+      setAsrTestStatus({ type: 'error', message: String(error) })
+    }
+  }
+
   const handleDownloadLocalASR = async () => {
+    cancelledDownloads.current.delete('classic')
     setDownloadingLocalAsr(true)
     setAsrTestStatus(null)
     try {
@@ -1001,6 +1021,10 @@ export default function SettingsPage() {
         setAsrTestStatus({ type: 'success', message: t('settings.localAsr.downloadComplete') })
       }
     } catch (error) {
+      if (cancelledDownloads.current.has('classic')) {
+        setAsrTestStatus({ type: 'success', message: t('settings.modelStorage.cancelled') })
+        return
+      }
       const errorMessage = error instanceof Error ? error.message : t('common.unknownError')
       setAsrTestStatus({
         type: 'error',
@@ -1012,6 +1036,7 @@ export default function SettingsPage() {
   }
 
   const handleDownloadStreamingASR = async () => {
+    cancelledDownloads.current.delete('streaming')
     if (hostCapabilities?.available && !hostCapabilities.meetsStreamingAsrRecommendation) {
       const confirmed = window.confirm(
         t('settings.streamingAsr.downloadConfirmWeak', {
@@ -1035,6 +1060,10 @@ export default function SettingsPage() {
         })
       }
     } catch (error) {
+      if (cancelledDownloads.current.has('streaming')) {
+        setAsrTestStatus({ type: 'success', message: t('settings.modelStorage.cancelled') })
+        return
+      }
       const errorMessage = error instanceof Error ? error.message : t('common.unknownError')
       setAsrTestStatus({
         type: 'error',
@@ -2021,18 +2050,28 @@ export default function SettingsPage() {
               ) : null}
             </div>
 
+            <MicrophoneTest deviceId={config.asr.microphoneDeviceId} />
             <div className="mt-4 space-y-3">
               <ModelCard
                 icon={<HardDrive className="h-4 w-4" />}
                 title={t('settings.localAsr.title')}
-                desc={t('settings.localAsr.help')}
+                desc={`${t('settings.localAsr.help')} · SenseVoiceSmall int8 · 229 MiB`}
                 ready={localAsrReady}
-                readyLabel={t('settings.localAsr.ready')}
+                hasFiles={Boolean(localAsrStatus?.hasFiles || localAsrReady)}
+                readyLabel={t(
+                  `settings.modelStorage.runtime.${localAsrStatus?.runtimeState ?? 'unloaded'}`,
+                )}
                 downloading={downloadingLocalAsr}
                 progressLabel={localAsrProgressLabel}
                 progressPercent={localAsrProgressPercent}
                 deleting={deletingLocalAsr}
-                downloadDisabled={!localAsrSupported || downloadingLocalAsr}
+                downloadDisabled={
+                  !localAsrSupported ||
+                  downloadingLocalAsr ||
+                  downloadingStreamingAsr ||
+                  deletingLocalAsr ||
+                  deletingStreamingAsr
+                }
                 downloadLabel={t('settings.localAsr.download')}
                 downloadingLabel={t('settings.localAsr.downloading')}
                 onDownload={handleDownloadLocalASR}
@@ -2041,10 +2080,12 @@ export default function SettingsPage() {
                 deletingLabel={t('settings.modelStorage.deleting')}
                 supported={localAsrSupported}
                 unsupportedText={t('settings.localAsr.unsupported')}
-                selected={!streamingEnabled}
+                selected={!streamingEnabled && localAsrReady}
                 enableLabel={t('settings.modelStorage.enable')}
                 selectedLabel={t('settings.modelStorage.selected')}
-                onToggle={(checked) => handleSelectASRMode(checked ? 'classic' : 'streaming')}
+                onToggle={() => handleSelectASRMode('classic')}
+                onCancel={() => void handleCancelASRDownload('classic')}
+                cancelLabel={t('common.cancel')}
                 onOpenDirectory={() => void handleOpenASRModelDirectory('classic')}
                 openDirectoryLabel={t('settings.modelStorage.open')}
               />
@@ -2052,14 +2093,23 @@ export default function SettingsPage() {
               <ModelCard
                 icon={<Activity className="h-4 w-4" />}
                 title={t('settings.streamingAsr.title')}
-                desc={t('settings.streamingAsr.help')}
+                desc={`${t('settings.streamingAsr.help')} · X-ASR 480 ms · 586 MiB`}
                 ready={streamingAsrReady}
-                readyLabel={t('settings.streamingAsr.ready')}
+                hasFiles={Boolean(streamingAsrStatus?.hasFiles || streamingAsrReady)}
+                readyLabel={t(
+                  `settings.modelStorage.runtime.${streamingAsrStatus?.runtimeState ?? 'unloaded'}`,
+                )}
                 downloading={downloadingStreamingAsr}
                 progressLabel={streamingAsrProgressLabel}
                 progressPercent={streamingAsrProgressPercent}
                 deleting={deletingStreamingAsr}
-                downloadDisabled={!streamingAsrSupported || downloadingStreamingAsr}
+                downloadDisabled={
+                  !streamingAsrSupported ||
+                  downloadingStreamingAsr ||
+                  downloadingLocalAsr ||
+                  deletingLocalAsr ||
+                  deletingStreamingAsr
+                }
                 downloadLabel={t('settings.streamingAsr.download')}
                 downloadingLabel={t('settings.streamingAsr.downloading')}
                 onDownload={handleDownloadStreamingASR}
@@ -2068,15 +2118,22 @@ export default function SettingsPage() {
                 deletingLabel={t('settings.modelStorage.deleting')}
                 supported={streamingAsrSupported}
                 unsupportedText={t('settings.streamingAsr.unsupported')}
-                selected={streamingEnabled}
+                selected={streamingEnabled && streamingAsrReady}
                 enableLabel={t('settings.modelStorage.enable')}
                 selectedLabel={t('settings.modelStorage.selected')}
-                onToggle={(checked) => handleSelectASRMode(checked ? 'streaming' : 'classic')}
+                onToggle={() => handleSelectASRMode('streaming')}
+                onCancel={() => void handleCancelASRDownload('streaming')}
+                cancelLabel={t('common.cancel')}
                 onOpenDirectory={() => void handleOpenASRModelDirectory('streaming')}
                 openDirectoryLabel={t('settings.modelStorage.open')}
               />
             </div>
 
+            {!asrHealthReady ? (
+              <p className="mt-3 text-xs text-muted-foreground">
+                {t('settings.modelStorage.noModel')}
+              </p>
+            ) : null}
             <InlineFeedback status={asrTestStatus} testId="asr-test-status" />
 
             <div className="mt-4 flex items-start gap-2 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-3 py-2.5 text-xs leading-relaxed text-muted-foreground">
@@ -2088,7 +2145,7 @@ export default function SettingsPage() {
               <ToggleRow
                 title={t('settings.lowVolumeMode')}
                 desc={t('settings.lowVolumeModeHelp')}
-                checked={config.asr.lowVolumeMode ?? true}
+                checked={config.asr.lowVolumeMode ?? false}
                 onChange={(checked) =>
                   setConfig((prev) => ({ ...prev, asr: { ...prev.asr, lowVolumeMode: checked } }))
                 }

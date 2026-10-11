@@ -1,4 +1,9 @@
 import { ipcMain } from 'electron'
+import { RECORDING } from '../../shared/constants'
+import { recordingStopped, getCurrentSession } from '../audio/session-manager'
+import { getBackgroundWindow } from '../window/background'
+import { showNotification } from '../notification'
+import { t } from '../i18n'
 import {
   IPC_CHANNELS,
   type AudioChunkPayload,
@@ -7,10 +12,9 @@ import {
   type VoiceSession,
 } from '../../shared/types'
 
-// Session ids are `session-<timestamp>`; chunks rotate every 30s within a
-// 5-minute session, so these bounds are generous.
+// Classic capture submits a single final file; sessions use opaque UUIDs.
 const MAX_SESSION_ID_LENGTH = 128
-const MAX_CHUNK_INDEX = 10_000
+const MAX_CHUNK_INDEX = 0
 const MAX_MIME_TYPE_LENGTH = 128
 const SESSION_ID_PATTERN = /^[A-Za-z0-9._-]+$/
 const MAX_STREAMING_FRAME_BYTES = 1024 * 1024
@@ -31,10 +35,11 @@ function isValidAudioChunkPayload(payload: unknown): payload is AudioChunkPayloa
     Number.isSafeInteger(chunkIndex) &&
     chunkIndex >= 0 &&
     chunkIndex <= MAX_CHUNK_INDEX &&
-    typeof isFinal === 'boolean' &&
+    isFinal === true &&
     typeof mimeType === 'string' &&
     mimeType.length <= MAX_MIME_TYPE_LENGTH &&
-    (buffer instanceof ArrayBuffer || ArrayBuffer.isView(buffer))
+    buffer instanceof ArrayBuffer &&
+    buffer.byteLength <= RECORDING.MAX_AUDIO_BYTES
   )
 }
 
@@ -98,6 +103,23 @@ export function initSessionHandlers(dependencies: SessionHandlersDeps): void {
 }
 
 export function registerSessionHandlers(): void {
+  ipcMain.on(IPC_CHANNELS.RECORDING_STOPPED, (event, sessionId: unknown) => {
+    if (event.sender === getBackgroundWindow()?.webContents && hasValidSessionId(sessionId))
+      recordingStopped(sessionId)
+  })
+  ipcMain.on(IPC_CHANNELS.MICROPHONE_FALLBACK, (event, sessionId: unknown, label: unknown) => {
+    if (
+      event.sender !== getBackgroundWindow()?.webContents ||
+      sessionId !== getCurrentSession()?.id
+    )
+      return
+    showNotification(
+      t('settings.microphone.label'),
+      t('settings.microphone.fallbackNotice', {
+        device: typeof label === 'string' ? label.slice(0, 200) : '',
+      }),
+    )
+  })
   ipcMain.handle(IPC_CHANNELS.SESSION_START, async () => {
     await deps.handleStartRecording()
   })
@@ -110,7 +132,8 @@ export function registerSessionHandlers(): void {
     return deps.getCurrentSession()?.status || 'idle'
   })
 
-  ipcMain.on(IPC_CHANNELS.AUDIO_DATA, (_event, payload: unknown) => {
+  ipcMain.on(IPC_CHANNELS.AUDIO_DATA, (event, payload: unknown) => {
+    if (event.sender !== getBackgroundWindow()?.webContents) return
     if (!isValidAudioChunkPayload(payload)) {
       console.error('[IPC:Session] Dropping malformed AUDIO_DATA payload')
       return
@@ -124,7 +147,8 @@ export function registerSessionHandlers(): void {
     })
   })
 
-  ipcMain.on(IPC_CHANNELS.STREAMING_AUDIO_FRAME, (_event, payload: unknown) => {
+  ipcMain.on(IPC_CHANNELS.STREAMING_AUDIO_FRAME, (event, payload: unknown) => {
+    if (event.sender !== getBackgroundWindow()?.webContents) return
     if (!isValidStreamingAudioFramePayload(payload)) {
       console.error('[IPC:Session] Dropping malformed streaming audio frame')
       return
@@ -133,7 +157,8 @@ export function registerSessionHandlers(): void {
     deps.handleStreamingAudioFrame(payload)
   })
 
-  ipcMain.on(IPC_CHANNELS.STREAMING_AUDIO_END, (_event, payload: unknown) => {
+  ipcMain.on(IPC_CHANNELS.STREAMING_AUDIO_END, (event, payload: unknown) => {
+    if (event.sender !== getBackgroundWindow()?.webContents) return
     if (!isValidStreamingAudioEndPayload(payload)) {
       console.error('[IPC:Session] Dropping malformed streaming audio end marker')
       return

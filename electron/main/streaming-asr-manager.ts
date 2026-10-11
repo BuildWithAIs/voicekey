@@ -1,14 +1,12 @@
 import { app } from 'electron'
 import fs from 'node:fs'
-import { createHash } from 'node:crypto'
-import type { IncomingMessage } from 'node:http'
-import https from 'node:https'
 import { createRequire } from 'node:module'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { Worker } from 'node:worker_threads'
+import { t } from './i18n'
 import { configManager } from './config-manager'
-import { AUDIO_CONFIG, STREAMING_ASR } from '../shared/constants'
+import { RECORDING, AUDIO_CONFIG, STREAMING_ASR } from '../shared/constants'
 import type {
   LocalASRDownloadProgress,
   LocalASRStatus,
@@ -16,7 +14,8 @@ import type {
 } from '../shared/types'
 import { getASRModelStorageDir, removeManagedASRInstallDir } from './asr-model-storage'
 import { detectPublicIpCountryCode, orderDownloadSourcesForCountry } from './download-region'
-import { downloadFromSources } from './download-sources'
+import { downloadASRAsset } from './asr-download'
+import { getASRIdleTimeout, getASRThreadCount, watchASRMemory } from './asr-runtime-policy'
 
 type ModelFile = (typeof STREAMING_ASR.MODEL_FILES)[number]
 
@@ -57,11 +56,13 @@ type WorkerCommand = WorkerCommandInput & { id: number }
 type WorkerResponse =
   | { id: number; ok: true; result?: StreamingASRFinalResult }
   | { id: number; ok: false; error: string }
+  | { event: 'consumed'; sessionId: string; sequence: number }
   | { event: 'partial'; sessionId: string; text: string }
   | { event: 'session-error'; sessionId: string; error: string }
 type WorkerRequest = {
   resolve: (value: StreamingASRFinalResult | void) => void
   reject: (error: Error) => void
+  timer: NodeJS.Timeout
 }
 
 type StreamingSessionCallbacks = {
@@ -74,14 +75,18 @@ type ActiveStreamingSession = {
   ready: Promise<void>
   frameQueue: Promise<void>
   lastSequence: number
+  pendingFrames: Map<number, number>
+  pendingSeconds: number
+  backlogLimitSeconds: number
+  catchupDeadline: number | null
   failure: Error | null
   errorReported: boolean
   callbacks: StreamingSessionCallbacks
 }
 
 const nodeRequire = createRequire(import.meta.url)
-const DOWNLOAD_IDLE_TIMEOUT_MS = 30_000
 
+let downloadController: AbortController | null = null
 let activeDownload: Promise<LocalASRStatus> | null = null
 let deletingAssets = false
 let currentProgress: LocalASRDownloadProgress | undefined
@@ -89,6 +94,10 @@ let lastError: string | undefined
 let streamingWorker: Worker | null = null
 let streamingWorkerIdleTimer: NodeJS.Timeout | null = null
 let activeSession: ActiveStreamingSession | null = null
+let stopMemoryWatch: (() => void) | null = null
+let workerThreadCount = 0
+let runtimeReady = false
+let terminating: Promise<void> | null = null
 let nextWorkerRequestId = 1
 const workerRequests = new Map<number, WorkerRequest>()
 
@@ -101,8 +110,10 @@ export function getStreamingASRStatus(): LocalASRStatus {
     supported: true,
     ready: Boolean(modelDirs),
     downloading: Boolean(activeDownload),
+    runtimeState: runtimeReady ? 'ready' : streamingWorker ? 'loading' : 'unloaded',
     modelName: STREAMING_ASR.MODEL_NAME,
     installDir: paths.installDir,
+    hasFiles: fs.existsSync(paths.installDir),
     storageDir: getASRModelStorageDir(),
     modelPath: modelDirs
       ? path.join(modelDirs.asrModelDir, STREAMING_ASR.ENCODER_FILE)
@@ -128,6 +139,7 @@ export async function startStreamingASRSession(
     await cancelStreamingASRSession(activeSession.id)
   }
 
+  if (streamingWorker && workerThreadCount !== getASRThreadCount()) await terminateWorker()
   const paths = ensureStreamingASRReady()
   const modelDirs = getReadyModelDirs(paths)
   if (!modelDirs) {
@@ -139,6 +151,10 @@ export async function startStreamingASRSession(
     ready: Promise.resolve(),
     frameQueue: Promise.resolve(),
     lastSequence: -1,
+    pendingFrames: new Map(),
+    pendingSeconds: 0,
+    backlogLimitSeconds: RECORDING.MAX_STREAMING_STARTUP_SECONDS,
+    catchupDeadline: null,
     failure: null,
     errorReported: false,
     callbacks,
@@ -156,6 +172,13 @@ export async function startStreamingASRSession(
   })
 
   await session.ready
+  // Loading is slower than steady-state inference. Permit a bounded capture
+  // buffer during cold start, then require the recognizer to catch up promptly.
+  session.backlogLimitSeconds = Math.max(
+    RECORDING.MAX_STREAMING_BACKLOG_SECONDS,
+    session.pendingSeconds + 0.5,
+  )
+  session.catchupDeadline = Date.now() + RECORDING.STREAMING_CATCHUP_TIMEOUT_MS
 }
 
 export async function warmStreamingASR(): Promise<void> {
@@ -166,6 +189,7 @@ export async function warmStreamingASR(): Promise<void> {
   }
 
   clearWorkerIdleTimer()
+  if (streamingWorker && workerThreadCount !== getASRThreadCount()) await terminateWorker()
   const paths = ensureStreamingASRReady()
   const modelDirs = getReadyModelDirs(paths)
   if (!modelDirs) {
@@ -186,7 +210,27 @@ export async function warmStreamingASR(): Promise<void> {
 export function pushStreamingAudioFrame(payload: StreamingAudioFramePayload): void {
   const session = activeSession
   if (!session || session.id !== payload.sessionId || session.failure) return
-  if (payload.sequence <= session.lastSequence) return
+  if (payload.sequence !== session.lastSequence + 1) {
+    reportSessionError(session, new Error(t('errors.audioSequence')))
+    return
+  }
+  const seconds = payload.buffer.byteLength / Float32Array.BYTES_PER_ELEMENT / payload.sampleRate
+  if (
+    session.catchupDeadline !== null &&
+    session.pendingSeconds <= RECORDING.MAX_STREAMING_BACKLOG_SECONDS
+  ) {
+    session.backlogLimitSeconds = RECORDING.MAX_STREAMING_BACKLOG_SECONDS
+    session.catchupDeadline = null
+  }
+  if (
+    session.pendingSeconds + seconds > session.backlogLimitSeconds ||
+    (session.catchupDeadline !== null && Date.now() > session.catchupDeadline)
+  ) {
+    reportSessionError(session, new Error(t('errors.asrOverloaded')))
+    return
+  }
+  session.pendingSeconds += seconds
+  session.pendingFrames.set(payload.sequence, seconds)
 
   session.lastSequence = payload.sequence
   const buffer = payload.buffer
@@ -214,13 +258,18 @@ export function pushStreamingAudioFrame(payload: StreamingAudioFramePayload): vo
     })
 }
 
-export async function finishStreamingASRSession(sessionId: string): Promise<string> {
+export async function finishStreamingASRSession(
+  sessionId: string,
+  finalSequence?: number,
+): Promise<string> {
   const session = activeSession
   if (!session || session.id !== sessionId) {
     throw new Error('Streaming ASR session is not active')
   }
 
   try {
+    if (finalSequence !== undefined && finalSequence !== session.lastSequence + 1)
+      throw new Error(t('errors.audioSequence'))
     await session.ready
     await session.frameQueue
     if (session.failure) throw session.failure
@@ -228,6 +277,9 @@ export async function finishStreamingASRSession(sessionId: string): Promise<stri
     const result = await callWorker<StreamingASRFinalResult>({ command: 'finish', sessionId })
     session.callbacks.onPartial(result.text)
     return result.text
+  } catch (error) {
+    await terminateWorker()
+    throw error
   } finally {
     if (activeSession === session) {
       activeSession = null
@@ -240,13 +292,10 @@ export async function cancelStreamingASRSession(sessionId: string): Promise<void
   const session = activeSession
   if (!session || session.id !== sessionId) return
 
+  // Termination bypasses queued PCM and synchronous inference. Never queue a
+  // cancel command behind the work the user is trying to stop.
   activeSession = null
-  try {
-    await session.ready.catch(() => undefined)
-    await callWorker<void>({ command: 'cancel', sessionId })
-  } finally {
-    scheduleWorkerIdleTermination()
-  }
+  await terminateWorker()
 }
 
 export async function releaseStreamingASR(): Promise<void> {
@@ -281,6 +330,13 @@ export async function deleteStreamingASRAssets(): Promise<LocalASRStatus> {
   }
 }
 
+export async function cancelStreamingASRDownload(): Promise<void> {
+  if (!activeDownload) return
+  downloadController?.abort()
+  await terminateWorker()
+  await activeDownload.catch(() => undefined)
+}
+
 export async function downloadStreamingASRAssets(
   onProgress?: ProgressCallback,
 ): Promise<LocalASRStatus> {
@@ -289,11 +345,14 @@ export async function downloadStreamingASRAssets(
   }
   if (activeDownload) return activeDownload
 
+  downloadController = new AbortController()
   activeDownload = downloadStreamingASRAssetsInternal(onProgress).finally(() => {
     activeDownload = null
+    downloadController = null
     currentProgress = undefined
   })
-  return activeDownload
+  await activeDownload
+  return getStreamingASRStatus()
 }
 
 function ensureStreamingASRReady(): StreamingASRPaths {
@@ -335,7 +394,11 @@ async function downloadStreamingASRAssetsInternal(
     lastError = undefined
     return getStreamingASRStatus()
   } catch (error) {
-    lastError = error instanceof Error ? error.message : 'Streaming ASR download failed'
+    lastError = downloadController?.signal.aborted
+      ? undefined
+      : error instanceof Error
+        ? error.message
+        : 'Streaming ASR download failed'
     throw error
   }
 }
@@ -455,28 +518,11 @@ async function installModelBundle(
   const stagingDir = `${bundle.paths.modelDir}.download`
   let completedInBundle = 0
 
-  try {
-    fs.rmSync(stagingDir, { recursive: true, force: true })
+  {
     fs.mkdirSync(stagingDir, { recursive: true })
 
     for (const file of bundle.files) {
-      const installedFile = path.join(bundle.paths.modelDir, file.name)
       const stagingFile = path.join(stagingDir, file.name)
-      if (fileHasSize(installedFile, file)) {
-        try {
-          await verifyFileSha256(installedFile, file.sha256)
-          fs.copyFileSync(installedFile, stagingFile)
-          completedInBundle += file.sizeBytes
-          updateDownloadProgress(completedBefore + completedInBundle, onProgress)
-          continue
-        } catch (error) {
-          console.warn(
-            `[ASR:Streaming] Existing ${bundle.label} asset failed verification; downloading it again:`,
-            error instanceof Error ? error.message : error,
-          )
-        }
-      }
-
       completedInBundle += await downloadModelFile(
         file,
         stagingFile,
@@ -486,15 +532,16 @@ async function installModelBundle(
       )
     }
 
+    downloadController!.signal.throwIfAborted()
+    currentProgress = { ...currentProgress!, phase: 'initialize' }
+    onProgress?.(currentProgress)
     await verifyModelBundle(stagingDir)
+    downloadController!.signal.throwIfAborted()
     writeModelManifest(path.join(stagingDir, 'model.json'), bundle)
 
     fs.rmSync(bundle.paths.modelDir, { recursive: true, force: true })
     fs.mkdirSync(path.dirname(bundle.paths.modelDir), { recursive: true })
     fs.renameSync(stagingDir, bundle.paths.modelDir)
-  } catch (error) {
-    fs.rmSync(stagingDir, { recursive: true, force: true })
-    throw error
   }
 }
 
@@ -511,6 +558,7 @@ function getWorker(): Worker {
 
   const worker = new Worker(getWorkerUrl(), {
     workerData: {
+      numThreads: getASRThreadCount(),
       sherpaModulePath: nodeRequire.resolve('sherpa-onnx'),
       audioConfig: { sampleRate: AUDIO_CONFIG.SAMPLE_RATE },
       model: {
@@ -525,12 +573,27 @@ function getWorker(): Worker {
     },
   })
   streamingWorker = worker
+  workerThreadCount = getASRThreadCount()
+  stopMemoryWatch = watchASRMemory(() => {
+    const error = new Error(t('errors.asrMemory'))
+    rejectAllWorkerRequests(error)
+    if (activeSession) reportSessionError(activeSession, error)
+    void terminateWorker()
+  })
 
   worker.on('message', (response: WorkerResponse) => {
     if ('event' in response) {
       const session = activeSession
       if (!session || session.id !== response.sessionId) return
 
+      if (response.event === 'consumed') {
+        session.pendingSeconds = Math.max(
+          0,
+          session.pendingSeconds - (session.pendingFrames.get(response.sequence) ?? 0),
+        )
+        session.pendingFrames.delete(response.sequence)
+        return
+      }
       if (response.event === 'partial') {
         session.callbacks.onPartial(response.text)
       } else {
@@ -542,7 +605,9 @@ function getWorker(): Worker {
     const request = workerRequests.get(response.id)
     if (!request) return
     workerRequests.delete(response.id)
+    clearTimeout(request.timer)
     if (response.ok) {
+      runtimeReady = true
       request.resolve(response.result)
     } else {
       request.reject(new Error(response.error))
@@ -552,6 +617,9 @@ function getWorker(): Worker {
   worker.on('error', (error) => {
     if (streamingWorker !== worker) return
     streamingWorker = null
+    stopMemoryWatch?.()
+    stopMemoryWatch = null
+    runtimeReady = false
     clearWorkerIdleTimer()
     const workerError = error instanceof Error ? error : new Error('Streaming ASR worker failed')
     rejectAllWorkerRequests(workerError)
@@ -561,8 +629,11 @@ function getWorker(): Worker {
   worker.on('exit', (code) => {
     if (streamingWorker !== worker) return
     streamingWorker = null
+    stopMemoryWatch?.()
+    stopMemoryWatch = null
+    runtimeReady = false
     clearWorkerIdleTimer()
-    if (code !== 0) {
+    {
       const error = new Error(`Streaming ASR worker exited with code ${code}`)
       rejectAllWorkerRequests(error)
       if (activeSession) reportSessionError(activeSession, error)
@@ -577,14 +648,23 @@ function getWorkerUrl(): URL {
   return pathToFileURL(path.join(path.dirname(currentFilePath), 'streaming-asr-worker.mjs'))
 }
 
-function callWorker<T extends StreamingASRFinalResult | void>(
+async function callWorker<T extends StreamingASRFinalResult | void>(
   command: WorkerCommandInput,
 ): Promise<T> {
+  if (terminating) await terminating
   const worker = getWorker()
   const id = nextWorkerRequestId++
 
   return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      const request = workerRequests.get(id)
+      if (!request) return
+      workerRequests.delete(id)
+      request.reject(new Error('ASR operation timed out'))
+      void terminateWorker()
+    }, RECORDING.WORKER_TIMEOUT_MS)
     workerRequests.set(id, {
+      timer,
       resolve: resolve as (value: StreamingASRFinalResult | void) => void,
       reject,
     })
@@ -592,6 +672,7 @@ function callWorker<T extends StreamingASRFinalResult | void>(
       worker.postMessage({ ...command, id } satisfies WorkerCommand)
     } catch (error) {
       workerRequests.delete(id)
+      clearTimeout(timer)
       reject(error instanceof Error ? error : new Error('Failed to post streaming ASR request'))
     }
   })
@@ -606,13 +687,22 @@ function reportSessionError(session: ActiveStreamingSession, error: Error): void
 
 async function terminateWorker(): Promise<void> {
   clearWorkerIdleTimer()
+  activeSession = null
+  if (terminating) return terminating
   const worker = streamingWorker
   if (!worker) return
-
   streamingWorker = null
-  activeSession = null
-  rejectAllWorkerRequests(new Error('Streaming ASR worker was restarted'))
-  await worker.terminate()
+  stopMemoryWatch?.()
+  stopMemoryWatch = null
+  runtimeReady = false
+  rejectAllWorkerRequests(new Error('ASR worker was stopped'))
+  terminating = worker
+    .terminate()
+    .then(() => undefined)
+    .finally(() => {
+      terminating = null
+    })
+  await terminating
 }
 
 function clearWorkerIdleTimer(): void {
@@ -624,24 +714,27 @@ function clearWorkerIdleTimer(): void {
 function scheduleWorkerIdleTermination(): void {
   clearWorkerIdleTimer()
   if (!streamingWorker || activeSession) return
-
-  streamingWorkerIdleTimer = setTimeout(() => {
-    streamingWorkerIdleTimer = null
-    console.log(
-      `[ASR:Streaming] Releasing worker after ${STREAMING_ASR.WORKER_IDLE_TIMEOUT_MS / 60_000} minutes of inactivity`,
-    )
-    void terminateWorker().catch((error: unknown) => {
-      console.error(
-        '[ASR:Streaming] Failed to release idle worker:',
-        error instanceof Error ? error.message : error,
+  const idleSince = Date.now()
+  const check = () => {
+    if (Date.now() - idleSince >= getASRIdleTimeout()) {
+      streamingWorkerIdleTimer = null
+      void terminateWorker().catch((error: unknown) =>
+        console.error('[ASR] Idle release failed:', error),
       )
-    })
-  }, STREAMING_ASR.WORKER_IDLE_TIMEOUT_MS)
+      return
+    }
+    streamingWorkerIdleTimer = setTimeout(check, 30_000)
+    streamingWorkerIdleTimer.unref()
+  }
+  streamingWorkerIdleTimer = setTimeout(check, 30_000)
   streamingWorkerIdleTimer.unref()
 }
 
 function rejectAllWorkerRequests(error: Error): void {
-  for (const request of workerRequests.values()) request.reject(error)
+  for (const request of workerRequests.values()) {
+    clearTimeout(request.timer)
+    request.reject(error)
+  }
   workerRequests.clear()
 }
 
@@ -673,151 +766,29 @@ async function downloadModelFile(
   sourceCountryCode: string | null,
   onProgress?: ProgressCallback,
 ): Promise<number> {
-  fs.mkdirSync(path.dirname(outputPath), { recursive: true })
-  const tempPath = `${outputPath}.download`
-  fs.rmSync(tempPath, { force: true })
-
-  const downloadedBytes = await downloadFromSources(
-    orderDownloadSourcesForCountry(file.urls, sourceCountryCode),
-    async (source) => {
-      fs.rmSync(tempPath, { force: true })
-      updateDownloadProgress(downloadedBefore, onProgress)
-      await requestDownload(source, tempPath, downloadedBefore, onProgress)
-      await verifyFileSha256(tempPath, file.sha256)
-
-      const sourceBytes = fs.statSync(tempPath).size
-      if (sourceBytes !== file.sizeBytes) {
-        fs.rmSync(tempPath, { force: true })
-        throw new Error(`Downloaded realtime model asset has unexpected size: ${file.name}`)
+  return downloadASRAsset(
+    { ...file, urls: orderDownloadSourcesForCountry(file.urls, sourceCountryCode) },
+    outputPath,
+    downloadController!.signal,
+    (bytes) => updateDownloadProgress(downloadedBefore + bytes, onProgress),
+    () => {
+      currentProgress = {
+        ...currentProgress!,
+        phase: 'verify',
+        receivedBytes: currentProgress?.receivedBytes ?? downloadedBefore,
       }
-      return sourceBytes
+      onProgress?.(currentProgress)
     },
-    ({ source, nextSource, error }) => {
-      console.warn(
-        `[ASR:Streaming] Downloading ${file.name} from ${new URL(source).host} failed; ` +
-          `trying ${new URL(nextSource).host}: ${error.message}`,
-      )
-    },
+    path.join(path.dirname(outputPath).replace(/\.download$/u, ''), file.name),
   )
-
-  fs.renameSync(tempPath, outputPath)
-  return downloadedBytes
 }
 
 function updateDownloadProgress(receivedBytes: number, onProgress?: ProgressCallback): void {
-  const totalBytes = STREAMING_ASR.DOWNLOAD_SIZE_BYTES
   currentProgress = {
     phase: 'model',
     receivedBytes,
-    totalBytes,
-    percent: Math.min(100, Math.round((receivedBytes / totalBytes) * 100)),
+    totalBytes: STREAMING_ASR.DOWNLOAD_SIZE_BYTES,
+    percent: Math.min(100, Math.round((receivedBytes / STREAMING_ASR.DOWNLOAD_SIZE_BYTES) * 100)),
   }
   onProgress?.(currentProgress)
-}
-
-function verifyFileSha256(filePath: string, expectedSha256: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const hash = createHash('sha256')
-    const stream = fs.createReadStream(filePath)
-    stream.on('data', (chunk: Buffer) => hash.update(chunk))
-    stream.on('error', reject)
-    stream.on('end', () => {
-      if (hash.digest('hex') === expectedSha256.toLowerCase()) {
-        resolve()
-        return
-      }
-      fs.rmSync(filePath, { force: true })
-      reject(new Error('Downloaded realtime model asset failed checksum verification'))
-    })
-  })
-}
-
-function requestDownload(
-  url: string,
-  outputPath: string,
-  downloadedBefore: number,
-  onProgress?: ProgressCallback,
-  redirectCount = 0,
-): Promise<void> {
-  return new Promise((resolve, reject) => {
-    if (redirectCount > 8) {
-      reject(new Error('Too many redirects while downloading streaming ASR assets'))
-      return
-    }
-
-    const parsedUrl = new URL(url)
-    if (parsedUrl.protocol !== 'https:') {
-      reject(new Error('Realtime model downloads must use HTTPS'))
-      return
-    }
-
-    let fileStream: fs.WriteStream | null = null
-    const failWithCleanup = (error: Error) => {
-      fileStream?.destroy()
-      fileStream = null
-      try {
-        fs.rmSync(outputPath, { force: true })
-      } catch {
-        // The caller removes the whole staging directory.
-      }
-      reject(error)
-    }
-
-    const request = https.get(
-      parsedUrl,
-      { headers: { 'User-Agent': 'VoiceKey' }, timeout: DOWNLOAD_IDLE_TIMEOUT_MS },
-      (response: IncomingMessage) => {
-        const statusCode = response.statusCode ?? 0
-        const location = response.headers.location
-        if (statusCode >= 300 && statusCode < 400 && location) {
-          response.resume()
-          requestDownload(
-            new URL(location, parsedUrl).toString(),
-            outputPath,
-            downloadedBefore,
-            onProgress,
-            redirectCount + 1,
-          )
-            .then(resolve)
-            .catch(reject)
-          return
-        }
-
-        if (statusCode < 200 || statusCode >= 300) {
-          response.resume()
-          reject(new Error(`Download failed with HTTP ${statusCode}`))
-          return
-        }
-
-        let receivedBytes = 0
-        const file = fs.createWriteStream(outputPath)
-        fileStream = file
-        response.on('data', (chunk: Buffer) => {
-          receivedBytes += chunk.length
-          updateDownloadProgress(
-            Math.min(STREAMING_ASR.DOWNLOAD_SIZE_BYTES, downloadedBefore + receivedBytes),
-            onProgress,
-          )
-        })
-        response.on('error', (error) => {
-          failWithCleanup(new Error(`Download stream failed: ${error.message}`))
-        })
-        response.pipe(file)
-        file.on('finish', () => {
-          fileStream = null
-          file.close(() => resolve())
-        })
-        file.on('error', failWithCleanup)
-      },
-    )
-
-    request.on('timeout', () => {
-      request.destroy(
-        new Error(
-          `Download timed out after ${DOWNLOAD_IDLE_TIMEOUT_MS / 1000}s without receiving data`,
-        ),
-      )
-    })
-    request.on('error', failWithCleanup)
-  })
 }

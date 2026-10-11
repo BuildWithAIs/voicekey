@@ -9,6 +9,7 @@ export interface VoiceSession {
   error?: string
   duration?: number
   asrMode?: ASRMode
+  lowVolumeMode?: boolean
 }
 
 export type ASRMode = 'classic' | 'streaming'
@@ -20,7 +21,7 @@ export interface ASRConfig {
   streamingEnabled?: boolean
 }
 
-export type LocalASRDownloadPhase = 'model'
+export type LocalASRDownloadPhase = 'model' | 'verify' | 'initialize'
 
 export interface LocalASRDownloadProgress {
   phase: LocalASRDownloadPhase
@@ -33,6 +34,8 @@ export interface LocalASRStatus {
   supported: boolean
   ready: boolean
   downloading: boolean
+  runtimeState?: 'unloaded' | 'loading' | 'ready'
+  hasFiles?: boolean
   modelName: string
   installDir: string
   storageDir: string
@@ -252,6 +255,11 @@ export interface RecordingStartPayload {
   lowVolumeMode?: boolean
 }
 
+export interface RecordingStopPayload {
+  sessionId: string
+  cancel?: boolean
+}
+
 export interface AudioChunkPayload {
   sessionId: string
   chunkIndex: number
@@ -286,6 +294,9 @@ export const IPC_CHANNELS = {
   STREAMING_ASR_DOWNLOAD: 'streaming-asr:download',
   STREAMING_ASR_DELETE: 'streaming-asr:delete',
   STREAMING_ASR_DOWNLOAD_PROGRESS: 'streaming-asr:download-progress',
+  ASR_DOWNLOAD_CANCEL: 'asr:download-cancel',
+  RECORDING_STOPPED: 'recording:stopped',
+  MICROPHONE_FALLBACK: 'recording:microphone-fallback',
   ASR_MODEL_DIRECTORY_OPEN: 'asr-model-directory:open',
   HOST_CAPABILITIES_GET: 'host-capabilities:get',
   APP_LANGUAGE_GET: 'app:language:get',

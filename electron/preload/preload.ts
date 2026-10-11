@@ -20,6 +20,7 @@ import {
   type RefineConnectionResult,
   type TokenDanceAuthResult,
   type RecordingStartPayload,
+  type RecordingStopPayload,
   type AudioChunkPayload,
   type StreamingAudioEndPayload,
   type StreamingAudioFramePayload,
@@ -75,11 +76,14 @@ export interface ElectronAPI {
   onError: (callback: (error: string) => void) => () => void
 
   onStartRecording: (callback: (payload: RecordingStartPayload) => void) => () => void
-  onStopRecording: (callback: () => void) => () => void
+  onStopRecording: (callback: (payload: RecordingStopPayload) => void) => () => void
   sendAudioChunk: (payload: AudioChunkPayload) => void
   sendStreamingAudioFrame: (payload: StreamingAudioFramePayload) => void
   sendStreamingAudioEnd: (payload: StreamingAudioEndPayload) => void
-  sendError: (error: string) => void
+  sendError: (error: string, sessionId?: string) => void
+  recordingStopped: (sessionId: string) => void
+  microphoneFallback: (sessionId: string, label: string) => void
+  cancelASRDownload: (mode: ASRMode) => Promise<void>
   sendAudioLevel: (level: number) => void
 
   onOverlayUpdate: (callback: (state: OverlayState) => void) => () => void
@@ -193,10 +197,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on(IPC_CHANNELS.SESSION_START, listener)
     return () => ipcRenderer.removeListener(IPC_CHANNELS.SESSION_START, listener)
   },
-  onStopRecording: (callback: () => void) => {
-    const listener = () => {
-      console.log('[Preload] Received SESSION_STOP')
-      callback()
+  onStopRecording: (callback: (payload: RecordingStopPayload) => void) => {
+    const listener = (_event: IpcRendererEvent, payload: RecordingStopPayload) => {
+      callback(payload)
     }
     ipcRenderer.on(IPC_CHANNELS.SESSION_STOP, listener)
     return () => ipcRenderer.removeListener(IPC_CHANNELS.SESSION_STOP, listener)
@@ -211,9 +214,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   sendStreamingAudioEnd: (payload: StreamingAudioEndPayload) => {
     ipcRenderer.send(IPC_CHANNELS.STREAMING_AUDIO_END, payload)
   },
-  sendError: (error: string) => {
-    ipcRenderer.send('error', error)
+  sendError: (error: string, sessionId?: string) => {
+    ipcRenderer.send('error', error, sessionId)
   },
+  recordingStopped: (sessionId: string) =>
+    ipcRenderer.send(IPC_CHANNELS.RECORDING_STOPPED, sessionId),
+  microphoneFallback: (sessionId: string, label: string) =>
+    ipcRenderer.send(IPC_CHANNELS.MICROPHONE_FALLBACK, sessionId, label),
+  cancelASRDownload: (mode: ASRMode) => ipcRenderer.invoke(IPC_CHANNELS.ASR_DOWNLOAD_CANCEL, mode),
   sendAudioLevel: (level: number) => {
     ipcRenderer.send(IPC_CHANNELS.OVERLAY_AUDIO_LEVEL, level)
   },

@@ -40,7 +40,7 @@ const defaultConfig: ConfigSchema = {
     autoLaunch: false,
   },
   asr: {
-    lowVolumeMode: true,
+    lowVolumeMode: false,
     microphoneDeviceId: '',
     microphoneDeviceLabel: '',
     streamingEnabled: false,
@@ -141,7 +141,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 }
 
-function normalizeASRConfig(config: unknown, defaultLowVolumeMode = true): ASRConfig {
+function normalizeASRConfig(config: unknown, defaultLowVolumeMode = false): ASRConfig {
   const rawConfig = isRecord(config) ? config : {}
   return {
     lowVolumeMode:

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { normalizeStreamingASRText } from './streaming-asr-text'
+import { normalizeStreamingASRText, mergeTranscriptSegments } from './streaming-asr-text'
 
 describe('streaming ASR text formatting', () => {
   it('removes model token spaces between Chinese text and punctuation', () => {
@@ -18,5 +18,19 @@ describe('streaming ASR text formatting', () => {
     expect(normalizeStreamingASRText('Voice Key works in real time .')).toBe(
       'Voice Key works in real time.',
     )
+  })
+})
+
+describe('endpoint segment merging', () => {
+  it.each([
+    [['Hello.', 'World.'], 'Hello. World.'],
+    [['Hello!', '"How are you?"'], 'Hello! "How are you?"'],
+    [['“Hello.”', 'World.'], '“Hello.” World.'],
+    [['你好，', '世界。'], '你好，世界。'],
+    [['你好', 'Voice Key'], '你好Voice Key'],
+    [['Hello', ', world.'], 'Hello, world.'],
+    [['One', 'two'], 'One two'],
+  ])('merges %j without damaging punctuation', (segments, expected) => {
+    expect(mergeTranscriptSegments(segments)).toBe(expected)
   })
 })

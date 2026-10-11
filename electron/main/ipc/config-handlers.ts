@@ -29,19 +29,22 @@ import {
   type TranslationConfig,
 } from '../../shared/types'
 import { normalizeLLMRefineConfig } from '../../shared/llm-config'
-import { getCurrentSession } from '../audio'
+import { isSessionBusy } from '../audio'
 import { configManager } from '../config-manager'
 import { broadcastLanguageSnapshot, getMainLanguageSnapshot, setMainLanguage } from '../i18n'
 import { hotkeyManager } from '../hotkey-manager'
 import { ioHookManager } from '../iohook-manager'
+import { manageASRModels, isManagingASRModels } from '../asr-runtime-policy'
 import { openASRModelInstallDir } from '../asr-model-storage'
 import {
+  cancelLocalASRDownload,
   deleteLocalASRAssets,
   downloadLocalASRAssets,
   getLocalASRStatus,
   releaseLocalASR,
 } from '../local-asr-manager'
 import {
+  cancelStreamingASRDownload,
   deleteStreamingASRAssets,
   downloadStreamingASRAssets,
   getStreamingASRStatus,
@@ -67,6 +70,8 @@ export type ConfigHandlersDeps = {
   /** 获取设置窗口；只有该窗口可以请求显示已保存的明文密钥 */
   getSettingsWindow: () => BrowserWindow | null
 }
+
+let pendingDownload: { mode: string; cancelled: boolean } | null = null
 
 let deps: ConfigHandlersDeps
 
@@ -132,7 +137,7 @@ function assertSettingsWindowSender(event: IpcMainInvokeEvent, action: string): 
 }
 
 function assertNoActiveSessionForModelManagement(): void {
-  if (getCurrentSession()) {
+  if (isSessionBusy()) {
     throw new Error('Models cannot be changed while recording is active')
   }
 }
@@ -210,7 +215,7 @@ export function registerConfigHandlers(): void {
         configManager.setASRConfig(config.asr)
         const streamingEnabled = configManager.getASRConfig().streamingEnabled ?? false
         if (wasStreamingEnabled !== streamingEnabled) {
-          if (getCurrentSession()) {
+          if (isSessionBusy() || isManagingASRModels()) {
             console.warn(
               '[ASR] Recognition mode changed during an active session; current worker will follow its normal idle lifecycle',
             )
@@ -303,45 +308,69 @@ export function registerConfigHandlers(): void {
     return getLocalASRStatus()
   })
 
+  ipcMain.handle(IPC_CHANNELS.ASR_DOWNLOAD_CANCEL, async (event, mode: unknown) => {
+    assertSettingsWindowSender(event, 'Model download cancellation')
+    if (pendingDownload && pendingDownload.mode === mode) pendingDownload.cancelled = true
+    if (mode === 'classic') await cancelLocalASRDownload()
+    else if (mode === 'streaming') await cancelStreamingASRDownload()
+    else throw new Error('Invalid ASR mode')
+  })
+
   ipcMain.handle(IPC_CHANNELS.LOCAL_ASR_DOWNLOAD, async (event) => {
-    return await downloadLocalASRAssets((progress) => {
-      event.sender.send(IPC_CHANNELS.LOCAL_ASR_DOWNLOAD_PROGRESS, progress)
+    assertSettingsWindowSender(event, 'Model download')
+    assertNoActiveSessionForModelManagement()
+    return manageASRModels(async () => {
+      const request = { mode: 'classic', cancelled: false }
+      pendingDownload = request
+      try {
+        await releaseStreamingASR()
+        if (request.cancelled) throw new Error('Download cancelled')
+        return await downloadLocalASRAssets((progress) => {
+          if (!event.sender.isDestroyed())
+            event.sender.send(IPC_CHANNELS.LOCAL_ASR_DOWNLOAD_PROGRESS, progress)
+        })
+      } finally {
+        if (pendingDownload === request) pendingDownload = null
+      }
     })
   })
 
   ipcMain.handle(IPC_CHANNELS.LOCAL_ASR_DELETE, async (event) => {
     assertSettingsWindowSender(event, 'Local ASR model deletion')
     assertNoActiveSessionForModelManagement()
-    return await deleteLocalASRAssets()
+    return manageASRModels(() => deleteLocalASRAssets())
   })
 
-  ipcMain.handle(IPC_CHANNELS.STREAMING_ASR_STATUS, () => {
-    return getStreamingASRStatus()
-  })
+  ipcMain.handle(IPC_CHANNELS.STREAMING_ASR_STATUS, () => getStreamingASRStatus())
 
   ipcMain.handle(IPC_CHANNELS.STREAMING_ASR_DOWNLOAD, async (event) => {
-    const status = await downloadStreamingASRAssets((progress) => {
-      event.sender.send(IPC_CHANNELS.STREAMING_ASR_DOWNLOAD_PROGRESS, progress)
+    assertSettingsWindowSender(event, 'Model download')
+    assertNoActiveSessionForModelManagement()
+    return manageASRModels(async () => {
+      const request = { mode: 'streaming', cancelled: false }
+      pendingDownload = request
+      try {
+        await releaseLocalASR()
+        if (request.cancelled) throw new Error('Download cancelled')
+        return await downloadStreamingASRAssets((progress) => {
+          if (!event.sender.isDestroyed())
+            event.sender.send(IPC_CHANNELS.STREAMING_ASR_DOWNLOAD_PROGRESS, progress)
+        })
+      } finally {
+        if (pendingDownload === request) pendingDownload = null
+      }
     })
-    if (status.ready && configManager.getASRConfig().streamingEnabled) {
-      void warmStreamingASR().catch((error: unknown) => {
-        console.error(
-          '[ASR:Streaming] Failed to warm recognizer after downloading realtime models:',
-          error instanceof Error ? error.message : error,
-        )
-      })
-    }
-    return status
   })
 
   ipcMain.handle(IPC_CHANNELS.STREAMING_ASR_DELETE, async (event) => {
     assertSettingsWindowSender(event, 'Streaming ASR model deletion')
     assertNoActiveSessionForModelManagement()
-    const status = await deleteStreamingASRAssets()
-    if (configManager.getASRConfig().streamingEnabled) {
-      configManager.setASRConfig({ streamingEnabled: false })
-    }
-    return status
+    return manageASRModels(async () => {
+      const status = await deleteStreamingASRAssets()
+      if (configManager.getASRConfig().streamingEnabled)
+        configManager.setASRConfig({ streamingEnabled: false })
+      return status
+    })
   })
 
   ipcMain.handle(IPC_CHANNELS.ASR_MODEL_DIRECTORY_OPEN, async (event, mode: unknown) => {

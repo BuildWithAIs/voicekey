@@ -182,9 +182,9 @@
     "hideRefineKey": "Hide refinement key",
     "testRefineConnection": "Test Connection",
     "testingRefineConnection": "Testing connection...",
-    "durationWarning": "Each recording can last up to 5 minutes.",
+    "durationWarning": "Record for up to 5 minutes. Classic mode processes the complete recording after release; longer recordings require more time and memory.",
     "lowVolumeMode": "Low-volume mode",
-    "lowVolumeModeHelp": "For speaking softly in a relatively quiet café or office. Boosts your voice, but may also boost background noise.",
+    "lowVolumeModeHelp": "Enable for quiet speech. Gain includes peak protection but also amplifies background noise. Off by default.",
     "microphone": {
       "label": "Microphone",
       "placeholder": "Select microphone",
@@ -199,23 +199,35 @@
       "unavailableHelp": "The selected microphone is unavailable. Recording will fall back to the system default until it returns or you choose another device.",
       "permissionHelp": "Microphone permission is needed to show device names.",
       "unsupported": "This environment cannot detect microphone devices.",
-      "detectFailed": "Couldn't detect microphones."
+      "detectFailed": "Couldn't detect microphones.",
+      "fallbackNotice": "Selected microphone unavailable. Now using: {{device}}",
+      "test": "Test microphone",
+      "stopTest": "Stop test",
+      "level": "Microphone level",
+      "testHelp": "Tests levels for up to 10 seconds without saving audio."
     },
     "modelStorage": {
       "open": "Open folder",
       "openFailed": "Couldn't open the model folder: {{message}}",
-      "enable": "Enable",
+      "enable": "Use this model",
       "selected": "Selected",
       "delete": "Delete model",
-      "deleting": "Deleting..."
+      "deleting": "Deleting...",
+      "cancelled": "Download cancelled. Completed files are kept for the next attempt.",
+      "noModel": "No usable model is selected. Download and select a model first.",
+      "runtime": {
+        "unloaded": "Downloaded · loads on demand",
+        "loading": "Loading",
+        "ready": "Loaded"
+      }
     },
     "localAsr": {
       "title": "Standard recognition",
-      "help": "Transcribes after recording and automatically detects Mandarin, English, Cantonese, Japanese and Korean.",
+      "help": "Transcribes the complete recording after release. Auto-detects Mandarin, English, Cantonese, Japanese and Korean. Compact model for everyday dictation.",
       "ready": "Ready",
       "download": "Download model",
       "downloading": "Downloading...",
-      "downloadComplete": "Standard recognition is ready",
+      "downloadComplete": "Model downloaded. Select it to use for recognition.",
       "downloadFailed": "Couldn't download the model: {{message}}",
       "downloadBeforeEnable": "Download the standard recognition model first.",
       "deleteConfirm": "Delete the standard recognition model? You'll need to download it again to use standard recognition.",
@@ -223,17 +235,19 @@
       "deleteFailed": "Couldn't delete the model: {{message}}",
       "unsupported": "Standard recognition is not available on this platform.",
       "phase": {
-        "model": "Downloading model"
+        "model": "Downloading model",
+        "verify": "Verifying model files",
+        "initialize": "Checking model runtime"
       }
     },
     "streamingAsr": {
       "title": "Realtime recognition",
-      "help": "Streaming output recognizes speech as you speak, with slightly lower accuracy.",
+      "help": "Chinese and English live text with native punctuation and casing; requires more computing resources.",
       "downloadConfirmWeak": "This computer has about {{cpu}} cores and {{memory}} GB of memory, below the recommended 6 cores and 16 GB. Realtime recognition may stutter. Download anyway?",
       "ready": "Ready",
       "download": "Download model",
       "downloading": "Downloading...",
-      "downloadComplete": "Realtime recognition is ready",
+      "downloadComplete": "Model downloaded. Select it to use for recognition.",
       "downloadFailed": "Couldn't download the model: {{message}}",
       "downloadBeforeEnable": "Download the realtime recognition model first.",
       "deleteConfirm": "Delete the realtime recognition model? Realtime recognition will be turned off, and you'll need to download it again to use it.",
@@ -241,7 +255,9 @@
       "deleteFailed": "Couldn't delete the model: {{message}}",
       "unsupported": "Realtime recognition is not available on this platform.",
       "phase": {
-        "model": "Downloading model"
+        "model": "Downloading model",
+        "verify": "Verifying model files",
+        "initialize": "Checking model runtime"
       }
     },
     "languagePlaceholder": "Select language",
@@ -402,7 +418,8 @@
     "done": "Done",
     "injected": "Inserted",
     "error": "Error",
-    "errorFallback": "Something went wrong"
+    "errorFallback": "Something went wrong",
+    "loadingModel": "Loading model; audio is being captured…"
   },
   "tray": {
     "settings": "Settings",
@@ -418,7 +435,14 @@
     "startFailed": "Failed to start recording",
     "stopFailed": "Failed to stop recording",
     "streamingModelMissing": "Download the realtime recognition model in Settings first",
-    "generic": "Error"
+    "generic": "Error",
+    "asrBusy": "The previous recording is still processing. Please wait.",
+    "asrTimeout": "Recognition timed out and was stopped. Try a shorter recording.",
+    "localModelMissing": "Download and select the classic model in Settings.",
+    "modelManagementBusy": "A model operation is in progress. Finish or cancel it before recording.",
+    "audioSequence": "Audio data was interrupted. Please record again.",
+    "asrOverloaded": "Realtime recognition cannot keep up and was stopped. Close demanding apps or select classic recognition.",
+    "asrMemory": "Recognition reached its memory budget and was stopped. Try a shorter recording or a smaller model."
   },
   "notification": {
     "errorTitle": "Error",

@@ -30,7 +30,7 @@
 ## 当前录音链路
 
 1. 主进程通过快捷键开始会话并生成 `sessionId`。
-2. 经典模式由后台窗口每 30 秒轮转一个音频 chunk，主进程转为 16 kHz 单声道 WAV 后调用本地 SenseVoiceSmall。
+2. 经典模式连续录音至松键，只提交一次完整音频，主进程转为 16 kHz 单声道 WAV 后调用本地 SenseVoiceSmall；不按固定时长切段。
 3. 流式模式由 AudioWorklet 每约 100 ms 发送 Float32 PCM，主进程 worker 使用 X-ASR-zh-en 480 ms Zipformer2 Transducer 持续解码，并把带标点/大小写的 partial text 推送给 HUD。
 4. 两种 ASR 模式互斥；流式模式停止时先 flush 句尾 PCM，由 X-ASR worker 直接生成 final text，不做 SenseVoice 二次识别或独立标点推理。
 5. 最终文本就绪后，如果用户启用润色或语音输入翻译，仅调用一次云端 LLM；翻译模式会先整理转写文本，再翻译为目标语言。随后执行文本注入与历史记录写入。
