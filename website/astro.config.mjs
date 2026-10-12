@@ -15,12 +15,12 @@ export default defineConfig({
   integrations: [
     react(),
     sitemap({
-      filter: (page) => !page.endsWith('/404') && !page.endsWith('/404/'),
+      filter: (page) => !page.endsWith('/404') && !page.endsWith('/404/') && !page.endsWith('.md'),
       i18n: {
         defaultLocale: 'en',
         locales: {
           en: 'en',
-          zh: 'zh',
+          zh: 'zh-CN',
         },
       },
     }),

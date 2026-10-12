@@ -1,0 +1,33 @@
+---
+import { Image } from 'astro:assets'
+import logo from '../assets/logo.png'
+const { lang = 'en', page = '' } = Astro.props
+const zh = lang === 'zh'
+const home = zh ? '/zh/' : '/'
+---
+
+<header class="site-header wrap">
+  <a class="brand" href={home}>
+    <Image src={logo} width={36} height={36} alt="" />
+    Voice Key
+  </a>
+  <nav aria-label={zh ? '主导航' : 'Main navigation'}>
+    <a class="nav-detail" href={`${home}#features`}>
+      {zh ? '为什么选择' : 'Why Voice Key'}
+    </a>
+    <a class="nav-detail" href={`${home}privacy/`}>
+      {zh ? '隐私' : 'Privacy'}
+    </a>
+    <a href={`${home}guide/`}>{zh ? '使用指南' : 'Get started'}</a>
+    <a
+      class="language"
+      href={`${zh ? '/' : '/zh/'}${page ? `${page}/` : ''}`}
+      lang={zh ? 'en' : 'zh-CN'}
+    >
+      {zh ? 'EN' : '中文'}
+    </a>
+    <a class="button small" href={`${home}#download`}>
+      {zh ? '免费下载' : 'Download'}
+    </a>
+  </nav>
+</header>

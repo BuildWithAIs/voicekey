@@ -1,0 +1,458 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro'
+import SiteHeader from './SiteHeader.astro'
+import {
+  ArrowDownToLine,
+  ArrowUpRight,
+  Check,
+  Monitor,
+  ShieldCheck,
+  Code2,
+  Sparkles,
+  AudioLines,
+  FileText,
+  MessageSquare,
+  Terminal,
+} from 'lucide-react'
+const { lang = 'en' } = Astro.props
+const zh = lang === 'zh'
+const home = zh ? '/zh/' : '/'
+const t = (cn: string, en: string) => (zh ? cn : en)
+const release = 'https://github.com/BuildWithAIs/voicekey/releases/latest'
+const features = [
+  {
+    icon: ShieldCheck,
+    title: t('本地识别，安心表达。', 'Your voice stays on your device.'),
+    text: t(
+      '音频在电脑上完成识别。提前下载模型，关闭云端润色与翻译，断网也能继续输入。',
+      'Speech recognition runs on your computer. Download a model and leave cloud refinement and translation off to dictate offline.',
+    ),
+    label: t('本地语音识别', 'ON-DEVICE RECOGNITION'),
+  },
+  {
+    icon: Code2,
+    title: t('免费开源，无需订阅。', 'A useful tool. Not another subscription.'),
+    text: t(
+      '基础语音输入免费使用，源代码以 MIT 协议开放。你可以查看、修改，也可以自己构建。',
+      'Core dictation is free. The code is available under the MIT license to inspect, modify, and build yourself.',
+    ),
+    label: t('MIT 开源协议', 'MIT LICENSED'),
+  },
+  {
+    icon: Sparkles,
+    title: t('要不要 AI，由你决定。', 'Your words. Your choice of AI.'),
+    text: t(
+      '直接使用识别原文，或连接你选择的模型服务进行润色和翻译。第三方服务可能单独收费。',
+      'Keep the transcription as it is, or connect your preferred provider for refinement and translation. Provider charges may apply.',
+    ),
+    label: t('可选 AI 润色与翻译', 'OPTIONAL AI REFINEMENT'),
+  },
+]
+const faqs = [
+  [
+    t('真的免费吗？', 'Is Voice Key really free?'),
+    t(
+      'Voice Key 免费使用，代码以 MIT 协议开源。基础本地识别不需要 ASR API Key。可选的 AI 润色和翻译使用你配置的模型服务，可能产生第三方费用。',
+      'Voice Key is free and MIT licensed. Local recognition needs no ASR API key. Optional AI refinement and translation use your configured provider and may incur third-party charges.',
+    ),
+  ],
+  [
+    t('可以完全离线输入吗？', 'Can I dictate offline?'),
+    t(
+      '可以。先下载本地识别模型，并关闭云端润色与翻译，之后基础识别和文字输入无需联网。模型下载、更新检查等在线操作仍需要网络。',
+      'Yes. Download a local model first and disable cloud refinement and translation. Core recognition and text insertion then work offline. Model downloads and update checks need a connection.',
+    ),
+  ],
+  [
+    t('支持哪些语言？', 'Which languages are supported?'),
+    t(
+      '经典模式支持普通话、英语、粤语、日语和韩语。流式模式支持中英文，可在悬浮窗口中查看识别中的文字。应用界面支持中文和英文。',
+      'Classic mode supports Mandarin, English, Cantonese, Japanese, and Korean. Streaming mode supports Chinese and English with live partial text in the HUD. The interface is available in English and Chinese.',
+    ),
+  ],
+  [
+    t('文字和录音会发到哪里？', 'Where do my audio and text go?'),
+    t(
+      '本地识别不上传麦克风音频。开启云端润色或翻译时，相关文本和词典词条会发送给你配置的模型服务商。历史记录保存在本机，直到你主动删除。',
+      'Local recognition does not upload microphone audio. If cloud refinement or translation is enabled, the relevant text and dictionary terms are sent to your configured provider. History stays on your device until you delete it.',
+    ),
+  ],
+  [
+    t('Linux 和 macOS 安装需要注意什么？', 'What should I know before installing?'),
+    t(
+      'macOS 需要麦克风和辅助功能权限；当前安装包未签名，系统可能提示。Linux 支持 X11，以及专门的 Omarchy / Hyprland 集成；其他 Wayland 环境暂不完整支持。详见使用指南。',
+      'macOS requires Microphone and Accessibility permissions. Current builds are unsigned and may trigger system warnings. Linux supports X11 and a dedicated Omarchy / Hyprland integration; other Wayland environments are not fully supported. See the getting-started guide.',
+    ),
+  ],
+]
+---
+
+<BaseLayout
+  lang={lang}
+  software
+  title={t(
+    'Voice Key — 免费开源的本地语音输入工具',
+    'Voice Key — Free, open-source local voice input',
+  )}
+  description={t(
+    '适用于 Windows、macOS 和 Linux 的免费开源语音输入工具。本地识别，下载模型后可离线使用；按需连接自己的 AI 服务进行润色与翻译。',
+    'Free, open-source voice input for Windows, macOS and Linux. Dictate offline with local models, and optionally refine or translate text with your own AI provider.',
+  )}
+>
+  <SiteHeader lang={lang} />
+  <main id="main">
+    <section class="hero wrap">
+      <div class="hero-copy">
+        <p class="eyebrow">
+          <span class="status-dot"></span>
+          {t('你的声音，你的选择', 'YOUR VOICE. YOUR CHOICE.')}
+        </p>
+        <h1>
+          {t('免费、开源的', 'Free, open-source')}
+          <br />
+          <span>{t('本地语音输入。', 'local voice input.')}</span>
+        </h1>
+        <p class="hero-description">
+          {t('在自己的电脑上，把语音变成文字。', 'Turn speech into text, on your own computer.')}
+          <br />
+          {t(
+            '无需订阅，下载模型后可离线使用；需要润色或翻译时，再连接你选择的 AI 服务。',
+            'No subscription. Dictate offline after downloading a model. Connect your preferred AI only when you want refinement or translation.',
+          )}
+        </p>
+        <div class="actions">
+          <a class="button" href="#download">
+            <ArrowDownToLine size={18} />
+            {t('免费下载', 'Download for free')}
+          </a>
+          <a class="text-link" href="#demo">
+            {t('看看使用场景', 'See it in action')} <ArrowUpRight size={17} />
+          </a>
+        </div>
+        <p class="platforms">
+          <Monitor size={15} /> Windows <span>·</span> macOS <span>·</span> Linux
+        </p>
+      </div>
+      <div class="hero-art" aria-label={t('语音输入效果示意', 'Illustration of voice input')}>
+        <div class="art-topline">
+          <span>VOICE → TEXT</span>
+          <span class="local-badge">
+            <span class="status-dot"></span>
+            {t('本地识别', 'ON DEVICE')}
+          </span>
+        </div>
+        <div class="editor">
+          <div class="editor-bar">
+            <span class="window-dots">
+              <i></i>
+              <i></i>
+              <i></i>
+            </span>
+            <span>{t('今天的想法', 'Today’s ideas')}.md</span>
+            <FileText size={15} />
+          </div>
+          <div class="editor-tools">
+            {t('正文', 'Text')} <span>Aa　 B　 /　 ≡</span>
+          </div>
+          <div class="editor-body">
+            <p class="editor-date">{t('给想法一点空间', 'A LITTLE ROOM TO THINK')}</p>
+            <h2>{t('从一个想法开始。', 'Start with a thought.')}</h2>
+            <p>
+              {t('把脑海里的想法说出来，', 'Say what’s on your mind.')}
+              <br />
+              {t('让文字跟上你的思路。', 'Give your ideas a place to land.')}
+              <span class="caret"></span>
+            </p>
+            <div class="editor-rule"></div>
+            <p class="editor-muted">{t('接下来，写点什么？', 'What will you write next?')}</p>
+          </div>
+        </div>
+        <div class="voice-chip">
+          <span class="voice-icon">
+            <AudioLines size={23} />
+          </span>
+          <div>
+            <strong>{t('语音已转为文字', 'A thought, now in words')}</strong>
+            <span>{t('在这台电脑上完成识别', 'Recognized on this device')}</span>
+          </div>
+          <span class="chip-check">
+            <Check size={19} />
+          </span>
+        </div>
+        <p class="art-caption">
+          {t(
+            '输入效果示意 · 无需切换到另一个编辑器',
+            'Illustrative preview · Stay in the app you’re using',
+          )}
+        </p>
+      </div>
+    </section>
+    <section id="features" class="feature-section">
+      <div class="wrap feature-grid">
+        {features.map(({ icon: Icon, title, text, label }) => (
+          <article>
+            <Icon size={26} strokeWidth={1.5} />
+            <p class="eyebrow">{label}</p>
+            <h2>{title}</h2>
+            <p>{text}</p>
+          </article>
+        ))}
+      </div>
+    </section>
+    <section id="demo" class="wrap section scenarios">
+      <div class="section-intro">
+        <p class="eyebrow">{t('融入你的日常', 'MADE FOR YOUR EVERYDAY')}</p>
+        <h2>
+          {t('继续手头的事，', 'Stay in your flow.')}
+          <br />
+          {t('把输入交给声音。', 'Let your voice do the typing.')}
+        </h2>
+        <p>
+          {t(
+            '回复消息、整理想法、描述需求。在你正在使用的应用里，留下想说的话。',
+            'Reply to a message, work through an idea, or describe what to build. Put your words in the app you’re already using.',
+          )}
+        </p>
+      </div>
+      <div class="scenario-panel" data-demo>
+        <div
+          class="scenario-tabs"
+          role="tablist"
+          aria-label={t('使用场景示例', 'Example scenarios')}
+        >
+          {[
+            [MessageSquare, t('回复消息', 'Messages')],
+            [FileText, t('写下想法', 'Notes')],
+            [Terminal, t('描述需求', 'Prompts')],
+          ].map(([Icon, label], i) => (
+            <button
+              type="button"
+              role="tab"
+              id={`tab-${i}`}
+              aria-selected={i === 0 ? 'true' : 'false'}
+              aria-controls={`panel-${i}`}
+              tabindex={i === 0 ? 0 : -1}
+              data-tab={i}
+            >
+              <Icon size={16} />
+              {label}
+            </button>
+          ))}
+        </div>
+        {[
+          [
+            t('项目讨论', 'Project chat'),
+            t(
+              '我们明天上午聊一下新版本的设计吧，我会提前把整理好的想法发给你。',
+              'Let’s talk about the new design tomorrow morning. I’ll send my notes ahead of time.',
+            ),
+          ],
+          [
+            t('灵感笔记', 'A note to myself'),
+            t(
+              '一个好的工具，应该让人更专注于想法本身。少一点打断，多一点表达的空间。',
+              'A good tool leaves more room for the idea itself. Fewer interruptions, more space to think.',
+            ),
+          ],
+          [
+            t('给 AI 的需求', 'A prompt for AI'),
+            t(
+              '帮我把这个页面改成响应式布局。手机上使用单列，桌面端保留左右两栏，同时确保键盘可以操作所有按钮。',
+              'Make this page responsive: one column on mobile, two on desktop. Keep every button accessible by keyboard.',
+            ),
+          ],
+        ].map(([title, body], i) => (
+          <div
+            role="tabpanel"
+            id={`panel-${i}`}
+            aria-labelledby={`tab-${i}`}
+            tabindex="0"
+            hidden={i !== 0}
+          >
+            <p class="sample-label">{title}</p>
+            <p class="sample-text">{body}</p>
+            <div class="sample-bottom">
+              <span>
+                <Check size={14} />
+                {t('文字输入到当前应用', 'Text inserted into the current app')}
+              </span>
+              <span>{t('示例内容', 'EXAMPLE')}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+    <section class="privacy-section">
+      <div class="wrap privacy-grid">
+        <div>
+          <p class="eyebrow">{t('清楚知道，数据在哪里', 'KNOW WHERE YOUR DATA GOES')}</p>
+          <h2>
+            {t('本地处理。', 'Local at the core.')}
+            <br />
+            {t('选择权在你。', 'Optional beyond that.')}
+          </h2>
+          <p>
+            {t(
+              '你的音频在电脑上完成识别。是否把文字交给云端 AI，是另一个由你做出的选择。',
+              'Your audio is recognized on your computer. Sending text to a cloud AI is a separate choice that you make.',
+            )}
+          </p>
+          <a class="text-link" href={`${home}privacy/`}>
+            {t('了解隐私与数据流', 'Explore privacy & data')} <ArrowUpRight size={17} />
+          </a>
+        </div>
+        <div class="data-flow">
+          <div class="flow-local">
+            <span class="eyebrow">{t('你的电脑', 'YOUR COMPUTER')}</span>
+            <div>
+              <AudioLines />
+              <span>{t('音频', 'Audio')}</span>
+              <span class="flow-arrow">→</span>
+              <FileText />
+              <span>{t('文字', 'Text')}</span>
+            </div>
+            <p>
+              <Check size={15} />
+              {t(
+                '识别不上传音频 · 历史保存在本机',
+                'No audio upload for recognition · Local history',
+              )}
+            </p>
+          </div>
+          <div class="flow-connector">
+            ↓ <span>{t('仅在你开启时', 'ONLY IF YOU ENABLE IT')}</span>
+          </div>
+          <div class="flow-cloud">
+            <Sparkles size={20} />
+            <div>
+              <strong>{t('你选择的 AI 服务', 'Your chosen AI provider')}</strong>
+              <p>{t('接收文本，用于润色或翻译', 'Receives text for refinement or translation')}</p>
+            </div>
+            <span class="optional">{t('可选', 'Optional')}</span>
+          </div>
+        </div>
+      </div>
+    </section>
+    <section class="wrap section extras">
+      <div>
+        <p class="eyebrow">{t('小细节，更顺手', 'THE DETAILS THAT HELP')}</p>
+        <h2>{t('为每天的输入准备。', 'Ready for everyday words.')}</h2>
+      </div>
+      <div class="extras-grid">
+        <article>
+          <span>01</span>
+          <h3>{t('中英文，随思路切换', 'Chinese and English, together')}</h3>
+          <p>
+            {t(
+              '流式模式显示中英文识别中的文字；经典模式还支持粤语、日语和韩语。',
+              'See live Chinese and English partial text in Streaming mode. Classic mode also supports Cantonese, Japanese, and Korean.',
+            )}
+          </p>
+        </article>
+        <article>
+          <span>02</span>
+          <h3>{t('让常用词，有自己的位置', 'A dictionary of your own')}</h3>
+          <p>
+            {t(
+              '添加名字、缩写和专业术语，为流式识别提供热词参考，也可辅助可选的 AI 校正。',
+              'Add names, abbreviations, and specialist terms for streaming hotword bias and optional AI-assisted corrections.',
+            )}
+          </p>
+        </article>
+        <article>
+          <span>03</span>
+          <h3>{t('说过的，随时找回来', 'Find your words again')}</h3>
+          <p>
+            {t(
+              '在本机搜索、复制和管理输入历史。记录会一直保留，直到你主动删除。',
+              'Search, copy, and manage your dictation history locally. Records remain until you choose to delete them.',
+            )}
+          </p>
+        </article>
+      </div>
+    </section>
+    <section class="wrap section faq">
+      <div>
+        <p class="eyebrow">{t('开始之前', 'GOOD TO KNOW')}</p>
+        <h2>{t('你可能想问。', 'A few good questions.')}</h2>
+        <a class="text-link" href={`${home}guide/`}>
+          {t('查看完整使用指南', 'Read the getting-started guide')} <ArrowUpRight size={17} />
+        </a>
+      </div>
+      <div>
+        {faqs.map(([q, a]) => (
+          <details>
+            <summary>
+              {q}
+              <span aria-hidden="true">+</span>
+            </summary>
+            <p>{a}</p>
+          </details>
+        ))}
+      </div>
+    </section>
+    <section id="download" class="download-section wrap">
+      <div class="download-heading">
+        <p class="eyebrow">{t('让想法，成为文字', 'MAKE ROOM FOR YOUR IDEAS')}</p>
+        <h2>{t('从下一句话开始。', 'Your next thought starts here.')}</h2>
+        <p>
+          {t(
+            '免费下载 Voice Key，选择适合你的桌面版本。',
+            'Download Voice Key for free. Choose your desktop platform.',
+          )}
+        </p>
+      </div>
+      <div class="download-grid">
+        {[
+          ['macOS', 'Intel / Apple silicon'],
+          ['Windows', 'x64 · .exe'],
+          ['Linux', 'x86_64 · AppImage / pacman'],
+        ].map(([os, detail]) => (
+          <a class="download-card" href={release}>
+            <Monitor size={24} />
+            <div>
+              <h3>{os}</h3>
+              <p>{detail}</p>
+            </div>
+            <ArrowUpRight size={20} />
+            <span>{t('查看安装包', 'View release assets')}</span>
+          </a>
+        ))}
+      </div>
+      <p class="download-note">
+        {t(
+          '首次使用需下载识别模型。当前安装包未签名，安装前请查看',
+          'Download a recognition model on first use. Current builds are unsigned; read the',
+        )}{' '}
+        <a href={`${home}guide/`}>{t('安装与权限说明', 'installation & permissions guide')}</a>
+        {t('。', '.')}
+      </p>
+    </section>
+  </main>
+  <script>
+    document.querySelectorAll<HTMLElement>('[data-demo]').forEach((demo) => {
+      const tabs = Array.from(demo.querySelectorAll<HTMLButtonElement>('[role="tab"]'))
+      const select = (index: number) =>
+        tabs.forEach((tab, i) => {
+          tab.setAttribute('aria-selected', String(i === index))
+          tab.tabIndex = i === index ? 0 : -1
+          const panel = demo.querySelector<HTMLElement>(`#panel-${i}`)
+          if (panel) panel.hidden = i !== index
+        })
+      tabs.forEach((tab, index) => {
+        tab.addEventListener('click', () => select(index))
+        tab.addEventListener('keydown', (event) => {
+          let next = index
+          if (event.key === 'ArrowRight') next = (index + 1) % tabs.length
+          else if (event.key === 'ArrowLeft') next = (index + tabs.length - 1) % tabs.length
+          else if (event.key === 'Home') next = 0
+          else if (event.key === 'End') next = tabs.length - 1
+          else return
+          event.preventDefault()
+          select(next)
+          tabs[next].focus()
+        })
+      })
+    })
+  </script>
+</BaseLayout>

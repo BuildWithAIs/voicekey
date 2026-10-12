@@ -1,0 +1,55 @@
+---
+import { documents } from '../content'
+import BaseLayout from '../layouts/BaseLayout.astro'
+import SiteHeader from '../components/SiteHeader.astro'
+export function getStaticPaths() {
+  return documents.map((doc) => ({
+    params: { path: `${doc.lang === 'zh' ? 'zh/' : ''}${doc.path}` },
+    props: { doc },
+  }))
+}
+const { doc } = Astro.props
+const zh = doc.lang === 'zh'
+---
+
+<BaseLayout title={`${doc.title} — Voice Key`} description={doc.description} lang={doc.lang}>
+  <SiteHeader lang={doc.lang} page={doc.path} />
+  <main id="main" class="wrap article">
+    <p class="eyebrow">VOICE KEY / {doc.path.toUpperCase()}</p>
+    <h1>{doc.title}</h1>
+    <p class="lead">{doc.description}</p>
+    {doc.sections.map(([title, text]) => (
+      <section>
+        <h2>{title}</h2>
+        <p>{text}</p>
+      </section>
+    ))}
+    <section>
+      <h2>{zh ? '相关链接' : 'Useful links'}</h2>
+      <p>
+        <a href="https://github.com/BuildWithAIs/voicekey/releases/latest">
+          {zh ? '下载最新版本' : 'Download the latest release'}
+        </a>{' '}
+        ·{' '}
+        <a
+          href={`https://github.com/BuildWithAIs/voicekey/blob/main/README${zh ? '.zh-CN' : ''}.md`}
+        >
+          {zh ? '项目说明与安装排错' : 'Project documentation & troubleshooting'}
+        </a>{' '}
+        · <a href="https://github.com/BuildWithAIs/voicekey/issues">GitHub Issues</a>
+      </p>
+      <p>
+        <a href={`${zh ? '/zh/' : '/'}${doc.path === 'guide' ? 'privacy' : 'guide'}/`}>
+          {doc.path === 'guide'
+            ? zh
+              ? '隐私与数据流'
+              : 'Privacy & data flow'
+            : zh
+              ? '开始使用'
+              : 'Getting started'}
+        </a>{' '}
+        · <a href={`${zh ? '/zh/' : '/'}${doc.path}.md`}>Markdown</a>
+      </p>
+    </section>
+  </main>
+</BaseLayout>

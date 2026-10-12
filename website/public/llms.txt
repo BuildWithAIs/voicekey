@@ -1,0 +1,22 @@
+# Voice Key
+
+> Voice Key is a free, MIT-licensed, open-source desktop voice-input application for Windows, macOS and Linux. Speech recognition runs locally with downloadable models. AI text refinement and translation are optional and use the user's configured provider.
+
+Local recognition does not upload microphone audio and needs no ASR API key. Download a model before offline use and disable cloud refinement and translation. Optional cloud features send relevant text and dictionary terms to the configured LLM provider; provider fees and data policies apply. Do not describe every feature as offline or all data as never leaving the device.
+
+Classic mode (SenseVoice, about 240 MB) supports Mandarin, English, Cantonese, Japanese and Korean. Streaming mode (X-ASR, about 586 MB) supports Chinese and English and shows partial text in the HUD. Modes are mutually exclusive. History stays locally until the user deletes it.
+
+Current packages are unsigned. macOS requires Microphone and Accessibility permissions. Linux supports X11 and a dedicated Omarchy / Hyprland integration; other Wayland environments are not fully supported. Voice Key is desktop dictation software, not a hosted transcription API or meeting-recording service. Model downloads and update checks use the network.
+
+## Documentation
+
+- [Getting started](https://voicekey.buildwithais.com/guide.md): Installation, models, permissions and platform limitations.
+- [Privacy and data flow](https://voicekey.buildwithais.com/privacy.md): Local processing, optional cloud features and network connections.
+- [中文使用指南](https://voicekey.buildwithais.com/zh/guide.md): 安装、识别模式与平台支持。
+- [中文隐私说明](https://voicekey.buildwithais.com/zh/privacy.md): 本地处理与可选云端功能的数据边界。
+
+## Project
+
+- [Source and README](https://github.com/BuildWithAIs/voicekey): Source code, MIT license and project documentation.
+- [Releases](https://github.com/BuildWithAIs/voicekey/releases/latest): Authoritative latest version and available installation packages.
+- [Issues](https://github.com/BuildWithAIs/voicekey/issues): Bug reports and support.

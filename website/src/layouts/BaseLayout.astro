@@ -1,152 +1,102 @@
 ---
-/**
- * BaseLayout - shared HTML shell for the marketing site.
- */
-
+import '../styles/global.css'
 interface Props {
   title: string
   description?: string
   lang?: 'en' | 'zh'
-  ogImage?: string
+  noindex?: boolean
+  software?: boolean
 }
-
 const {
   title,
-  description = 'Voice Key - Voice to text, one key to input. Press hotkey to speak, release to type anywhere.',
+  description = 'Free, open-source local voice input for Windows, macOS and Linux. Optional AI refinement with your own provider.',
   lang = 'en',
-  ogImage = '/og.png',
+  noindex = false,
+  software = false,
 } = Astro.props
-
-const siteName = 'Voice Key'
-const fallbackSite = 'https://voicekey.buildwithais.com'
-const rawBasePath = import.meta.env.BASE_URL ?? '/'
-const basePath = rawBasePath.endsWith('/') ? rawBasePath.slice(0, -1) : rawBasePath
-const siteRoot = Astro.site ?? new URL(fallbackSite)
-const siteUrl = new URL(basePath ? `${basePath}/` : '/', siteRoot).toString().replace(/\/$/u, '')
-
-const canonicalURL = (() => {
-  try {
-    return new URL(Astro.url.pathname, siteRoot).toString()
-  } catch {
-    return siteUrl
-  }
-})()
-
-const withBasePath = (pagePath: string) => {
-  const normalizedPath = pagePath === '/' ? '' : pagePath
-  return `${basePath}${normalizedPath}` || '/'
+const site = 'https://voicekey.buildwithais.com'
+const path = Astro.url.pathname.replace(/^\/zh(?=\/|$)/, '') || '/'
+const normalized = path.endsWith('/') ? path : `${path}/`
+const canonical = `${site}${lang === 'zh' ? '/zh' : ''}${normalized}`
+const schema = {
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareApplication',
+  name: 'Voice Key',
+  url: site,
+  applicationCategory: 'UtilitiesApplication',
+  operatingSystem: 'Windows, macOS, Linux',
+  description,
+  license: 'https://opensource.org/license/mit',
+  isAccessibleForFree: true,
+  offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+  codeRepository: 'https://github.com/BuildWithAIs/voicekey',
 }
-
-const hreflangUrls = (() => {
-  try {
-    let cleanPath = Astro.url.pathname ?? '/'
-    if (basePath && basePath !== '/' && cleanPath.startsWith(basePath)) {
-      cleanPath = cleanPath.slice(basePath.length) || '/'
-    }
-    if (!cleanPath.startsWith('/')) cleanPath = `/${cleanPath}`
-
-    const pathWithoutLang =
-      cleanPath === '/zh' ? '/' : cleanPath.startsWith('/zh/') ? cleanPath.slice(3) : cleanPath
-
-    return {
-      enUrl: new URL(withBasePath(pathWithoutLang), siteRoot).toString(),
-      zhUrl: new URL(withBasePath(`/zh${pathWithoutLang === '/' ? '' : pathWithoutLang}`), siteRoot)
-        .toString(),
-    }
-  } catch {
-    return { enUrl: siteUrl, zhUrl: siteUrl }
-  }
-})()
-
-const ogImageUrl = (() => {
-  try {
-    const normalizedImage = ogImage.replace(/^\//u, '')
-    return new URL(normalizedImage, `${siteUrl}/`).toString()
-  } catch {
-    return `${siteUrl}/${ogImage.replace(/^\//u, '')}`
-  }
-})()
-
-const assetPath = (fileName: string) => `${basePath}/${fileName.replace(/^\//u, '')}`
 ---
 
 <!doctype html>
-<html lang={lang}>
+<html lang={lang === 'zh' ? 'zh-CN' : 'en'}>
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
     <meta name="description" content={description} />
-    <meta name="author" content="BuildWithAIs" />
-
+    {noindex ? (
+      <meta name="robots" content="noindex" />
+    ) : (
+      <>
+        <link rel="canonical" href={canonical} />
+        <link rel="alternate" hreflang="en" href={`${site}${normalized}`} />
+        <link rel="alternate" hreflang="zh-CN" href={`${site}/zh${normalized}`} />
+        <link rel="alternate" hreflang="x-default" href={`${site}${normalized}`} />
+      </>
+    )}
     <meta property="og:type" content="website" />
-    <meta property="og:site_name" content={siteName} />
+    <meta property="og:site_name" content="Voice Key" />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
-    <meta property="og:image" content={ogImageUrl} />
-    <meta property="og:url" content={canonicalURL} />
-
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={`${site}/og.png`} />
+    <meta property="og:locale" content={lang === 'zh' ? 'zh_CN' : 'en_US'} />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={description} />
-    <meta name="twitter:image" content={ogImageUrl} />
-
-    <link rel="canonical" href={canonicalURL} />
-    <link rel="alternate" hreflang="en" href={hreflangUrls.enUrl} />
-    <link rel="alternate" hreflang="zh" href={hreflangUrls.zhUrl} />
-    <link rel="alternate" hreflang="x-default" href={hreflangUrls.enUrl} />
-
-    <link rel="icon" href={assetPath('favicon.ico')} sizes="any" />
-    <link rel="icon" type="image/png" sizes="32x32" href={assetPath('favicon-32x32.png')} />
-    <link rel="icon" type="image/png" sizes="16x16" href={assetPath('favicon-16x16.png')} />
-    <link rel="apple-touch-icon" href={assetPath('apple-touch-icon.png')} />
-
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
-      rel="stylesheet"
-    />
-
-    <title>{title}</title>
-
-    <script is:inline>
-      ;(function () {
-        const getTheme = () => {
-          try {
-            if (typeof localStorage !== 'undefined' && localStorage.getItem('theme')) {
-              return localStorage.getItem('theme')
-            }
-          } catch (e) {
-            // localStorage may be unavailable.
-          }
-          return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'dark'
-        }
-
-        const theme = getTheme()
-        document.documentElement.classList.toggle('dark', theme === 'dark')
-
-        try {
-          if (typeof localStorage !== 'undefined') {
-            localStorage.setItem('theme', theme)
-          }
-        } catch (e) {
-          // Ignore storage write failures.
-        }
-      })()
-    </script>
+    <meta name="twitter:image" content={`${site}/og.png`} />
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="describedby" href="/llms.txt" />
+    {['/guide/', '/privacy/'].includes(normalized) && (
+      <link
+        rel="alternate"
+        type="text/markdown"
+        href={`${lang === 'zh' ? '/zh' : ''}${normalized.slice(0, -1)}.md`}
+      />
+    )}
+    {software && (
+      <script
+        type="application/ld+json"
+        set:html={JSON.stringify(schema).replace(/</g, '\\u003c')}
+      />
+    )}
   </head>
-  <body
-    class="min-h-screen bg-background text-foreground antialiased relative selection:bg-primary/30 selection:text-primary"
-  >
-    <div
-      class="fixed inset-0 z-0 h-full w-full bg-background bg-[linear-gradient(to_right,rgba(128,128,128,0.05)_1px,transparent_1px),linear-gradient(to_bottom,rgba(128,128,128,0.05)_1px,transparent_1px)] bg-[size:40px_40px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] pointer-events-none"
-    >
-    </div>
-
+  <body>
+    <a class="skip-link" href="#main">
+      {lang === 'zh' ? '跳到正文' : 'Skip to content'}
+    </a>
     <slot />
+    <footer class="wrap footer">
+      <a class="brand" href={lang === 'zh' ? '/zh/' : '/'}>
+        Voice Key
+        <span class="footer-note">
+          {lang === 'zh' ? '免费开源 · 本地优先' : 'Open source. Local first.'}
+        </span>
+      </a>
+      <div>
+        <a href={lang === 'zh' ? '/zh/privacy/' : '/privacy/'}>
+          {lang === 'zh' ? '隐私与数据' : 'Privacy & data'}
+        </a>
+        <a href="https://github.com/BuildWithAIs/voicekey">GitHub ↗</a>
+        <a href="/llms.txt">llms.txt</a>
+      </div>
+    </footer>
   </body>
 </html>
-
-<style is:global>
-  @import '../styles/global.css';
-</style>
