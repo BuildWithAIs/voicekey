@@ -39,7 +39,8 @@ class FakeWorker extends EventEmitter {
 }
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] })
-  vi.spyOn(workerThreads, 'Worker').mockImplementation(() => {
+  // eslint-disable-next-line prefer-arrow-callback -- Vitest 4 requires constructible Worker mocks.
+  vi.spyOn(workerThreads, 'Worker').mockImplementation(function () {
     return new FakeWorker() as unknown as workerThreads.Worker
   })
   syncBuiltinESMExports()
