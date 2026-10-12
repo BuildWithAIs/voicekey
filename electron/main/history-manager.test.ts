@@ -48,7 +48,7 @@ describe('HistoryManager migration and paging', () => {
       timestamp: NOW - Math.floor(index / 2) * HOUR,
       ...(index === 0 ? { duration: 2500 } : {}),
     }))
-    items.push({ id: 'expired', text: 'Expired', timestamp: NOW - 91 * DAY })
+    items.push({ id: 'archive', text: 'Archived', timestamp: NOW - 91 * DAY })
     const legacy = writeLegacy(items)
 
     const manager = openManager()
@@ -57,15 +57,15 @@ describe('HistoryManager migration and paging', () => {
 
     const first = manager.getPage({ query: '', sort: 'newest' })
     expect(first.items).toHaveLength(50)
-    expect(first.total).toBe(120)
-    expect(first.totalAll).toBe(120)
+    expect(first.total).toBe(121)
+    expect(first.totalAll).toBe(121)
     expect(first.items[0].id).toBe('old-0')
     expect(first.items[1].id).toBe('old-1')
 
     const second = manager.getPage({ query: '', sort: 'newest', cursor: first.nextCursor })
     const third = manager.getPage({ query: '', sort: 'newest', cursor: second.nextCursor })
     expect([...first.items, ...second.items, ...third.items].map((item) => item.id)).toEqual(
-      items.slice(0, 120).map((item) => item.id),
+      items.map((item) => item.id),
     )
     expect(third.nextCursor).toBeUndefined()
 
@@ -73,7 +73,7 @@ describe('HistoryManager migration and paging', () => {
     expect(search.items.map((item) => item.id)).toEqual(['old-1', 'old-0'])
     const summary = manager.getSummary()
     expect(summary.totalCharacters).toBe(
-      items.slice(0, 120).reduce((total, item) => total + item.text.replace(/\s+/g, '').length, 0),
+      items.reduce((total, item) => total + item.text.replace(/\s+/g, '').length, 0),
     )
     expect(summary.totalAudioMs).toBe(2500)
     const today = new Date(NOW)
@@ -92,17 +92,43 @@ describe('HistoryManager migration and paging', () => {
       String(today.getDate()).padStart(2, '0'),
     ].join('-')
     expect(summary.todaySessions).toBe(expectedTodaySessions)
+    expect(summary.days[0].sessions).toBe(expectedTodaySessions)
     expect(summary.days[0].dateKey).toBe(expectedTodayKey)
 
     manager.close()
     const restarted = openManager()
-    expect(restarted.getPage({ query: '', sort: 'newest' }).total).toBe(120)
+    expect(restarted.getPage({ query: '', sort: 'newest' }).total).toBe(121)
     expect(existsSync(legacy)).toBe(false)
     const db = new DatabaseSync(path.join(directory, 'voice-key-history.sqlite'))
     expect((db.prepare('PRAGMA user_version').get() as { user_version: number }).user_version).toBe(
       1,
     )
     db.close()
+  })
+
+  it('keeps migrated and new records across years, reads, writes and restarts', () => {
+    writeLegacy([{ id: 'archive', text: 'old text', timestamp: NOW - 730 * DAY, duration: 4000 }])
+    const manager = openManager()
+    const added = manager.add({ text: 'new text', duration: 2000 })
+    vi.setSystemTime(NOW + 730 * DAY)
+    expect(manager.getPage({ query: '', sort: 'oldest' }).items.map((item) => item.id)).toEqual([
+      'archive',
+      added.id,
+    ])
+    expect(manager.getSummary()).toMatchObject({
+      totalCharacters: 14,
+      totalAudioMs: 6000,
+      activeDays: 2,
+      todaySessions: 0,
+    })
+    expect(manager.getSummary().days.map((day) => day.sessions)).toEqual([1, 1])
+    manager.add({ text: 'today' })
+    manager.close()
+    const restarted = openManager()
+    expect(restarted.getPage({ query: '', sort: 'newest' }).total).toBe(3)
+    expect(restarted.getSummary().totalCharacters).toBe(19)
+    expect(restarted.delete('archive')).toBe(true)
+    expect(restarted.getSummary().totalCharacters).toBe(12)
   })
 
   it('removes the temporary JSON copy when a record is deleted or history is cleared', () => {
@@ -179,7 +205,7 @@ describe('HistoryManager migration and paging', () => {
   })
 
   it('keeps the legacy store usable when an incomplete SQLite schema blocks migration', () => {
-    writeLegacy([{ id: 'one', text: 'fallback text', timestamp: NOW }])
+    writeLegacy([{ id: 'one', text: 'fallback text', timestamp: NOW - 730 * DAY }])
     const db = new DatabaseSync(path.join(directory, 'voice-key-history.sqlite'))
     db.exec('CREATE TABLE history_items (id TEXT)')
     db.close()
@@ -191,5 +217,7 @@ describe('HistoryManager migration and paging', () => {
     expect(manager.getPage({ query: 'FALLBACK', sort: 'newest' }).items[0].id).toBe('one')
     manager.add({ text: 'new fallback' })
     expect(manager.getPage({ query: '', sort: 'newest' }).total).toBe(2)
+    expect(manager.getSummary().days).toHaveLength(2)
+    expect(manager.getSummary().days.every((day) => day.sessions === 1)).toBe(true)
   })
 })

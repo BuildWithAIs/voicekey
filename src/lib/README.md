@@ -10,3 +10,6 @@
 - `stats.ts` - `countCharacters()`：为已加载的历史记录显示字数。
 - `useStatFormatters.ts` - 统一的数字 / 时长 / 峰值日格式化 Hook，供主页与统计组件共用。
 - `useTheme.ts` - 明暗主题 Hook：持久化到 `localStorage`，同步切换 `<html>` 的 `.dark` 类，并在切换瞬间抑制全局过渡。
+
+- `analytics.ts` - 本地日历日对齐、补零、紧邻周期比较、零基线百分比、完整历史跨度、自适应图表聚合和无上限字数里程碑。
+- `analytics.test.ts` - 覆盖跨年、闰日、夏令时、历史范围、聚合守恒与里程碑边界。

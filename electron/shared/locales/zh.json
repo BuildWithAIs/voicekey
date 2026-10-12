@@ -79,6 +79,72 @@
       "noActivity": "暂无记录",
       "newActivity": "新增活动",
       "vsPrior": "较上期 {{value}}"
+    },
+    "achievement": {
+      "title": "每一句，都算数",
+      "subtitle": "累计成果",
+      "total": "累计语音输入",
+      "audio": "累计录音",
+      "dayUnit": "天",
+      "next": "下个里程碑",
+      "remaining": "还差 {{value}} 字",
+      "method": "统计口径",
+      "methodIntro": "让每一份积累，都有清晰的依据。",
+      "methodCounts": "字数按保存文本的非空白字符统计（含标点）；输入次数按记录条数统计；录音时长不含识别、润色与修改耗时。活跃天数指有输入记录的天数。",
+      "methodPeriod": "趋势按本地日历日汇总，与紧邻的上一等长周期逐日对比；包含今天时，今天的数据尚未完整。日均按所选范围的全部天数计算，无输入的日期计为零。上期为零时不显示增长百分比。 全部历史从最早记录到今天，自动按日、周、月或年汇总图表，不与上期对比；每日明细保留原始粒度，按每页 50 天展示。",
+      "methodRetention": "历史记录和统计数据永久保存在本机，直到你主动删除。累计成果与里程碑基于当前保留的记录，删除记录后会相应减少。旧版本已自动清理的数据无法恢复。",
+      "retention": "历史记录永久保存在本机 · 可在历史记录中主动删除",
+      "empty": "从第一句话开始积累。将光标放到输入框，按住快捷键说话。",
+      "loadFailed": "统计数据暂时无法更新，请重试。",
+      "retry": "重试"
+    },
+    "analytics": {
+      "title": "输入趋势",
+      "metric": "统计指标",
+      "metrics": {
+        "characters": "字数",
+        "sessions": "次数",
+        "durationMs": "时长"
+      },
+      "units": {
+        "characters": "字",
+        "sessions": "次"
+      },
+      "axis": {
+        "characters": "字数",
+        "sessions": "输入次数",
+        "durationMs": "录音时长（分钟）"
+      },
+      "current": "本期",
+      "previous": "上一周期",
+      "vsPrevious": "较上一周期",
+      "noBaseline": "上期无输入",
+      "noActivity": "暂无变化",
+      "endDate": "统计截止日期",
+      "tooltipSessions": "{{value}} 次输入",
+      "peak": "本期单日最高",
+      "active": "本期活跃",
+      "average": "日均输入",
+      "details": "查看每日明细",
+      "hideDetails": "收起每日明细",
+      "daily": "每日明细",
+      "emptyPeriod": "这个时间段还没有对应数据，可调整日期查看其他时段。",
+      "columns": {
+        "date": "日期",
+        "characters": "输入字数",
+        "sessions": "输入次数",
+        "durationMs": "录音时长"
+      },
+      "allHistory": "全部历史",
+      "granularity": {
+        "day": "按日汇总",
+        "week": "按周汇总",
+        "month": "按月汇总",
+        "year": "按年汇总"
+      },
+      "page": "第 {{current}} / {{total}} 页",
+      "newer": "较新记录",
+      "older": "更早记录"
     }
   },
   "settings": {
@@ -382,7 +448,6 @@
     "recordCount_one": "共 {{formattedCount}} 条转录记录",
     "recordCount_other": "共 {{formattedCount}} 条转录记录",
     "empty": "暂无转录记录",
-    "autoSaveLimit": "自动保存最近 {{formattedCount}} 天",
     "emptyTitleNone": "暂无转录记录",
     "emptyTitleNoMatch": "未找到匹配记录",
     "emptyDescNone": "当你使用语音输入时，内容会自动保存在这里。",
@@ -397,7 +462,8 @@
     "today": "今天",
     "yesterday": "昨天",
     "copyTitle": "复制文本",
-    "deleteTitle": "删除"
+    "deleteTitle": "删除",
+    "retention": "永久保存在本机"
   },
   "hud": {
     "finish": "完成",

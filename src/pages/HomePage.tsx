@@ -1,160 +1,235 @@
-import { ReactNode, useEffect, useState } from 'react'
-import { Mic, Hash, Clock, TrendingUp } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { ArrowUpRight, Info, Keyboard, RefreshCw } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-
-import { VoiceWave } from '@/components/VoiceWave'
 import { HotkeyKeys } from '@/components/HotkeyKeys'
-import StatsOverview from '@/components/StatsOverview'
 import InteractiveCharts from '@/components/InteractiveCharts'
+import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog'
 import type { HistorySummary } from '@electron/shared/types'
 import { useStatFormatters } from '@/lib/useStatFormatters'
-
-function greetingKey(): string {
-  const hour = new Date().getHours()
-  if (hour < 6) return 'night'
-  if (hour < 12) return 'morning'
-  if (hour < 18) return 'afternoon'
-  return 'evening'
-}
-
-function Mini({ icon, value, label }: { icon: ReactNode; value: string; label: string }) {
-  return (
-    <div>
-      <div className="tnum font-display text-[21px] font-semibold text-foreground">{value}</div>
-      <div className="mt-1 flex items-center gap-1.5 text-[11.5px] text-muted-foreground">
-        {icon}
-        {label}
-      </div>
-    </div>
-  )
-}
+import { characterMilestones } from '@/lib/analytics'
 
 export default function HomePage() {
   const { t } = useTranslation()
-  const { formatNumber, formatDuration } = useStatFormatters()
+  const { formatNumber, formatDuration, locale } = useStatFormatters()
   const [pttKey, setPttKey] = useState('')
-  const [stats, setStats] = useState<HistorySummary>({
-    totalCharacters: 0,
-    totalAudioMs: 0,
-    recentCharacters: 0,
-    recentAudioMs: 0,
-    todaySessions: 0,
-    todayDuration: 0,
-    todayCharacters: 0,
-    activeDays: 0,
-    peakDayCharacters: 0,
-    peakDayKey: null,
-    days: [],
-  })
-  const [loading, setLoading] = useState(true)
+  const [stats, setStats] = useState<HistorySummary | null>(null)
+  const [failed, setFailed] = useState(false)
+  const [revision, setRevision] = useState(0)
 
   useEffect(() => {
-    window.electronAPI
-      .getConfig()
-      .then((config) => setPttKey(config?.hotkey?.pttKey ?? ''))
-      .catch((error) => console.error('Failed to load config:', error))
-  }, [])
-
-  useEffect(() => {
-    const loadHistory = async () => {
+    let active = true
+    let request = 0
+    const refresh = async () => {
+      const version = ++request
       try {
-        setLoading(true)
         const data = await window.electronAPI.getHistorySummary()
-        setStats(data)
-      } catch (error) {
-        console.error('Failed to load history:', error)
-      } finally {
-        setLoading(false)
+        if (active && version === request) {
+          setStats(data)
+          setFailed(false)
+        }
+      } catch {
+        if (active && version === request) setFailed(true)
       }
     }
-    loadHistory()
-  }, [])
+    const config = () => {
+      void window.electronAPI
+        .getConfig()
+        .then((value) => {
+          if (active) setPttKey(value.hotkey.pttKey || '')
+        })
+        .catch(() => {})
+    }
+    const onFocus = () => {
+      void refresh()
+      config()
+    }
+    onFocus()
+    const timer = window.setInterval(() => {
+      if (!document.hidden) void refresh()
+    }, 60000)
+    window.addEventListener('focus', onFocus)
+    return () => {
+      active = false
+      window.clearInterval(timer)
+      window.removeEventListener('focus', onFocus)
+    }
+  }, [revision])
 
-  const isMac = window.electronAPI.platform === 'darwin'
-  const effectivePtt = pttKey || (isMac ? 'Alt' : 'Control+Shift+Space')
+  const milestones = characterMilestones(stats?.totalCharacters ?? 0)
+  const target = milestones[milestones.length - 1]
+  const effectivePtt =
+    pttKey || (window.electronAPI.platform === 'darwin' ? 'Alt' : 'Control+Shift+Space')
+  const compact = new Intl.NumberFormat(locale, { notation: 'compact', maximumFractionDigits: 1 })
 
   return (
-    <div className="mx-auto max-w-[940px] px-8 py-7">
-      {/* 页头 */}
-      <div>
-        <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-primary">
-          <Mic className="h-3 w-3" />
-          {t('home.eyebrow')}
-        </span>
-        <h1 className="mt-2 font-display text-[27px] font-bold tracking-tight text-foreground">
-          {t(`home.greeting.${greetingKey()}`)}
-        </h1>
-        <p className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
-          {t('home.subtitle')}
-          {loading && <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />}
-        </p>
-      </div>
-
-      {/* 英雄区 */}
-      <div className="mt-6 grid gap-4 lg:grid-cols-[1.05fr_1fr]">
-        {/* 按住说话 */}
-        <div className="vk-brand-gradient relative flex min-h-[224px] flex-col justify-between overflow-hidden rounded-2xl border border-white/10 p-6 text-white shadow-[0_1px_2px_rgb(0_0_0/0.05),0_20px_36px_-20px_color-mix(in_oklch,var(--primary)_55%,transparent)]">
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(380px_200px_at_90%_-15%,rgba(255,255,255,0.16),transparent_70%)]" />
-          <div className="relative z-10 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-white/85">
-            <Mic className="h-3.5 w-3.5" />
-            {t('home.hero.standby')}
-          </div>
-          <div className="relative z-10 mt-4 flex items-center gap-4">
-            <div className="rounded-2xl border border-white/25 bg-white/15 px-4 py-4 backdrop-blur">
-              <HotkeyKeys value={effectivePtt} />
-            </div>
-            <div>
-              <h3 className="text-[18px] font-semibold">{t('home.hero.holdToTalk')}</h3>
-              <p className="mt-1 text-xs leading-relaxed text-white/80">
-                {t('home.hero.holdHint')}
-              </p>
-            </div>
-          </div>
-          <div className="relative z-10 mt-4 h-10 text-white/90">
-            <VoiceWave bars={42} active level={0.5} />
-          </div>
+    <div className="achievement-home mx-auto max-w-[1200px] px-6 py-7 lg:px-9">
+      <header className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h1 className="font-display text-[30px] font-bold tracking-tight">
+            {t('home.achievement.title')}
+          </h1>
+          <p className="mt-1.5 text-sm text-muted-foreground">{t('home.achievement.subtitle')}</p>
         </div>
-
-        {/* 今日字数 */}
-        <div className="flex flex-col justify-between rounded-2xl border bg-card p-6 shadow-sm">
-          <div>
-            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-primary">
-              {t('home.stats.todayCharacters')}
-            </span>
-            <div className="tnum mt-3 font-display text-[64px] font-bold leading-[0.95] tracking-tight text-foreground">
-              {formatNumber(stats.todayCharacters)}
-              <span className="ml-2 text-[22px] font-semibold text-muted-foreground">
-                {t('home.charUnit')}
-              </span>
-            </div>
-          </div>
-          <div className="mt-5 flex gap-7 border-t pt-5">
-            <Mini
-              icon={<Hash className="h-3 w-3" />}
-              value={formatNumber(stats.todaySessions)}
-              label={t('home.stats.todaySessions')}
-            />
-            <Mini
-              icon={<Clock className="h-3 w-3" />}
-              value={formatDuration(stats.todayDuration)}
-              label={t('home.stats.todayDuration')}
-            />
-            <Mini
-              icon={<TrendingUp className="h-3 w-3" />}
-              value={formatNumber(stats.recentCharacters)}
-              label={t('home.recent7')}
-            />
-          </div>
+        <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
+          <span className="flex items-center gap-2">
+            <Keyboard className="h-4 w-4" />
+            <HotkeyKeys value={effectivePtt} />
+            {t('home.hero.holdToTalk')}
+          </span>
+          <Dialog>
+            <DialogTrigger asChild>
+              <button className="inline-flex items-center gap-1.5 rounded-md p-2 hover:bg-secondary focus-visible:outline-2 focus-visible:outline-ring">
+                {t('home.achievement.method')}
+                <Info className="h-3.5 w-3.5" />
+              </button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>{t('home.achievement.method')}</DialogTitle>
+                <DialogDescription>{t('home.achievement.methodIntro')}</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-3 text-sm leading-6 text-muted-foreground">
+                <p>{t('home.achievement.methodCounts')}</p>
+                <p>{t('home.achievement.methodPeriod')}</p>
+                <p>{t('home.achievement.methodRetention')}</p>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
-      </div>
+      </header>
 
-      <div className="mt-4">
-        <StatsOverview stats={stats} />
-      </div>
-
-      <div className="mt-4">
-        <InteractiveCharts days={stats.days} loading={loading} />
-      </div>
+      {failed && (
+        <div
+          role="alert"
+          className="mt-5 flex items-center justify-between gap-3 rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm"
+        >
+          <span>{t('home.achievement.loadFailed')}</span>
+          <Button variant="outline" size="sm" onClick={() => setRevision((value) => value + 1)}>
+            <RefreshCw className="h-3.5 w-3.5" />
+            {t('home.achievement.retry')}
+          </Button>
+        </div>
+      )}
+      {!stats ? (
+        !failed && (
+          <div
+            role="status"
+            className="mt-6 flex h-72 items-center justify-center rounded-2xl border bg-card text-sm text-muted-foreground"
+          >
+            {t('common.loading')}
+          </div>
+        )
+      ) : (
+        <>
+          <section
+            className="achievement-total mt-6 rounded-2xl border p-6 lg:p-8"
+            aria-label={t('home.achievement.total')}
+          >
+            <div className="grid items-center gap-7 xl:grid-cols-[1.1fr_1fr]">
+              <div>
+                <h2 className="text-sm font-medium text-muted-foreground">
+                  {t('home.achievement.total')}
+                </h2>
+                <div className="mt-2 flex flex-wrap items-baseline gap-3">
+                  <span className="achievement-number tnum font-display text-[clamp(3rem,6vw,5.5rem)] font-bold leading-[1.12] tracking-[-0.055em]">
+                    {formatNumber(stats.totalCharacters)}
+                  </span>
+                  <span className="text-xl font-semibold text-muted-foreground">
+                    {t('home.charUnit')}
+                  </span>
+                </div>
+              </div>
+              <div className="grid grid-cols-[0.8fr_1.2fr] divide-x border-t pt-5 xl:border-t-0 xl:pt-0">
+                <div className="pr-5">
+                  <div className="tnum font-display text-3xl font-semibold">
+                    {formatNumber(stats.activeDays)}
+                    <span className="ml-1.5 text-sm font-normal text-muted-foreground">
+                      {t('home.achievement.dayUnit')}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-xs text-muted-foreground">{t('home.stats.activeDays')}</p>
+                </div>
+                <div className="pl-5">
+                  <div className="tnum font-display text-xl font-semibold leading-9">
+                    {formatDuration(stats.totalAudioMs)}
+                  </div>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    {t('home.achievement.audio')}
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="mt-8 flex flex-col gap-6 md:flex-row md:items-center">
+              <div className="min-w-0 flex-1 px-2">
+                <div
+                  className="relative h-2 rounded-full bg-border/70"
+                  role="progressbar"
+                  aria-label={t('home.achievement.next')}
+                  aria-valuemin={0}
+                  aria-valuemax={target}
+                  aria-valuenow={stats.totalCharacters}
+                >
+                  <div
+                    className="absolute inset-y-0 left-0 rounded-full bg-primary"
+                    style={{ width: `${Math.min(stats.totalCharacters / target, 1) * 100}%` }}
+                  />
+                  {milestones.map((value) => (
+                    <span
+                      key={value}
+                      className={`absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 ${stats.totalCharacters >= value ? 'border-card bg-primary' : 'border-border bg-card'}`}
+                      style={{ left: `${(value / target) * 100}%` }}
+                    />
+                  ))}
+                </div>
+                <div className="relative mt-3 h-4 text-[11px] text-muted-foreground">
+                  {milestones.map((value) => (
+                    <span
+                      key={value}
+                      className="absolute -translate-x-1/2 whitespace-nowrap"
+                      style={{ left: `${(value / target) * 100}%` }}
+                    >
+                      {compact.format(value)}
+                    </span>
+                  ))}
+                </div>
+              </div>
+              <div className="shrink-0 text-xs md:border-l md:pl-6">
+                <p className="text-muted-foreground">
+                  {t('home.achievement.next')}{' '}
+                  <strong className="ml-1 text-sm font-semibold text-foreground">
+                    {formatNumber(target)} {t('home.charUnit')}
+                  </strong>
+                </p>
+                <p className="mt-2 text-muted-foreground">
+                  {t('home.achievement.remaining', {
+                    value: formatNumber(target - stats.totalCharacters),
+                  })}
+                </p>
+              </div>
+            </div>
+          </section>
+          {stats.activeDays === 0 && (
+            <p className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
+              <ArrowUpRight className="h-4 w-4 text-primary" />
+              {t('home.achievement.empty')}
+            </p>
+          )}
+          <div className="mt-5">
+            <InteractiveCharts days={stats.days} />
+          </div>
+          <p className="mt-4 text-[11px] text-muted-foreground">
+            {t('home.achievement.retention')}
+          </p>
+        </>
+      )}
     </div>
   )
 }

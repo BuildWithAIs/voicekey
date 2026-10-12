@@ -198,6 +198,7 @@ export interface HistoryPageResult {
 }
 
 export interface HistoryDay {
+  sessions: number
   dateKey: string
   characters: number
   durationMs: number

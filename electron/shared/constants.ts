@@ -470,8 +470,6 @@ export const MICROPHONE_INPUT = {
 
 export const LOW_VOLUME_GAIN_DB = 10
 
-export const HISTORY_RETENTION_DAYS = 90
-
 export const LOG_RETENTION_DAYS = 14
 export const LOG_FILE_MAX_SIZE_MB = 5
 export const LOG_FILE_MAX_SIZE_BYTES = LOG_FILE_MAX_SIZE_MB * 1024 * 1024

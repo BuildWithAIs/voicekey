@@ -11,7 +11,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { HISTORY_RETENTION_DAYS } from '@electron/shared/constants'
 import { getLocale } from '@electron/shared/i18n'
 import type { HistoryCursor, HistoryItem } from '@electron/shared/types'
 import { cn } from '@/lib/utils'
@@ -268,12 +267,7 @@ export default function HistoryPage() {
             {totalAll > 0 && (
               <>
                 <span className="h-1 w-1 rounded-full bg-muted-foreground/40" />
-                <span className="text-muted-foreground/70">
-                  {t('history.autoSaveLimit', {
-                    count: HISTORY_RETENTION_DAYS,
-                    formattedCount: formatNumber(HISTORY_RETENTION_DAYS),
-                  })}
-                </span>
+                <span className="text-muted-foreground/70">{t('history.retention')}</span>
               </>
             )}
           </p>

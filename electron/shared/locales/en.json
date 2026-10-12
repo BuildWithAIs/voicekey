@@ -79,6 +79,72 @@
       "noActivity": "No activity yet",
       "newActivity": "New activity",
       "vsPrior": "{{value}} vs prior"
+    },
+    "achievement": {
+      "title": "Every word adds up",
+      "subtitle": "Your cumulative achievements",
+      "total": "Total voice input",
+      "audio": "Total recording time",
+      "dayUnit": "days",
+      "next": "Next milestone",
+      "remaining": "{{value}} characters to go",
+      "method": "How we count",
+      "methodIntro": "A clear basis for every achievement.",
+      "methodCounts": "Characters count non-whitespace characters in saved text, including punctuation. Sessions count saved entries. Recording time excludes recognition, refinement and editing. Active days have at least one entry.",
+      "methodPeriod": "Trends use local calendar days, compared with the immediately preceding period of equal length. Today is incomplete when included. Daily averages include zero-activity days. No growth percentage is shown when the previous total is zero. All history spans the earliest entry through today, automatically grouping the chart by day, week, month or year without a previous-period comparison. Daily details remain unaggregated, with 50 days per page.",
+      "methodRetention": "History and statistics stay on this device until you delete them. Totals and milestones reflect retained entries and decrease when entries are deleted. Data already removed by earlier versions cannot be recovered.",
+      "retention": "History stays on this device indefinitely · Delete it anytime in History",
+      "empty": "Start with your first sentence. Focus a text field and hold your shortcut to speak.",
+      "loadFailed": "Statistics could not be refreshed. Please try again.",
+      "retry": "Retry"
+    },
+    "analytics": {
+      "title": "Input trends",
+      "metric": "Metric",
+      "metrics": {
+        "characters": "Characters",
+        "sessions": "Sessions",
+        "durationMs": "Time"
+      },
+      "units": {
+        "characters": "chars",
+        "sessions": "sessions"
+      },
+      "axis": {
+        "characters": "Characters",
+        "sessions": "Sessions",
+        "durationMs": "Recording time (minutes)"
+      },
+      "current": "This period",
+      "previous": "Previous period",
+      "vsPrevious": "vs. previous period",
+      "noBaseline": "No previous input",
+      "noActivity": "No change yet",
+      "endDate": "Period end date",
+      "tooltipSessions": "{{value}} sessions",
+      "peak": "Period daily best",
+      "active": "Active days",
+      "average": "Daily average",
+      "details": "View daily details",
+      "hideDetails": "Hide daily details",
+      "daily": "Daily details",
+      "emptyPeriod": "No data for this metric in this period. Try a different date range.",
+      "columns": {
+        "date": "Date",
+        "characters": "Characters",
+        "sessions": "Sessions",
+        "durationMs": "Recording time"
+      },
+      "allHistory": "All history",
+      "granularity": {
+        "day": "Daily totals",
+        "week": "Weekly totals",
+        "month": "Monthly totals",
+        "year": "Yearly totals"
+      },
+      "page": "Page {{current}} of {{total}}",
+      "newer": "Newer",
+      "older": "Older"
     }
   },
   "settings": {
@@ -382,7 +448,6 @@
     "recordCount_one": "{{formattedCount}} transcription",
     "recordCount_other": "{{formattedCount}} transcriptions",
     "empty": "No transcriptions yet",
-    "autoSaveLimit": "Auto saves the latest {{formattedCount}} days",
     "emptyTitleNone": "No transcriptions yet",
     "emptyTitleNoMatch": "No matching records",
     "emptyDescNone": "When you use voice input, the content is saved here automatically.",
@@ -397,7 +462,8 @@
     "today": "Today",
     "yesterday": "Yesterday",
     "copyTitle": "Copy text",
-    "deleteTitle": "Delete"
+    "deleteTitle": "Delete",
+    "retention": "Kept on this device indefinitely"
   },
   "hud": {
     "finish": "Finish",

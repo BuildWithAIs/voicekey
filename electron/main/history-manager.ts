@@ -3,7 +3,6 @@ import { existsSync, readFileSync, unlinkSync } from 'node:fs'
 import path from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 import Store from 'electron-store'
-import { HISTORY_RETENTION_DAYS } from '../shared/constants'
 import type {
   HistoryDay,
   HistoryItem,
@@ -38,16 +37,13 @@ interface DayRow {
   date_key: string
   characters: number
   duration_ms: number
+  sessions: number
 }
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000
 const PAGE_SIZE = 50
 const LEGACY_FILENAME = 'voice-key-history.json'
 const DATABASE_FILENAME = 'voice-key-history.sqlite'
-
-function cutoff(now: number): number {
-  return HISTORY_RETENTION_DAYS > 0 ? now - HISTORY_RETENTION_DAYS * MS_PER_DAY : 0
-}
 
 function countCharacters(text: string): number {
   return text.replace(/\s+/g, '').length
@@ -171,7 +167,6 @@ export class HistoryManager {
       }
 
       this.db = db
-      this.prune()
       if (version === 1) this.cleanupLegacyBackup(false)
     } catch (error) {
       db?.close()
@@ -206,7 +201,7 @@ export class HistoryManager {
   private createSchemaAndImport(db: DatabaseSync): void {
     const legacyExists = existsSync(this.legacyPath)
     const legacy = legacyExists ? this.readLegacyItems() : null
-    const retained = (legacy?.items ?? []).filter((item) => item.timestamp >= cutoff(Date.now()))
+    const retained = legacy?.items ?? []
 
     db.exec('BEGIN IMMEDIATE')
     try {
@@ -242,11 +237,10 @@ export class HistoryManager {
 
   private importLegacyChanges(db: DatabaseSync): void {
     const { items, digest } = this.readLegacyItems()
-    const retained = items.filter((item) => item.timestamp >= cutoff(Date.now()))
 
     db.exec('BEGIN IMMEDIATE')
     try {
-      this.insertLegacyItems(db, retained, true)
+      this.insertLegacyItems(db, items, true)
       db.prepare("UPDATE history_meta SET value = '1' WHERE key = 'legacy_cleanup_pending'").run()
       db.exec('COMMIT')
       this.legacyDigest = digest
@@ -290,18 +284,8 @@ export class HistoryManager {
     return this.legacyStore
   }
 
-  private prune(): void {
-    if (this.db && HISTORY_RETENTION_DAYS > 0) {
-      this.db.prepare('DELETE FROM history_items WHERE timestamp_ms < ?').run(cutoff(Date.now()))
-    }
-  }
-
   private legacyItems(): HistoryItem[] {
-    const legacyStore = this.requireLegacyStore()
-    const items = validateLegacyItems({ items: legacyStore.get('items', []) })
-    const retained = items.filter((item) => item.timestamp >= cutoff(Date.now()))
-    if (retained.length !== items.length) legacyStore.set('items', retained)
-    return retained
+    return validateLegacyItems({ items: this.requireLegacyStore().get('items', []) })
   }
 
   private cleanupLegacyBackup(strict: boolean, discardChanges = false): void {
@@ -339,7 +323,6 @@ export class HistoryManager {
     this.requireAvailable()
     if (!this.db) return this.getLegacyPage(request)
 
-    this.prune()
     const query = request.query.trim().toLowerCase()
     const totalAll = (
       this.db.prepare('SELECT COUNT(*) AS count FROM history_items').get() as { count: number }
@@ -426,7 +409,6 @@ export class HistoryManager {
   getSummary(): HistorySummary {
     this.requireAvailable()
     if (!this.db) return this.getLegacySummary()
-    this.prune()
 
     const now = Date.now()
     const today = new Date(now)
@@ -465,7 +447,8 @@ export class HistoryManager {
         `
       SELECT date(timestamp_ms / 1000, 'unixepoch', 'localtime') AS date_key,
              SUM(character_count) AS characters,
-             SUM(COALESCE(duration_ms, 0)) AS duration_ms
+             SUM(COALESCE(duration_ms, 0)) AS duration_ms,
+             COUNT(*) AS sessions
       FROM history_items
       GROUP BY date_key
       ORDER BY date_key DESC
@@ -510,7 +493,8 @@ export class HistoryManager {
         row.today_characters += chars
       }
       const key = dateKey(item.timestamp)
-      const day = daily.get(key) ?? { dateKey: key, characters: 0, durationMs: 0 }
+      const day = daily.get(key) ?? { dateKey: key, characters: 0, durationMs: 0, sessions: 0 }
+      day.sessions += 1
       day.characters += chars
       day.durationMs += duration
       daily.set(key, day)
@@ -521,6 +505,7 @@ export class HistoryManager {
         date_key: day.dateKey,
         characters: day.characters,
         duration_ms: day.durationMs,
+        sessions: day.sessions,
       }))
     return this.buildSummary(row, days)
   }
@@ -545,6 +530,7 @@ export class HistoryManager {
         dateKey: day.date_key,
         characters: day.characters,
         durationMs: day.duration_ms,
+        sessions: day.sessions,
       })),
     }
   }
@@ -569,7 +555,6 @@ export class HistoryManager {
             newItem.duration ?? null,
             countCharacters(newItem.text),
           )
-        this.prune()
         this.db.exec('COMMIT')
       } catch (error) {
         this.db.exec('ROLLBACK')

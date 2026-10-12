@@ -502,3 +502,20 @@ html.vk-theme-changing *::after {
     transition: none;
   }
 }
+
+/* Achievement analytics uses the app palette in both themes. */
+.achievement-home {
+  --analytics-comparison: #6795bc;
+}
+.achievement-total {
+  background: linear-gradient(115deg, var(--card), var(--background));
+}
+.achievement-number {
+  color: oklch(0.55 0.13 65);
+}
+.dark .achievement-number {
+  color: var(--primary);
+}
+.dark .achievement-home {
+  --analytics-comparison: #8eb5d5;
+}

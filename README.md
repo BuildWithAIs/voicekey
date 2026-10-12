@@ -48,8 +48,9 @@ cursor is active.
   a dedicated shortcut.
 - **Desktop-native workflow** — configurable global hotkeys, microphone selection, a status HUD,
   launch-at-login support, update checks, and focused-app text injection.
-- **Local history** — search, copy, inspect, and delete recent transcripts; records are retained on
-  the device for up to 90 days.
+- **Local history** — search, copy, inspect, and delete transcripts; records stay on the device
+  indefinitely until you delete them. The achievement dashboard shows lifetime totals, milestones,
+  and daily trends with previous-period comparisons.
 - **English and Chinese interface** — switch the application language from Settings.
 
 ## How it works
