@@ -81,7 +81,7 @@
       "vsPrior": "{{value}} vs prior"
     },
     "achievement": {
-      "title": "Every word adds up",
+      "title": "Voice input overview",
       "subtitle": "Your cumulative achievements",
       "total": "Total voice input",
       "audio": "Total recording time",

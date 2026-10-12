@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { ArrowDownRight, ArrowUpRight, CalendarDays, ChevronDown } from 'lucide-react'
+import { ArrowDownRight, ArrowUpRight, CalendarDays } from 'lucide-react'
 import { Bar, CartesianGrid, ComposedChart, Line, Tooltip, XAxis, YAxis } from 'recharts'
 import { useTranslation } from 'react-i18next'
 import type { HistoryDay } from '@electron/shared/types'
@@ -16,6 +16,14 @@ import {
 import { useStatFormatters } from '@/lib/useStatFormatters'
 import { ChartContainer } from '@/components/ui/chart'
 import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog'
 
 interface InteractiveChartsProps {
   days: HistoryDay[]
@@ -92,7 +100,7 @@ export default function InteractiveCharts({ days }: InteractiveChartsProps) {
 
   return (
     <section
-      className="rounded-2xl border bg-card p-5 lg:p-7"
+      className="analytics-panel rounded-2xl border bg-card p-4 lg:px-5"
       aria-label={t('home.analytics.title')}
     >
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -145,7 +153,7 @@ export default function InteractiveCharts({ days }: InteractiveChartsProps) {
           </div>
         </div>
       </div>
-      <div className="mt-5 flex flex-wrap items-center justify-between gap-4">
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-5">
           <div className="flex items-baseline gap-2">
             <span className="text-sm text-muted-foreground">{periodLabel}</span>
@@ -204,7 +212,7 @@ export default function InteractiveCharts({ days }: InteractiveChartsProps) {
           )}
         </label>
       </div>
-      <div className="mt-6 flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted-foreground">
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted-foreground">
         <span>
           {t(`home.analytics.axis.${metric}`)}
           {allHistory && ` · ${t(`home.analytics.granularity.${chart.granularity}`)}`}
@@ -230,7 +238,7 @@ export default function InteractiveCharts({ days }: InteractiveChartsProps) {
             color: 'var(--analytics-comparison)',
           },
         }}
-        className="mt-3 aspect-auto h-[240px] w-full lg:h-[250px]"
+        className="analytics-plot mt-2 aspect-auto h-[200px] w-full"
       >
         <ComposedChart
           accessibilityLayer
@@ -317,16 +325,16 @@ export default function InteractiveCharts({ days }: InteractiveChartsProps) {
           {t('home.analytics.emptyPeriod')}
         </p>
       )}
-      <div className="mt-6 grid grid-cols-2 items-center gap-5 border-t pt-5 lg:grid-cols-[1fr_1fr_1fr_auto]">
+      <div className="analytics-summary mt-3 grid grid-cols-2 items-center gap-3 border-t pt-3 min-[1000px]:grid-cols-[1fr_1fr_1fr_auto]">
         <div>
           <p className="text-xs text-muted-foreground">{t('home.analytics.peak')}</p>
-          <p className="tnum mt-2 font-display text-xl font-semibold">
+          <p className="tnum mt-1 font-display text-lg font-semibold">
             {value(peak)} <span className="text-xs font-normal text-muted-foreground">{unit}</span>
           </p>
         </div>
         <div className="border-l pl-5">
           <p className="text-xs text-muted-foreground">{t('home.analytics.active')}</p>
-          <p className="tnum mt-2 font-display text-xl font-semibold">
+          <p className="tnum mt-1 font-display text-lg font-semibold">
             {formatNumber(activeDays)}{' '}
             <span className="text-xs font-normal text-muted-foreground">
               / {t('home.chart.days', { count: rangeDays })}
@@ -335,85 +343,81 @@ export default function InteractiveCharts({ days }: InteractiveChartsProps) {
         </div>
         <div className="lg:border-l lg:pl-5">
           <p className="text-xs text-muted-foreground">{t('home.analytics.average')}</p>
-          <p className="tnum mt-2 font-display text-xl font-semibold">
+          <p className="tnum mt-1 font-display text-lg font-semibold">
             {value(Math.round(current / rangeDays))}{' '}
             <span className="text-xs font-normal text-muted-foreground">{unit}</span>
           </p>
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="text-accent-foreground"
-          aria-expanded={showDetails}
-          aria-controls="daily-analytics"
-          onClick={() => setShowDetails(!showDetails)}
-        >
-          {t(showDetails ? 'home.analytics.hideDetails' : 'home.analytics.details')}
-          <ChevronDown
-            className={cn('h-4 w-4 transition-transform', showDetails && 'rotate-180')}
-          />
-        </Button>
-      </div>
-      {showDetails && (
-        <div id="daily-analytics" className="mt-6 overflow-x-auto border-t pt-4">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <h3 className="text-sm font-semibold">{t('home.analytics.daily')}</h3>
+        <Dialog open={showDetails} onOpenChange={setShowDetails}>
+          <DialogTrigger asChild>
+            <Button variant="ghost" size="sm" className="text-accent-foreground">
+              {t('home.analytics.details')}
+              <ArrowUpRight className="h-4 w-4" />
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="flex max-h-[85vh] flex-col sm:max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>{t('home.analytics.daily')}</DialogTitle>
+              <DialogDescription>
+                {fullDate(points[0].dateKey)} — {fullDate(end)}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="min-h-0 flex-1 overflow-auto rounded-lg border">
+              <table className="w-full text-left text-xs">
+                <thead className="sticky top-0 bg-secondary text-muted-foreground">
+                  <tr>
+                    {['date', 'characters', 'sessions', 'durationMs'].map((key) => (
+                      <th scope="col" key={key} className="whitespace-nowrap px-4 py-3 font-medium">
+                        {t(`home.analytics.columns.${key}`)}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {detailPoints.map((point) => (
+                    <tr key={point.dateKey} className="border-t hover:bg-muted">
+                      <td className="whitespace-nowrap px-4 py-3">{fullDate(point.dateKey)}</td>
+                      <td className="tnum px-4 py-3">{formatNumber(point.characters)}</td>
+                      <td className="tnum px-4 py-3">{formatNumber(point.sessions)}</td>
+                      <td className="tnum whitespace-nowrap px-4 py-3">
+                        {formatDuration(point.durationMs)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {detailPages > 1 && (
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+                <span>
+                  {t('home.analytics.page', { current: currentPage + 1, total: detailPages })}
+                </span>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={currentPage === 0}
+                    onClick={() => setDetailPage(currentPage - 1)}
+                  >
+                    {t('home.analytics.newer')}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={currentPage === detailPages - 1}
+                    onClick={() => setDetailPage(currentPage + 1)}
+                  >
+                    {t('home.analytics.older')}
+                  </Button>
+                </div>
+              </div>
+            )}
             <a href="#/history" className="text-xs text-accent-foreground hover:underline">
               {t('nav.history')} →
             </a>
-          </div>
-          <div className="max-h-80 overflow-auto rounded-lg border">
-            <table className="w-full text-left text-xs">
-              <thead className="sticky top-0 bg-secondary text-muted-foreground">
-                <tr>
-                  {['date', 'characters', 'sessions', 'durationMs'].map((key) => (
-                    <th scope="col" key={key} className="whitespace-nowrap px-4 py-3 font-medium">
-                      {t(`home.analytics.columns.${key}`)}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {detailPoints.map((point) => (
-                  <tr key={point.dateKey} className="border-t hover:bg-muted">
-                    <td className="whitespace-nowrap px-4 py-3">{fullDate(point.dateKey)}</td>
-                    <td className="tnum px-4 py-3">{formatNumber(point.characters)}</td>
-                    <td className="tnum px-4 py-3">{formatNumber(point.sessions)}</td>
-                    <td className="tnum whitespace-nowrap px-4 py-3">
-                      {formatDuration(point.durationMs)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {detailPages > 1 && (
-            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
-              <span>
-                {t('home.analytics.page', { current: currentPage + 1, total: detailPages })}
-              </span>
-              <div className="flex gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={currentPage === 0}
-                  onClick={() => setDetailPage(currentPage - 1)}
-                >
-                  {t('home.analytics.newer')}
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={currentPage === detailPages - 1}
-                  onClick={() => setDetailPage(currentPage + 1)}
-                >
-                  {t('home.analytics.older')}
-                </Button>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
+          </DialogContent>
+        </Dialog>
+      </div>
     </section>
   )
 }

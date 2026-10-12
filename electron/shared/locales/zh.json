@@ -81,7 +81,7 @@
       "vsPrior": "较上期 {{value}}"
     },
     "achievement": {
-      "title": "每一句，都算数",
+      "title": "语音输入概览",
       "subtitle": "累计成果",
       "total": "累计语音输入",
       "audio": "累计录音",

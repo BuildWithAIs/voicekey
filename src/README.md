@@ -13,6 +13,6 @@
 
 - `App.tsx` - Hash 路由入口；根据窗口类型渲染后台录音组件、HUD 或主界面。
 - `main.tsx` - React 启动入口与渲染进程 i18n 初始化。
-- `index.css` - Tailwind 基础样式与主题变量，以及 HUD 固定暖白配色、紧凑卡片与减弱动态效果样式。
+- `index.css` - Tailwind 基础样式与主题变量，首页单屏自适应布局，以及 HUD 固定暖白配色、紧凑卡片与减弱动态效果样式。
 - `global.d.ts` - `window.electronAPI` 类型声明。
 - `vite-env.d.ts` - Vite 环境类型声明。

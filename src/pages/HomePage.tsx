@@ -70,13 +70,12 @@ export default function HomePage() {
   const compact = new Intl.NumberFormat(locale, { notation: 'compact', maximumFractionDigits: 1 })
 
   return (
-    <div className="achievement-home mx-auto max-w-[1200px] px-6 py-7 lg:px-9">
+    <div className="achievement-home mx-auto max-w-[1200px] px-5 py-4 lg:px-7">
       <header className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="font-display text-[30px] font-bold tracking-tight">
+          <h1 className="font-display text-[24px] font-bold tracking-tight">
             {t('home.achievement.title')}
           </h1>
-          <p className="mt-1.5 text-sm text-muted-foreground">{t('home.achievement.subtitle')}</p>
         </div>
         <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
           <span className="flex items-center gap-2">
@@ -130,16 +129,16 @@ export default function HomePage() {
       ) : (
         <>
           <section
-            className="achievement-total mt-6 rounded-2xl border p-6 lg:p-8"
+            className="achievement-total rounded-2xl border p-4 lg:px-5"
             aria-label={t('home.achievement.total')}
           >
-            <div className="grid items-center gap-7 xl:grid-cols-[1.1fr_1fr]">
+            <div className="grid items-center gap-4 min-[1000px]:grid-cols-[1.1fr_1fr]">
               <div>
                 <h2 className="text-sm font-medium text-muted-foreground">
                   {t('home.achievement.total')}
                 </h2>
                 <div className="mt-2 flex flex-wrap items-baseline gap-3">
-                  <span className="achievement-number tnum font-display text-[clamp(3rem,6vw,5.5rem)] font-bold leading-[1.12] tracking-[-0.055em]">
+                  <span className="achievement-number tnum font-display text-[clamp(2.5rem,5vh,4rem)] font-bold leading-[1.12] tracking-[-0.055em]">
                     {formatNumber(stats.totalCharacters)}
                   </span>
                   <span className="text-xl font-semibold text-muted-foreground">
@@ -147,7 +146,7 @@ export default function HomePage() {
                   </span>
                 </div>
               </div>
-              <div className="grid grid-cols-[0.8fr_1.2fr] divide-x border-t pt-5 xl:border-t-0 xl:pt-0">
+              <div className="grid grid-cols-[0.8fr_1.2fr] divide-x border-t pt-3 min-[1000px]:border-t-0 min-[1000px]:pt-0">
                 <div className="pr-5">
                   <div className="tnum font-display text-3xl font-semibold">
                     {formatNumber(stats.activeDays)}
@@ -167,7 +166,7 @@ export default function HomePage() {
                 </div>
               </div>
             </div>
-            <div className="mt-8 flex flex-col gap-6 md:flex-row md:items-center">
+            <div className="mt-4 flex flex-col gap-4 md:flex-row md:items-center">
               <div className="min-w-0 flex-1 px-2">
                 <div
                   className="relative h-2 rounded-full bg-border/70"
@@ -222,10 +221,10 @@ export default function HomePage() {
               {t('home.achievement.empty')}
             </p>
           )}
-          <div className="mt-5">
+          <div className="achievement-trends">
             <InteractiveCharts days={stats.days} />
           </div>
-          <p className="mt-4 text-[11px] text-muted-foreground">
+          <p className="achievement-retention text-[11px] text-muted-foreground">
             {t('home.achievement.retention')}
           </p>
         </>

@@ -519,3 +519,39 @@ html.vk-theme-changing *::after {
 .dark .achievement-home {
   --analytics-comparison: #8eb5d5;
 }
+
+/* Keep the overview in the available content height; details open in a dialog. */
+.achievement-home {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.achievement-home > header,
+.achievement-total,
+.achievement-retention {
+  flex-shrink: 0;
+}
+@media (min-width: 1000px) and (min-height: 680px) {
+  .achievement-home {
+    height: 100%;
+    min-height: 0;
+  }
+  .achievement-trends {
+    flex: 1;
+    min-height: 0;
+  }
+  .analytics-panel {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+  }
+  .analytics-panel > :not(.analytics-plot) {
+    flex-shrink: 0;
+  }
+  .analytics-panel .analytics-plot {
+    flex: 1;
+    min-height: 80px;
+    height: 0;
+  }
+}
