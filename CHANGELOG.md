@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.3.3](https://github.com/BuildWithAIs/voicekey/compare/v0.3.2...v0.3.3) (2026-10-13)
+
+### Features
+
+- **asr:** add shared user dictionary and automatic language detection ([eaf8085](https://github.com/BuildWithAIs/voicekey/commit/eaf80852e4ca6e97826f4b92a8022fdf16495a59))
+- **home:** add achievement analytics and retain history indefinitely ([001d0fa](https://github.com/BuildWithAIs/voicekey/commit/001d0fa5d81105ab2b5784261d9e97cb2b3dc5ad))
+- **hud:** adopt warm paper design with live transcript feedback ([440d234](https://github.com/BuildWithAIs/voicekey/commit/440d234f136ba70e94ab3435818a0634fbbf3f85))
+- **refine:** improve multilingual polishing prompts ([7f886da](https://github.com/BuildWithAIs/voicekey/commit/7f886dacc9ac32e869f3881b73fb87c68a53bb55))
+- **website:** redesign local-first marketing site and improve SEO ([f661882](https://github.com/BuildWithAIs/voicekey/commit/f661882a24bac1b3c3b95385d18850e0a3ae418f))
+
+### Bug Fixes
+
+- **asr:** bound resource usage and harden recording lifecycle ([a7eabc7](https://github.com/BuildWithAIs/voicekey/commit/a7eabc7f2ae83b004f2750acc823a06732b12416))
+- **home:** fit voice input overview into one screen ([f846cbe](https://github.com/BuildWithAIs/voicekey/commit/f846cbe80be27768c54ae2106909d61b9090748d))
+- **test:** make worker mocks constructible in Vitest 4 ([8cdf9c9](https://github.com/BuildWithAIs/voicekey/commit/8cdf9c9c0d7f7040d74db1df1f8d897e1b1d4f70))
+- **translation:** improve multilingual tone and fidelity ([6f4a221](https://github.com/BuildWithAIs/voicekey/commit/6f4a221024f252ca91c5101b2d40de133a47fd6f))
+
 ### [0.3.2](https://github.com/BuildWithAIs/voicekey/compare/v0.3.1...v0.3.2) (2026-10-08)
 
 ### Features
