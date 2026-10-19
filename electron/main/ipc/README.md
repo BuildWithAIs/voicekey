@@ -17,4 +17,6 @@
 size and single-line content in the main process before applying other sections.
 `CONFIG_GET` includes the persisted dictionary; no separate renderer filesystem access is used.
 
+录音窗口的主动停录请求携带会话 ID 和麦克风结束/时长上限来源，仅接受当前录音窗口对当前会话的请求。`session-handlers.test.ts` 覆盖来源保留、旧会话和非录音窗口拒绝。
+
 录音窗口发送带会话 ID 的停止确认与麦克风回退通知；主进程拒绝非录音窗口的数据、超限音频和非单次最终标准音频。模型管理仅设置窗口可调用，录音/处理期间禁止删除或下载校验操作。

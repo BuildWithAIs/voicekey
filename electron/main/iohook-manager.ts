@@ -6,6 +6,11 @@ type UiohookModule = typeof import('uiohook-napi')
 type UiohookKeyboardEvent = {
   type: number
   keycode: number
+  time?: number
+  altKey?: boolean
+  ctrlKey?: boolean
+  metaKey?: boolean
+  shiftKey?: boolean
 }
 
 export class IOHookManager extends EventEmitter {
@@ -79,7 +84,7 @@ export class IOHookManager extends EventEmitter {
       if (this.debug) {
         console.log('[IOHook] KeyDown:', e.keycode, this.getKeyName(e.keycode))
       }
-      this.emit('keydown', e.keycode)
+      this.emit('keydown', e.keycode, e)
       this.checkHotkeys()
     } else if (e.type === 5) {
       // KeyUp
@@ -87,7 +92,7 @@ export class IOHookManager extends EventEmitter {
       if (this.debug) {
         console.log('[IOHook] KeyUp:', e.keycode, this.getKeyName(e.keycode))
       }
-      this.emit('keyup', e.keycode)
+      this.emit('keyup', e.keycode, e)
     }
   }
 
@@ -106,6 +111,7 @@ export class IOHookManager extends EventEmitter {
    *
    * @param modifiers - 需要按住的修饰键数组，如 ['meta', 'shift']
    * @param key - 需要按住的主键 keycode，如 UiohookKey.Space (57)
+   * @param exact - 是否排除额外按键；已触发的 PTT 用 false 检测必需键是否仍按住
    * @returns true = 用户正在按住配置的快捷键组合；false = 未按住或已松开
    *
    * @example
@@ -114,7 +120,7 @@ export class IOHookManager extends EventEmitter {
    * if (isPressed) handleStartRecording()
    * else handleStopRecording()
    */
-  isPressed(modifiers: string[], key: number): boolean {
+  isPressed(modifiers: string[], key: number, exact = true): boolean {
     // 1. Check main key is pressed
     if (!this.pressedKeys.has(key)) return false
 
@@ -122,6 +128,10 @@ export class IOHookManager extends EventEmitter {
     for (const mod of modifiers) {
       if (!this.hasModifier(mod)) return false
     }
+
+    // Once PTT is latched, only releasing a required key ends the hold.
+    // Extra keys must not turn a still-held shortcut into a release.
+    if (!exact) return true
 
     // 3. Check no extra modifiers are pressed (exact match)
     // Get all keycodes that belong to the required modifiers
@@ -148,6 +158,17 @@ export class IOHookManager extends EventEmitter {
     }
 
     return true
+  }
+
+  // Diagnostic data is restricted to the configured key and modifier states.
+  // Never expose the set of ordinary keys typed into another application.
+  getHotkeyDiagnostics(modifiers: string[], key: number, inputKey: number) {
+    return {
+      inputKey: inputKey === key || this.allModifierKeys.has(inputKey) ? inputKey : 'other',
+      mainKeyDown: this.pressedKeys.has(key),
+      requiredModifiers: Object.fromEntries(modifiers.map((mod) => [mod, this.hasModifier(mod)])),
+      activeModifiers: Object.keys(this.modifiers).filter((mod) => this.hasModifier(mod)),
+    }
   }
 
   // Get all keycodes that belong to the specified modifiers

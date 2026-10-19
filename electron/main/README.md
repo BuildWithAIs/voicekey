@@ -19,7 +19,7 @@ Electron 主进程目录，负责窗口管理、IPC、录音编排、ASR/润色�
 - `history-manager.ts` - 使用 `node:sqlite` 保存听写历史，首次启动事务迁移旧 JSON，后续启动补导入旧版本新增记录；提供游标分页、搜索和含每日次数的首页汇总，迁移失败时暂用可读的旧 JSON。所有存储路径永久保留历史，仅主动删除/清空时移除记录。
 - `history-manager.test.ts` - 覆盖旧数据迁移、重复启动、分页顺序、搜索、统计、删除与损坏数据。
 - `hotkey-manager.ts` - Electron `globalShortcut` 管理。
-- `iohook-manager.ts` - Windows、macOS 与 Linux X11 的 `uiohook-napi` 键盘监听；原生模块按需加载，Hyprland Wayland 不初始化该后端。
+- `iohook-manager.ts` - Windows、macOS 与 Linux X11 的 `uiohook-napi` 键盘监听；原生模块按需加载，Hyprland Wayland 不初始化该后端；提供严格命中与忽略额外按键的持续按住检测。
 - `asr-provider.ts` - 本地 ASR Provider 入口，调用 SenseVoiceSmall int8 并规范化识别结果。
 - `asr-model-storage.ts` - 统一管理 `userData/local-asr` 模型根目录；按识别模式打开对应的模型安装目录，仅允许递归删除白名单中的直接子目录，并在启动时幂等清理已退役的 Paraformer/独立标点模型目录。
 - `asr-model-storage.test.ts` - 模型目录打开映射、删除路径保护与旧流式资产清理回归测试，确保只保留 SenseVoice/X-ASR 活跃目录，并拒绝根目录、嵌套目录和目录外路径。

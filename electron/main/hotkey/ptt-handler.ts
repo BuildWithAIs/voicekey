@@ -21,34 +21,26 @@ export async function registerGlobalHotkeys(
   const translationConfig = configManager.getTranslationConfig()
   const pttKey = hotkeyConfig.pttKey
 
-  let debounceTimer: NodeJS.Timeout | null = null
-  const DEBOUNCE_MS = 50
   let pttPressed = false
+  let lastExactMatch = false
 
   const startPTT = () => {
     if (pttPressed) return
     pttPressed = true
     const session = getCurrentSession()
-    if (session?.status === 'recording' || debounceTimer) return
-    debounceTimer = setTimeout(() => {
-      debounceTimer = null
-      const currentSession = getCurrentSession()
-      if (!currentSession || currentSession.status !== 'recording') {
-        handleStartRecording()
-      }
-    }, DEBOUNCE_MS)
+    if (session?.status === 'recording') return
+    // The pressed latch already suppresses repeat events. Delaying this edge
+    // discards the beginning of short utterances before capture even starts.
+    void handleStartRecording()
   }
 
   const stopPTT = () => {
     pttPressed = false
-    if (debounceTimer) {
-      clearTimeout(debounceTimer)
-      debounceTimer = null
-    }
     const session = getCurrentSession()
     if (session?.status === 'recording') {
       handleStopRecording({
         willProcessDictation: options.getWillProcessDictation?.() ?? false,
+        source: 'hotkey-release',
       })
     }
   }
@@ -86,9 +78,40 @@ export async function registerGlobalHotkeys(
   console.log({ pttConfig })
 
   if (pttConfig) {
-    const checkPTT = () => {
-      // 判断是否按住设置的快捷键（精确匹配）
-      const isPressed = ioHookManager.isPressed(pttConfig.modifiers, pttConfig.key)
+    const checkPTT = (
+      inputKey: number,
+      input?: {
+        type: number
+        time?: number
+        metaKey?: boolean
+        altKey?: boolean
+        shiftKey?: boolean
+        ctrlKey?: boolean
+      },
+    ) => {
+      // Match exactly to start; after latching, tolerate extra keys until a
+      // required key is released. Otherwise an unrelated key can stop capture.
+      const exactMatch = ioHookManager.isPressed(pttConfig.modifiers, pttConfig.key)
+      const isPressed = pttPressed
+        ? ioHookManager.isPressed(pttConfig.modifiers, pttConfig.key, false)
+        : exactMatch
+      if (isPressed !== pttPressed || (pttPressed && exactMatch !== lastExactMatch)) {
+        console.log('[Hotkey] PTT key state', {
+          sessionId: getCurrentSession()?.id,
+          pressed: isPressed,
+          exactMatch,
+          eventType: input?.type,
+          nativeTime: input?.time,
+          nativeModifiers: input && {
+            meta: input.metaKey,
+            alt: input.altKey,
+            shift: input.shiftKey,
+            ctrl: input.ctrlKey,
+          },
+          ...ioHookManager.getHotkeyDiagnostics(pttConfig.modifiers, pttConfig.key, inputKey),
+        })
+      }
+      lastExactMatch = exactMatch
       // A rejected busy press is consumed until release. Key repeat must not
       // unexpectedly start a recording when previous processing finishes.
       if (isPressed && !pttPressed) startPTT()

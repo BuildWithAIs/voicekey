@@ -8,6 +8,10 @@ export function AudioRecorder() {
   useEffect(() => {
     type Capture = {
       payload: RecordingStartPayload
+      ready: Promise<void>
+      finishStarting: () => void
+      tailTimer?: ReturnType<typeof setTimeout>
+      finishTail?: () => void
       ending: boolean
       cancelled: boolean
       stream?: MediaStream
@@ -24,6 +28,8 @@ export function AudioRecorder() {
     let active: Capture | null = null
     const isCurrent = (capture: Capture) => active === capture && !capture.cancelled
     const release = (capture: Capture) => {
+      clearTimeout(capture.tailTimer)
+      capture.finishTail?.()
       clearTimeout(capture.timer)
       clearInterval(capture.levelTimer)
       capture.worklet?.disconnect()
@@ -66,19 +72,18 @@ export function AudioRecorder() {
       capture.ending = true
       clearTimeout(capture.timer)
       try {
+        // A quick release must not turn pending microphone/worklet setup into
+        // an empty final marker. Cancellation still tears down immediately.
+        await capture.ready
+        if (!isCurrent(capture)) return
+        await new Promise<void>((resolve) => {
+          capture.finishTail = resolve
+          capture.tailTimer = setTimeout(resolve, RECORDING.RELEASE_TAIL_MS)
+        })
+        if (!isCurrent(capture)) return
         if (capture.payload.asrMode === 'classic') {
-          if (capture.recorder) {
-            capture.recorder.stop()
-          } else {
-            release(capture)
-            window.electronAPI.sendAudioChunk({
-              sessionId,
-              chunkIndex: 0,
-              isFinal: true,
-              mimeType: 'audio/webm',
-              buffer: new ArrayBuffer(0),
-            })
-          }
+          if (!capture.recorder) throw new Error('Microphone recorder did not initialize')
+          capture.recorder.stop()
           return
         }
         if (capture.worklet) {
@@ -101,7 +106,13 @@ export function AudioRecorder() {
     }
     const start = async (payload: RecordingStartPayload) => {
       if (active) return
+      let finishStarting!: () => void
+      const ready = new Promise<void>((resolve) => {
+        finishStarting = resolve
+      })
       const capture: Capture = {
+        ready,
+        finishStarting,
         payload,
         ending: false,
         cancelled: false,
@@ -111,6 +122,18 @@ export function AudioRecorder() {
       }
       active = capture
       try {
+        // Load the streaming capture module while the microphone opens, rather
+        // than leaving the newly opened stream unconsumed during module loading.
+        const context = new AudioContext()
+        capture.context = context
+        const workletReady =
+          payload.asrMode === 'streaming'
+            ? context.audioWorklet.addModule(
+                new URL('./voice-key-pcm-worklet.js', window.location.href).toString(),
+              )
+            : Promise.resolve()
+        // Attach rejection handling immediately, even while permission is pending.
+        void workletReady.catch((error: unknown) => fail(capture, error))
         let stream: MediaStream
         try {
           stream = await navigator.mediaDevices.getUserMedia({
@@ -132,18 +155,20 @@ export function AudioRecorder() {
               stream.getAudioTracks()[0]?.label || '',
             )
         }
-        if (!isCurrent(capture) || capture.ending) {
+        if (!isCurrent(capture)) {
           stream.getTracks().forEach((track) => track.stop())
           return
         }
         capture.stream = stream
         stream.getAudioTracks().forEach((track) => {
           track.onended = () => {
-            if (isCurrent(capture) && !capture.ending) void window.electronAPI.stopSession()
+            if (isCurrent(capture) && !capture.ending)
+              void window.electronAPI.stopSession({
+                sessionId: payload.sessionId,
+                reason: 'microphone-ended',
+              })
           }
         })
-        const context = new AudioContext()
-        capture.context = context
         const source = context.createMediaStreamSource(stream)
         const analyser = context.createAnalyser()
         analyser.fftSize = 256
@@ -192,10 +217,8 @@ export function AudioRecorder() {
           // restarts mid-session, and ASR receives exactly one complete file.
           recorder.start(1000)
         } else {
-          await context.audioWorklet.addModule(
-            new URL('./voice-key-pcm-worklet.js', window.location.href).toString(),
-          )
-          if (!isCurrent(capture) || capture.ending) return
+          await workletReady
+          if (!isCurrent(capture)) return
           const worklet = new AudioWorkletNode(context, 'voice-key-pcm-capture', {
             numberOfInputs: 1,
             numberOfOutputs: 1,
@@ -229,13 +252,20 @@ export function AudioRecorder() {
           worklet.connect(mute)
           mute.connect(context.destination)
           await context.resume()
-          if (!isCurrent(capture) || capture.ending) return
+          if (!isCurrent(capture)) return
         }
+        if (capture.ending) return
         capture.timer = setTimeout(() => {
-          if (isCurrent(capture) && !capture.ending) void window.electronAPI.stopSession()
+          if (isCurrent(capture) && !capture.ending)
+            void window.electronAPI.stopSession({
+              sessionId: payload.sessionId,
+              reason: 'duration-limit',
+            })
         }, RECORDING.SESSION_MAX_DURATION_SECONDS * 1000)
       } catch (error) {
         fail(capture, error)
+      } finally {
+        capture.finishStarting()
       }
     }
     const removeStart = window.electronAPI.onStartRecording((payload) => {

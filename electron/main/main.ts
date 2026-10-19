@@ -261,9 +261,10 @@ app.whenReady().then(async () => {
     session: {
       // 这些现在直接从 audio/ 模块导入
       handleStartRecording,
-      handleStopRecording: () =>
+      handleStopRecording: (source) =>
         handleStopRecording({
           willProcessDictation: willProcessDictation(),
+          source,
         }),
       handleAudioChunk,
       handleStreamingAudioFrame,

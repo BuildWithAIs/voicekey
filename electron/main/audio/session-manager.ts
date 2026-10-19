@@ -108,6 +108,11 @@ export async function clearSession(sessionId = currentSession?.id): Promise<void
 
 export function failRecordingSession(sessionId: string, message: string): void {
   if (currentSession?.id !== sessionId || currentSession.status === 'error') return
+  console.warn('[Audio:Session] Recording failed', {
+    sessionId,
+    status: currentSession.status,
+    elapsedMs: Date.now() - currentSession.startTime.getTime(),
+  })
   void endSession(sessionId, true)
   showErrorAndHide(message)
 }
@@ -159,6 +164,7 @@ export async function handleStartRecording(): Promise<void> {
     asrMode,
     lowVolumeMode: asrConfig.lowVolumeMode ?? false,
   }
+  console.log('[Audio:Session] Recording started', { sessionId, asrMode })
   showOverlay({
     status: 'recording',
     message:
@@ -167,7 +173,7 @@ export async function handleStartRecording(): Promise<void> {
   try {
     // Main owns the hard duration limit, even if renderer timers are throttled.
     recordingWatchdog = setTimeout(() => {
-      void handleStopRecording()
+      void handleStopRecording({ source: 'duration-limit' })
     }, RECORDING.SESSION_MAX_DURATION_SECONDS * 1000)
     if (asrMode === 'streaming') {
       void startStreamingASRSession(sessionId, {
@@ -203,12 +209,20 @@ export async function handleStartRecording(): Promise<void> {
 }
 
 export async function handleStopRecording(
-  options: { willProcessDictation?: boolean } = {},
+  options: {
+    willProcessDictation?: boolean
+    source?: 'hotkey-release' | 'duration-limit' | 'microphone-ended'
+  } = {},
 ): Promise<void> {
   const session = currentSession
   if (!session || session.status !== 'recording') return
   clearTimers()
   session.duration = Date.now() - session.startTime.getTime()
+  console.log('[Audio:Session] Recording stopped', {
+    sessionId: session.id,
+    source: options.source ?? 'session-stop-request',
+    durationMs: session.duration,
+  })
   session.status = 'processing'
   updateOverlay({
     status: 'processing',

@@ -261,6 +261,11 @@ export interface RecordingStopPayload {
   cancel?: boolean
 }
 
+export interface RecordingStopRequest {
+  sessionId: string
+  reason: 'microphone-ended' | 'duration-limit'
+}
+
 export interface AudioChunkPayload {
   sessionId: string
   chunkIndex: number

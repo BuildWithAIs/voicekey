@@ -5,14 +5,14 @@ Main-process audio pipeline for mutually exclusive classic and streaming local t
 ## Files
 
 - `index.ts` - Re-exports the audio module surface.
-- `session-manager.ts` - Owns the active recording session, selects classic or streaming mode from configuration, checks both models before capture, prevents overlapping recording/processing sessions, forwards live partial text to the HUD, and owns capture acknowledgement, cancellation, a main-process five-minute recording limit, and final-marker/processing watchdogs.
+- `session-manager.ts` - Owns the active recording session, selects classic or streaming mode from configuration, checks both models before capture, prevents overlapping recording/processing sessions, forwards live partial text to the HUD, and owns capture acknowledgement, cancellation, a main-process five-minute recording limit, and final-marker/processing watchdogs. Logs session IDs, modes, stop sources and durations without audio or transcript contents.
 - `processor.ts` - Classic mode converts one complete recording to 16k mono WAV for SenseVoice; streaming mode forwards PCM and accepts the model-native final result after X-ASR Zipformer2 Transducer decoding. Both paths share one finalizer, which calls the cloud editor once when either dictation refinement or translation is enabled, then writes history, briefly hides the HUD so Wayland returns keyboard focus to the destination, injects text, and restores the success HUD with the exact injected text for 1.8 seconds. A history write failure is reported without preventing text injection.
 - `converter.ts` - Initializes FFmpeg and converts captured audio to 16k mono WAV, with abort/timeout support and optional peak-limited gain.
 
 ## Current Flow
 
 1. The main process starts a session and sends `sessionId`, microphone selection, gain mode, and ASR mode to the hidden recorder.
-2. Classic mode keeps one MediaRecorder running until release; streaming mode sends roughly 100 ms Float32 PCM frames from an AudioWorklet.
+2. Capture starts on the hotkey press edge. Classic mode keeps one MediaRecorder running; streaming mode sends roughly 100 ms Float32 PCM frames from an AudioWorklet. A quick release waits for capture setup, and normal release retains 250 ms of real microphone tail audio before stopping/flushing. Cancellation bypasses this tail.
 3. Classic finalization accepts one final file (index zero). Streaming finalization flushes PCM, appends tail silence at the captured stream's original sample rate, and finishes the active X-ASR online recognizer; punctuation and English casing come directly from X-ASR, and it never calls SenseVoice.
 4. Live streaming partials update the HUD while recording. The punctuated final replaces the HUD transcript before optional refinement, and no partial is sent to the refinement API.
 5. Non-empty final text is sent to the cloud editor once when refinement or dictation translation is enabled, regardless of transcript length, then recorded and injected. Translation first cleans the transcript, even when standalone refinement is off.

@@ -21,6 +21,7 @@ import {
   type TokenDanceAuthResult,
   type RecordingStartPayload,
   type RecordingStopPayload,
+  type RecordingStopRequest,
   type AudioChunkPayload,
   type StreamingAudioEndPayload,
   type StreamingAudioFramePayload,
@@ -57,7 +58,7 @@ export interface ElectronAPI {
 
   // 录音会话相关
   startSession: () => Promise<void>
-  stopSession: () => Promise<void>
+  stopSession: (request: RecordingStopRequest) => Promise<void>
   getSessionStatus: () => Promise<string>
 
   // 历史记录相关
@@ -155,7 +156,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // 录音会话相关
   startSession: () => ipcRenderer.invoke(IPC_CHANNELS.SESSION_START),
-  stopSession: () => ipcRenderer.invoke(IPC_CHANNELS.SESSION_STOP),
+  stopSession: (request: RecordingStopRequest) =>
+    ipcRenderer.invoke(IPC_CHANNELS.SESSION_STOP, request),
   getSessionStatus: () => ipcRenderer.invoke(IPC_CHANNELS.SESSION_STATUS),
 
   // 历史记录相关

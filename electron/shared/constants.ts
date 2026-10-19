@@ -11,6 +11,8 @@ type BuildRefineSystemPromptOptions = {
 export const STORED_SECRET_PLACEHOLDER = '••••••••••••'
 
 export const RECORDING = {
+  // Keep real microphone audio briefly after release to preserve final phonemes.
+  RELEASE_TAIL_MS: 250,
   SESSION_MAX_DURATION_SECONDS: 5 * 60,
   MAX_AUDIO_BYTES: 64 * 1024 * 1024,
   PROCESSING_TIMEOUT_MS: 6 * 60 * 1000,

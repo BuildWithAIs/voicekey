@@ -22,6 +22,7 @@ Electron 预加载脚本目录，作为主进程与渲染进程之间的安全�
 - `sendAudioLevel(level)` - 向 HUD 同步实时音量。
 - `sendError(error, sessionId)` - 上报带会话身份的录音错误。
 - `cancelSession()` - 取消当前会话。
+- `stopSession({ sessionId, reason })` - 录音窗口报告麦克风流意外结束或时长上限，由主进程核验会话与来源后停录。
 
 ## 其他 API
 

@@ -10,6 +10,7 @@ import {
   type StreamingAudioEndPayload,
   type StreamingAudioFramePayload,
   type VoiceSession,
+  type RecordingStopRequest,
 } from '../../shared/types'
 
 // Classic capture submits a single final file; sessions use opaque UUIDs.
@@ -88,7 +89,7 @@ function isValidStreamingAudioEndPayload(payload: unknown): payload is Streaming
 
 export type SessionHandlersDeps = {
   handleStartRecording: () => Promise<void>
-  handleStopRecording: () => Promise<void>
+  handleStopRecording: (source: RecordingStopRequest['reason']) => Promise<void>
   handleAudioChunk: (payload: AudioChunkPayload) => Promise<void>
   handleStreamingAudioFrame: (payload: StreamingAudioFramePayload) => void
   handleStreamingAudioEnd: (payload: StreamingAudioEndPayload) => Promise<void>
@@ -124,8 +125,17 @@ export function registerSessionHandlers(): void {
     await deps.handleStartRecording()
   })
 
-  ipcMain.handle(IPC_CHANNELS.SESSION_STOP, async () => {
-    await deps.handleStopRecording()
+  ipcMain.handle(IPC_CHANNELS.SESSION_STOP, async (event, payload: unknown) => {
+    if (event.sender !== getBackgroundWindow()?.webContents) return
+    if (!payload || typeof payload !== 'object') return
+    const { sessionId, reason } = payload as Record<string, unknown>
+    if (
+      !hasValidSessionId(sessionId) ||
+      sessionId !== deps.getCurrentSession()?.id ||
+      (reason !== 'microphone-ended' && reason !== 'duration-limit')
+    )
+      return
+    await deps.handleStopRecording(reason)
   })
 
   ipcMain.handle(IPC_CHANNELS.SESSION_STATUS, () => {

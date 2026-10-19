@@ -89,6 +89,10 @@ export function createOverlayWindow(): BrowserWindow {
     overlayWindow = null
   })
 
+  overlayWindow.on('focus', () => {
+    console.warn('[Overlay] Non-focusable HUD received keyboard focus')
+  })
+
   return overlayWindow
 }
 
