@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.3.4](https://github.com/BuildWithAIs/voicekey/compare/v0.3.3...v0.3.4) (2026-10-24)
+
+### Features
+
+- **refine:** rewrite dictation polishing prompt for written-quality output ([aa18992](https://github.com/BuildWithAIs/voicekey/commit/aa18992b7dfb51d79b63de37edcd84bfa4ae5bb9))
+
+### Bug Fixes
+
+- **audio:** preserve short recordings and speech boundaries ([8066b5d](https://github.com/BuildWithAIs/voicekey/commit/8066b5d874ad5b9c62cfa4368071e4eab8baae2d))
+- **i18n:** add missing download cancellation translations ([3dc2472](https://github.com/BuildWithAIs/voicekey/commit/3dc2472d227dd88c7a751c179026e8eeb4da31d1))
+
 ### [0.3.3](https://github.com/BuildWithAIs/voicekey/compare/v0.3.2...v0.3.3) (2026-10-13)
 
 ### Features
