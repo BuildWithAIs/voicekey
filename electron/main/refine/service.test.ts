@@ -95,7 +95,7 @@ describe('RefineService dictation requests', () => {
       messages: expect.arrayContaining([
         expect.objectContaining({
           content: expect.stringContaining(
-            'First apply the transcript cleanup rules, then translate',
+            'First apply the refinement steps above, then translate',
           ),
         }),
       ]),
