@@ -173,6 +173,10 @@ export function reconcileRefineFeaturesAfterConnectionChange(
 export function normalizeRendererConfig(loadedConfig: AppConfig): AppConfig {
   return {
     ...loadedConfig,
+    app: {
+      ...loadedConfig.app,
+      keepTranscriptInClipboard: loadedConfig.app?.keepTranscriptInClipboard ?? false,
+    },
     asr: {
       ...loadedConfig.asr,
       lowVolumeMode: loadedConfig.asr?.lowVolumeMode ?? false,

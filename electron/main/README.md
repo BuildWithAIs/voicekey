@@ -35,7 +35,8 @@ Electron 主进程目录，负责窗口管理、IPC、录音编排、ASR/润色�
 - `streaming-asr-text.ts` - 对齐 X-ASR 官方部署层的文本规范化：只清理中文字符/标点和 ASCII 标点前的模型 token 空格，不改写词语或中英边界。
 - `refine/` - 文本润色模块，使用 OpenAI-compatible Chat Completions 或 Anthropic Messages 做后处理、动态 prompt 组装、远程术语表缓存刷新与连接校验。
 - `translation/` - 文本翻译模块，通过快捷键复制选中文本 → LLM API 翻译 → 粘贴替换，复用润色 API 配置。
-- `text-injector.ts` - 跨平台文本注入入口；Windows/macOS/Linux X11 按需加载 `@nut-tree-fork/nut-js`，Omarchy/Hyprland 使用短暂存活的 `wl-copy --sensitive` 剪贴板与 `wtype` Wayland 虚拟键盘以保证多语言和多行文本保真，并避开 Electron Wayland 剪贴板所有权及输入法虚拟键盘导致的 Hyprland 按键名解析失败。
+- `text-injector.ts` - 跨平台文本注入入口；Windows/macOS/Linux X11 按需加载 `@nut-tree-fork/nut-js`，Omarchy/Hyprland 使用短暂存活的 `wl-copy --sensitive` 剪贴板与 `wtype` Wayland 虚拟键盘以保证多语言和多行文本保真，并避开 Electron Wayland 剪贴板所有权及输入法虚拟键盘导致的 Hyprland 按键名解析失败。`keepInClipboard` 打开时在恢复原剪贴板之后把转写文本重新写入剪贴板（键入路径也会显式写入），返回注入方式与剪贴板是否保留；剪贴板恢复失败不再被当成注入失败。
+- `text-injector.test.ts` - 粘贴/键入/Hyprland 三条路径下的剪贴板恢复与保留顺序、保留失败降级、空文本跳过与恢复异常不影响注入结果的回归测试。
 - `updater-manager.ts` - GitHub Releases 更新检查。
 - `audio/` - 录音会话与分段转写流水线。
 - `hotkey/` - 快捷键解析与 PTT 行为绑定。

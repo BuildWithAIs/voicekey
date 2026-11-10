@@ -109,7 +109,10 @@ type SaveStatus = {
 } | null
 
 function isAppPreferencesDirty(current: AppConfig['app'], original: AppConfig['app']): boolean {
-  return (current.autoLaunch ?? false) !== (original.autoLaunch ?? false)
+  return (
+    (current.autoLaunch ?? false) !== (original.autoLaunch ?? false) ||
+    (current.keepTranscriptInClipboard ?? false) !== (original.keepTranscriptInClipboard ?? false)
+  )
 }
 
 function isAsrConfigDirty(current: AppConfig['asr'], original: AppConfig['asr']): boolean {
@@ -893,6 +896,7 @@ export default function SettingsPage() {
       patch.app = {
         language: currentConfig.app.language,
         autoLaunch: currentConfig.app.autoLaunch ?? false,
+        keepTranscriptInClipboard: currentConfig.app.keepTranscriptInClipboard ?? false,
       }
     }
 
@@ -1977,6 +1981,19 @@ export default function SettingsPage() {
                 checked={config.app.autoLaunch ?? false}
                 onChange={(checked) =>
                   setConfig((prev) => ({ ...prev, app: { ...prev.app, autoLaunch: checked } }))
+                }
+              />
+            </div>
+            <div className="mt-2">
+              <ToggleRow
+                title={t('settings.keepTranscriptInClipboard')}
+                desc={t('settings.keepTranscriptInClipboardHelp')}
+                checked={config.app.keepTranscriptInClipboard ?? false}
+                onChange={(checked) =>
+                  setConfig((prev) => ({
+                    ...prev,
+                    app: { ...prev.app, keepTranscriptInClipboard: checked },
+                  }))
                 }
               />
             </div>

@@ -243,6 +243,7 @@ app.whenReady().then(async () => {
   initProcessor({
     getAsrProvider: () => asrProvider,
     getASRConfig: () => configManager.getASRConfig(),
+    getAppConfig: () => configManager.getAppConfig(),
     initializeASRProvider,
     getRefineService: () => refineService,
   })

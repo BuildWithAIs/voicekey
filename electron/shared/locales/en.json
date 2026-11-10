@@ -185,6 +185,8 @@
     "systemLanguage": "System default",
     "autoLaunch": "Launch on startup",
     "autoLaunchHelp": "Start Voice Key in the background when you log in without opening the window",
+    "keepTranscriptInClipboard": "Keep transcript in clipboard",
+    "keepTranscriptInClipboardHelp": "After each dictation the text stays on the system clipboard, so you can paste it yourself when no text field received it",
     "linuxIntegration": {
       "title": "Linux & Omarchy Integration",
       "description": "Connect Voice Key to Hyprland for reliable push-to-talk and multilingual text injection on Wayland.",
@@ -484,6 +486,7 @@
     "refineConfigIncomplete": "LLM Refine config is incomplete",
     "done": "Done",
     "injected": "Inserted",
+    "copied": "Copied to clipboard",
     "error": "Error",
     "errorFallback": "Something went wrong",
     "loadingModel": "Loading model; audio is being captured…"

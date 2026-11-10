@@ -135,6 +135,8 @@ export interface HotkeyConfig {
 export interface AppPreferences {
   language: LanguageSetting
   autoLaunch?: boolean
+  /** Leaves the finished transcript on the system clipboard so it can still be pasted by hand. */
+  keepTranscriptInClipboard?: boolean
 }
 
 export interface LanguageSnapshot {
@@ -357,6 +359,8 @@ export interface OverlayState {
   processingStage?: OverlayProcessingStage
   processingTotalStages?: 1 | 2
   transcript?: string
+  /** Set on success when the transcript was deliberately left on the clipboard. */
+  copied?: boolean
 }
 
 export type IPCChannel = (typeof IPC_CHANNELS)[keyof typeof IPC_CHANNELS]

@@ -387,3 +387,21 @@ describe('ConfigManager user dictionary', () => {
     expect(createManager({ userDictionary: 'invalid' }).getUserDictionary()).toEqual([])
   })
 })
+
+describe('ConfigManager transcript clipboard preference', () => {
+  it('defaults existing installations to off and persists only boolean updates', () => {
+    const manager = createManager({ app: { language: 'system', autoLaunch: true } })
+
+    expect(manager.getAppConfig().keepTranscriptInClipboard).toBe(false)
+
+    manager.setAppConfig({ keepTranscriptInClipboard: true })
+    expect(manager.getAppConfig()).toEqual({
+      language: 'system',
+      autoLaunch: true,
+      keepTranscriptInClipboard: true,
+    })
+
+    manager.setAppConfig({ keepTranscriptInClipboard: 'yes' as unknown as boolean })
+    expect(manager.getAppConfig().keepTranscriptInClipboard).toBe(true)
+  })
+})

@@ -3,6 +3,7 @@ import fs from 'fs'
 import path from 'node:path'
 import { LOW_VOLUME_GAIN_DB } from '../../shared/constants'
 import {
+  type AppPreferences,
   type ASRConfig,
   type AudioChunkPayload,
   type StreamingAudioEndPayload,
@@ -28,6 +29,7 @@ import {
 type ProcessorDeps = {
   getAsrProvider: () => ASRProvider | null
   getASRConfig: () => ASRConfig
+  getAppConfig: () => AppPreferences
   initializeASRProvider: () => void
   getRefineService?: () => TextRefiner | null
 }
@@ -327,10 +329,19 @@ async function finalizeTranscription(sessionId: string, rawText: string): Promis
   // on some Hyprland versions. Hide it before synthetic paste so the destination
   // application receives the key event, then show the success state again.
   hideOverlay()
-  await textInjector.injectText(finalText)
+  const injection = await textInjector.injectText(finalText, {
+    keepInClipboard: deps.getAppConfig().keepTranscriptInClipboard === true,
+  })
 
   if (!isSessionUsable(sessionId)) return
-  showOverlay({ status: 'success', transcript: finalText }, 1800)
+  showOverlay(
+    {
+      status: 'success',
+      transcript: finalText,
+      copied: injection.clipboard === 'kept',
+    },
+    1800,
+  )
   await clearSession(sessionId)
 }
 

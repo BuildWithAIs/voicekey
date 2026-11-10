@@ -38,6 +38,7 @@ const defaultConfig: ConfigSchema = {
   app: {
     language: 'system',
     autoLaunch: false,
+    keepTranscriptInClipboard: false,
   },
   asr: {
     lowVolumeMode: false,
@@ -372,12 +373,19 @@ export class ConfigManager {
   }
 
   getAppConfig(): AppPreferences {
-    return this.store.get('app', defaultConfig.app)
+    const stored = this.store.get('app', defaultConfig.app)
+    // Installations created before the toggle existed have no key; report them as off.
+    return { ...stored, keepTranscriptInClipboard: stored.keepTranscriptInClipboard === true }
   }
 
   setAppConfig(config: Partial<AppPreferences>): void {
     const current = this.getAppConfig()
-    this.store.set('app', { ...current, ...config })
+    const next: AppPreferences = { ...current, ...config }
+    // The app section accepts arbitrary patches, so booleans are re-checked instead of trusted.
+    if (typeof config.keepTranscriptInClipboard !== 'boolean') {
+      next.keepTranscriptInClipboard = current.keepTranscriptInClipboard === true
+    }
+    this.store.set('app', next)
   }
 
   getASRConfig(): ASRConfig {

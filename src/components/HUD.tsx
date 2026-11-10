@@ -31,7 +31,7 @@ export function HUD() {
     }
   }, [])
 
-  const { status, message, processingStage, transcript = '' } = overlayState
+  const { status, message, processingStage, copied = false, transcript = '' } = overlayState
   const isRecording = status === 'recording'
   const isProcessing = status === 'processing'
   const isError = status === 'error'
@@ -45,7 +45,9 @@ export function HUD() {
       ? message || t(processingStage ? PROCESSING_LABELS[processingStage] : 'hud.thinking')
       : isError
         ? t('hud.error')
-        : t('hud.injected')
+        : copied
+          ? t('hud.copied')
+          : t('hud.injected')
 
   useLayoutEffect(() => {
     const element = transcriptRef.current

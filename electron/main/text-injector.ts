@@ -16,13 +16,31 @@ type ClipboardSnapshot = {
   image?: NativeImage
 }
 
+export type InjectionMethod = 'typed' | 'pasted'
+
+export interface InjectionOptions {
+  /**
+   * Writes the transcript back to the clipboard after injection. Used when the text may never
+   * reach a text field (no focused input, or a paste the target application ignores): the user can
+   * still paste it by hand instead of dictating again.
+   */
+  keepInClipboard?: boolean
+}
+
+export interface InjectionOutcome {
+  method: InjectionMethod
+  clipboard: 'untouched' | 'kept'
+}
+
 export class TextInjector {
-  async injectText(text: string): Promise<void> {
+  async injectText(text: string, options: InjectionOptions = {}): Promise<InjectionOutcome> {
     const injectStartTime = Date.now()
     if (!text || text.trim().length === 0) {
       console.warn('[TextInjector] Empty text, skipping injection')
-      return
+      return { method: 'typed', clipboard: 'untouched' }
     }
+
+    const keepInClipboard = options.keepInClipboard === true
 
     try {
       const textHash = createHash('sha256').update(text, 'utf8').digest('hex')
@@ -36,7 +54,7 @@ export class TextInjector {
 
       const typingStartTime = Date.now()
       console.log(`[TextInjector] [${new Date().toISOString()}] Starting text injection...`)
-      await this.typeText(text)
+      const { method, clipboardKept } = await this.typeText(text, keepInClipboard)
       const typingDuration = Date.now() - typingStartTime
       console.log(`[TextInjector] [${new Date().toISOString()}] Text injection completed`)
       console.log(`[TextInjector] ⏱️  Keyboard typing took ${typingDuration}ms`)
@@ -44,6 +62,7 @@ export class TextInjector {
       const totalDuration = Date.now() - injectStartTime
       console.log(`[TextInjector] ⏱️  Total injectText() took ${totalDuration}ms`)
       console.log('[TextInjector] Text injected successfully')
+      return { method, clipboard: clipboardKept ? 'kept' : 'untouched' }
     } catch (error) {
       const errorDuration = Date.now() - injectStartTime
       console.error(`[TextInjector] Failed to inject text after ${errorDuration}ms:`, error)
@@ -86,12 +105,19 @@ export class TextInjector {
     }
   }
 
-  private async typeText(text: string): Promise<void> {
+  private async typeText(
+    text: string,
+    keepInClipboard: boolean,
+  ): Promise<{ method: InjectionMethod; clipboardKept: boolean }> {
     if (this.shouldPasteFromClipboard(text)) {
-      await this.pasteFromClipboard(text)
-      return
+      return {
+        method: 'pasted',
+        clipboardKept: await this.pasteFromClipboard(text, keepInClipboard),
+      }
     }
     await typeWithNativeKeyboard(text)
+    // The typing path never touches the clipboard, so the transcript has to be written explicitly.
+    return { method: 'typed', clipboardKept: keepInClipboard && this.keepOnClipboard(text) }
   }
 
   private shouldPasteFromClipboard(text: string): boolean {
@@ -152,8 +178,29 @@ export class TextInjector {
     clipboard.write(data)
   }
 
-  private async pasteFromClipboard(text: string): Promise<void> {
+  // A failed restore must not be reported as a failed injection: the text already reached the
+  // target application, and the caller uses the outcome to decide what the HUD says.
+  private tryRestoreClipboard(snapshot: ClipboardSnapshot): void {
+    try {
+      this.restoreClipboard(snapshot)
+    } catch (error) {
+      console.error('[TextInjector] Failed to restore clipboard:', error)
+    }
+  }
+
+  private keepOnClipboard(text: string): boolean {
+    try {
+      clipboard.writeText(text)
+      return true
+    } catch (error) {
+      console.error('[TextInjector] Failed to keep transcript on clipboard:', error)
+      return false
+    }
+  }
+
+  private async pasteFromClipboard(text: string, keepInClipboard: boolean): Promise<boolean> {
     const snapshot = this.captureClipboard()
+    let clipboardKept = false
     try {
       if (hyprlandIntegration.isActiveSession()) {
         await hyprlandIntegration.pasteClipboardText(text)
@@ -164,8 +211,11 @@ export class TextInjector {
         await this.delay(50)
       }
     } finally {
-      this.restoreClipboard(snapshot)
+      this.tryRestoreClipboard(snapshot)
+      // Written after the restore so the transcript survives whatever happened to the paste.
+      if (keepInClipboard) clipboardKept = this.keepOnClipboard(text)
     }
+    return clipboardKept
   }
 
   private hasLineBreaks(text: string): boolean {

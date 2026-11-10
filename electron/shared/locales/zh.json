@@ -185,6 +185,8 @@
     "systemLanguage": "跟随系统",
     "autoLaunch": "开机自动启动",
     "autoLaunchHelp": "系统登录时在后台启动 Voice Key，不自动打开窗口",
+    "keepTranscriptInClipboard": "转写文本保留在剪贴板",
+    "keepTranscriptInClipboardHelp": "每次听写后文本都会留在系统剪贴板，没有输入框接收时可以自己粘贴",
     "linuxIntegration": {
       "title": "Linux 与 Omarchy 集成",
       "description": "将 Voice Key 接入 Hyprland，在 Wayland 下可靠识别按下/松开，并稳定注入中英文文本。",
@@ -484,6 +486,7 @@
     "refineConfigIncomplete": "文本润色配置不完整",
     "done": "完成",
     "injected": "已输入",
+    "copied": "已复制到剪贴板",
     "error": "错误",
     "errorFallback": "发生错误",
     "loadingModel": "正在加载模型，录音已开始…"
